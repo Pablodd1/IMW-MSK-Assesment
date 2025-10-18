@@ -1,165 +1,65 @@
--- Seed Data for Medical Movement Assessment Platform
+-- Seed data for PhysioAI Medical Assessment System
 
--- ============================================================================
--- EXERCISE LIBRARY
--- ============================================================================
+-- Insert comprehensive exercise library
+INSERT INTO exercises (name, category, body_region, description, instructions, difficulty, default_sets, default_reps, default_hold_time, default_frequency, indications, contraindications, targeted_deficiencies) VALUES
 
-INSERT OR IGNORE INTO exercise_library (exercise_name, exercise_category, target_muscles, target_joints, target_movements, difficulty_level, description, instructions, contraindications, equipment_required, estimated_duration_seconds) VALUES
+-- Shoulder exercises
+('Shoulder External Rotation', 'mobility', '["shoulder"]', 'External rotation exercise to improve rotator cuff strength and shoulder stability', '1. Lie on your side with affected arm on top\n2. Bend elbow 90 degrees\n3. Keeping elbow at side, rotate arm up\n4. Slowly lower back down\n5. Complete prescribed reps', 'beginner', 3, 15, NULL, 5, '["rotator cuff weakness", "shoulder instability", "impingement syndrome"]', '["acute shoulder dislocation", "recent surgery", "severe pain"]', '["limited shoulder ROM", "rotator cuff weakness", "poor scapular control"]'),
 
--- Mobility Exercises
-('Deep Squat', 'mobility', '["quadriceps","glutes","hamstrings","calves"]', '["hip","knee","ankle"]', '["hip_flexion","knee_flexion","ankle_dorsiflexion"]', 'intermediate', 
-'Full-depth squat assessment and exercise for lower body mobility and stability.', 
-'Stand with feet shoulder-width apart. Lower your body by bending knees and hips, keeping chest up. Descend until thighs are parallel or below. Return to standing.', 
-'Knee injury, hip replacement (recent), severe arthritis', 
-'[]', 60),
+('Scapular Wall Slides', 'mobility', '["shoulder", "spine"]', 'Improves scapular mobility and thoracic extension', '1. Stand with back against wall\n2. Arms at 90-90 position\n3. Slide arms overhead keeping contact with wall\n4. Return to start position\n5. Focus on squeezing shoulder blades', 'beginner', 3, 12, NULL, 5, '["poor posture", "shoulder pain", "scapular dyskinesis"]', '["shoulder impingement during movement", "acute injury"]', '["scapular dyskinesis", "thoracic hyperkyphosis", "limited overhead reach"]'),
 
-('Overhead Squat', 'mobility', '["quadriceps","glutes","shoulders","core"]', '["hip","knee","ankle","shoulder"]', '["hip_flexion","knee_flexion","shoulder_flexion"]', 'advanced',
-'Full-body mobility assessment evaluating ankle, hip, and shoulder mobility with core stability.',
-'Stand with arms extended overhead, shoulder-width apart. Perform a deep squat while maintaining arms overhead. Keep chest up and heels down.',
-'Shoulder impingement, rotator cuff injury, knee instability',
-'["dowel_rod"]', 60),
+('YTW Exercise', 'strength', '["shoulder", "spine"]', 'Strengthens posterior shoulder and scapular stabilizers', '1. Lie face down or bend forward at hips\n2. Y: Arms overhead at 45-degree angle\n3. T: Arms straight out to sides\n4. W: Elbows bent, squeeze shoulder blades\n5. Hold each position briefly', 'intermediate', 3, 10, 3, 4, '["rounded shoulders", "weak upper back", "postural dysfunction"]', '["acute shoulder injury", "severe pain"]', '["weak scapular stabilizers", "forward head posture", "rounded shoulders"]'),
 
-('Hip Flexor Stretch', 'flexibility', '["hip_flexors","psoas","iliacus"]', '["hip"]', '["hip_extension"]', 'beginner',
-'Stretching exercise to improve hip flexor mobility and reduce anterior pelvic tilt.',
-'Kneel on one knee with other foot forward. Push hips forward while keeping back straight until stretch is felt in front of hip. Hold position.',
-'Hip replacement (recent), severe hip arthritis',
-'["yoga_mat"]', 90),
+-- Hip exercises  
+('Hip Flexor Stretch', 'flexibility', '["hip"]', 'Stretches hip flexors to improve hip extension', '1. Kneel on one knee, other foot forward\n2. Keep torso upright\n3. Gently push hips forward\n4. Feel stretch in front of hip\n5. Hold for prescribed time', 'beginner', 3, NULL, 30, 5, '["tight hip flexors", "anterior pelvic tilt", "low back pain"]', '["hip replacement", "acute groin strain", "hip fracture"]', '["limited hip extension", "anterior pelvic tilt", "lumbar hyperlordosis"]'),
 
--- Stability Exercises
-('Single Leg Balance', 'balance', '["glutes","core","ankle_stabilizers"]', '["hip","knee","ankle"]', '["hip_stabilization","ankle_stabilization"]', 'beginner',
-'Balance assessment to evaluate proprioception and lower extremity stability.',
-'Stand on one leg with hands on hips. Maintain balance without touching down with other foot. Focus on a fixed point.',
-'Recent ankle sprain, severe balance disorders, vertigo',
-'[]', 60),
+('Clamshells', 'strength', '["hip"]', 'Strengthens hip abductors and external rotators', '1. Lie on side with knees bent\n2. Keep feet together\n3. Lift top knee while keeping hips stable\n4. Slowly lower back down\n5. Complete prescribed reps', 'beginner', 3, 15, NULL, 5, '["hip weakness", "IT band syndrome", "knee pain"]', '["acute hip pain", "recent hip surgery"]', '["weak hip abductors", "gluteus medius weakness", "trendelenburg gait"]'),
 
-('Plank Hold', 'stability', '["core","shoulders","glutes"]', '["shoulder","spine","hip"]', '["core_stabilization","shoulder_stabilization"]', 'intermediate',
-'Core stability exercise to assess and improve trunk control and endurance.',
-'Position on forearms and toes, body in straight line from head to heels. Hold position without sagging or hiking hips.',
-'Shoulder injury, lower back pain (acute), wrist injury',
-'["yoga_mat"]', 60),
+('Single Leg Bridge', 'strength', '["hip", "spine"]', 'Strengthens glutes and hamstrings while improving stability', '1. Lie on back, knees bent\n2. Lift one leg straight\n3. Push through heel of standing leg\n4. Lift hips off ground\n5. Hold and lower slowly', 'intermediate', 3, 12, 2, 4, '["weak glutes", "low back pain", "hamstring weakness"]', '["acute low back pain", "hip flexor pain"]', '["weak glute activation", "poor hip extension", "hamstring weakness"]'),
 
--- Strength Exercises
-('Romanian Deadlift', 'strength', '["hamstrings","glutes","erector_spinae"]', '["hip","knee"]', '["hip_extension","hip_hinge"]', 'intermediate',
-'Hip hinge pattern exercise to strengthen posterior chain and assess movement quality.',
-'Stand holding weight at thighs. Push hips back, lowering weight while keeping back straight. Lower until hamstrings stretch, then return by driving hips forward.',
-'Lower back injury (acute), hamstring tear, herniated disc',
-'["dumbbells"]', 90),
+-- Knee exercises
+('Terminal Knee Extension', 'strength', '["knee"]', 'Strengthens quadriceps, especially VMO', '1. Loop resistance band behind knee\n2. Slightly bend knee\n3. Straighten knee fully against resistance\n4. Hold briefly\n5. Slowly return to start', 'beginner', 3, 15, 2, 5, '["patellofemoral pain", "post-ACL surgery", "quad weakness"]', '["acute knee injury", "knee effusion"]', '["quadriceps weakness", "VMO atrophy", "limited knee extension"]'),
 
-('Single Leg RDL', 'strength', '["hamstrings","glutes","core"]', '["hip","ankle"]', '["hip_extension","hip_hinge","balance"]', 'advanced',
-'Unilateral hip hinge with balance component to assess asymmetries and stability.',
-'Stand on one leg. Hinge at hip while extending other leg behind. Lower torso while maintaining straight back. Return to standing.',
-'Hamstring injury, severe balance impairment, ankle instability',
-'["dumbbells"]', 90),
+('Step Downs', 'strength', '["knee", "hip", "ankle"]', 'Functional exercise for knee control and eccentric strength', '1. Stand on step with one leg\n2. Slowly lower opposite heel toward ground\n3. Keep knee aligned over toes\n4. Touch floor lightly\n5. Push back up', 'intermediate', 3, 10, NULL, 4, '["patellofemoral pain", "ACL prevention", "general knee weakness"]', '["acute knee injury", "severe pain"]', '["poor knee control", "weak eccentric strength", "dynamic valgus"]'),
 
--- Functional Exercises
-('Sit to Stand', 'functional', '["quadriceps","glutes","core"]', '["hip","knee","ankle"]', '["hip_extension","knee_extension"]', 'beginner',
-'Functional movement pattern assessing lower body strength and coordination.',
-'Sit in chair with feet flat. Stand up without using hands by driving through heels. Control descent when sitting back down.',
-'Recent hip/knee replacement, severe osteoarthritis',
-'["chair"]', 45),
+-- Ankle exercises
+('Ankle Alphabet', 'mobility', '["ankle"]', 'Improves ankle mobility in all planes', '1. Sit with leg extended\n2. Use ankle to write alphabet in air\n3. Make large letters\n4. Complete A-Z slowly\n5. Switch ankles', 'beginner', 2, 1, NULL, 5, '["ankle stiffness", "post ankle sprain", "limited mobility"]', '["acute ankle injury", "severe swelling"]', '["limited ankle dorsiflexion", "reduced ankle mobility", "post-immobilization stiffness"]'),
 
-('Lunge Pattern', 'functional', '["quadriceps","glutes","hip_flexors"]', '["hip","knee","ankle"]', '["hip_flexion","knee_flexion","hip_stabilization"]', 'intermediate',
-'Dynamic stability and strength assessment in split stance position.',
-'Step forward into lunge, lowering back knee toward ground. Front knee should stay over ankle. Push back to starting position.',
-'Knee injury, hip replacement (recent), balance impairment',
-'[]', 60),
+('Single Leg Balance', 'balance', '["ankle", "knee", "hip"]', 'Improves proprioception and balance', '1. Stand on one leg\n2. Keep knee slightly bent\n3. Hold steady position\n4. Progress by closing eyes\n5. Advanced: stand on unstable surface', 'beginner', 3, NULL, 30, 5, '["ankle instability", "balance deficits", "fall prevention"]', '["acute injury", "severe instability"]', '["poor proprioception", "ankle instability", "balance deficits"]'),
 
-('Step Up', 'functional', '["quadriceps","glutes","hamstrings"]', '["hip","knee","ankle"]', '["hip_extension","knee_extension"]', 'intermediate',
-'Functional lower body exercise assessing unilateral strength and control.',
-'Place one foot on elevated surface. Step up by driving through heel, bringing other foot to platform. Step down with control.',
-'Knee instability, hip pain, balance disorders',
-'["step_platform"]', 60),
+-- Core exercises
+('Dead Bug', 'stability', '["spine"]', 'Core stability exercise emphasizing anti-extension', '1. Lie on back, knees at 90 degrees\n2. Extend opposite arm and leg\n3. Keep low back flat on floor\n4. Alternate sides slowly\n5. Breathe throughout', 'intermediate', 3, 10, NULL, 4, '["low back pain", "core weakness", "postural instability"]', '["acute low back pain", "herniated disc symptoms"]', '["weak core stability", "poor motor control", "anterior pelvic tilt"]'),
 
--- Shoulder/Upper Body
-('Shoulder Flexion', 'mobility', '["deltoids","rotator_cuff"]', '["shoulder"]', '["shoulder_flexion"]', 'beginner',
-'Shoulder mobility assessment and exercise for overhead reaching.',
-'Stand or sit with arms at sides. Raise arms forward and overhead as high as possible. Lower with control.',
-'Rotator cuff tear, shoulder impingement (acute), frozen shoulder',
-'[]', 45),
+('Bird Dog', 'stability', '["spine", "hip", "shoulder"]', 'Multi-planar stability exercise', '1. Start on hands and knees\n2. Extend opposite arm and leg\n3. Keep spine neutral\n4. Hold steady position\n5. Alternate sides', 'intermediate', 3, 10, 5, 4, '["low back pain", "core weakness", "balance deficits"]', '["acute back pain", "shoulder pain during weight bearing"]', '["poor spinal stability", "weak core", "balance deficits"]'),
 
-('Shoulder External Rotation', 'strength', '["rotator_cuff","posterior_deltoid"]', '["shoulder"]', '["shoulder_external_rotation"]', 'beginner',
-'Rotator cuff strengthening for shoulder stability and injury prevention.',
-'Lie on side with elbow bent 90 degrees. Rotate forearm upward while keeping elbow against body. Lower with control.',
-'Rotator cuff tear (acute), shoulder dislocation (recent)',
-'["resistance_band"]', 60),
+('Plank', 'stability', '["spine"]', 'Isometric core strengthening', '1. Forearms on ground, elbows under shoulders\n2. Extend legs, balance on toes\n3. Keep body in straight line\n4. Engage core, don''t let hips sag\n5. Hold for prescribed time', 'intermediate', 3, NULL, 30, 4, '["core weakness", "athletic training", "postural support"]', '["shoulder injury", "acute low back pain", "wrist pain"]', '["weak core endurance", "poor postural control"]'),
 
--- Core Exercises
-('Dead Bug', 'stability', '["core","hip_flexors"]', '["spine","hip"]', '["core_stabilization","hip_flexion"]', 'beginner',
-'Core stability exercise with coordination component.',
-'Lie on back with arms extended toward ceiling, knees bent 90 degrees. Lower opposite arm and leg while maintaining lower back contact with floor. Alternate sides.',
-'Lower back pain (acute), hip flexor strain',
-'["yoga_mat"]', 90),
+-- Spine mobility
+('Cat-Cow Stretch', 'mobility', '["spine"]', 'Improves spinal mobility and segmental movement', '1. Start on hands and knees\n2. Arch back, look up (cow)\n3. Round back, tuck chin (cat)\n4. Move slowly between positions\n5. Breathe with movement', 'beginner', 3, 10, NULL, 5, '["spine stiffness", "low back pain", "postural dysfunction"]', '["acute spinal injury", "spondylolisthesis"]', '["limited spinal mobility", "poor segmental movement"]'),
 
-('Bird Dog', 'stability', '["core","glutes","shoulders"]', '["spine","hip","shoulder"]', '["core_stabilization","hip_extension","shoulder_flexion"]', 'intermediate',
-'Core and hip stability exercise with balance component.',
-'Start on hands and knees. Extend opposite arm and leg while maintaining level hips and shoulders. Hold, then return. Alternate sides.',
-'Shoulder injury, lower back pain (acute), knee injury',
-'["yoga_mat"]', 75),
+('Thoracic Rotation', 'mobility', '["spine"]', 'Improves thoracic spine rotation', '1. Lie on side with knees bent\n2. Top arm extended forward\n3. Rotate arm across body to opposite side\n4. Follow hand with eyes\n5. Return slowly', 'beginner', 3, 10, NULL, 5, '["thoracic stiffness", "shoulder pain", "poor rotation"]', '["acute rib injury", "severe pain"]', '["limited thoracic rotation", "hyperkyphosis"]'),
 
--- Flexibility/Mobility
-('Thoracic Rotation', 'mobility', '["thoracic_spine","obliques"]', '["spine"]', '["thoracic_rotation"]', 'beginner',
-'Thoracic spine mobility exercise to improve rotation and reduce compensatory movements.',
-'Kneel with one hand behind head. Rotate upper body toward ceiling, following elbow with eyes. Return to start. Repeat on both sides.',
-'Recent spine surgery, severe osteoporosis, acute back pain',
-'["yoga_mat"]', 60),
+-- Functional movements
+('Squat', 'strength', '["hip", "knee", "ankle"]', 'Fundamental lower body strength exercise', '1. Feet shoulder-width apart\n2. Lower hips back and down\n3. Keep chest up, knees aligned\n4. Descend to comfortable depth\n5. Push through heels to stand', 'beginner', 3, 12, NULL, 3, '["general weakness", "functional training", "athletic performance"]', '["acute knee or hip injury", "severe pain"]', '["poor squat mechanics", "weak lower body", "limited ankle dorsiflexion"]'),
 
-('Cat-Cow Stretch', 'mobility', '["erector_spinae","core"]', '["spine"]', '["spinal_flexion","spinal_extension"]', 'beginner',
-'Spinal mobility exercise to improve flexion and extension range of motion.',
-'Start on hands and knees. Arch back while lifting head (cow). Round back while tucking chin (cat). Flow smoothly between positions.',
-'Acute back injury, herniated disc, severe osteoporosis',
-'["yoga_mat"]', 90);
+('Romanian Deadlift', 'strength', '["hip", "spine"]', 'Strengthens posterior chain', '1. Stand with feet hip-width\n2. Hold weights in front of thighs\n3. Hinge at hips, keep back straight\n4. Lower weights along legs\n5. Feel stretch in hamstrings, return to stand', 'intermediate', 3, 10, NULL, 3, '["weak posterior chain", "hamstring weakness", "poor hip hinge"]', '["acute low back pain", "hamstring strain"]', '["weak hamstrings", "poor hip hinge pattern", "weak glutes"]');
 
--- ============================================================================
--- CPT CODES FOR MEDICAL BILLING
--- ============================================================================
+-- Insert default system settings
+INSERT INTO system_settings (setting_key, setting_value, setting_type, description) VALUES
+('min_session_duration', '10', 'number', 'Minimum session duration in minutes for RPM billing'),
+('rpm_monthly_threshold', '16', 'number', 'Minimum days of monitoring required for RPM billing'),
+('rpm_communication_time', '20', 'number', 'Minimum interactive communication time in minutes for CPT 98977'),
+('default_session_duration', '30', 'number', 'Default exercise session duration in minutes'),
+('form_score_threshold', '70', 'number', 'Minimum form score (0-100) for good quality'),
+('max_pain_level', '7', 'number', 'Maximum pain level to continue exercise'),
+('mediapipe_model_complexity', '1', 'number', 'MediaPipe pose model complexity (0-2)'),
+('femto_mega_fps', '30', 'number', 'Femto Mega camera frames per second'),
+('skeleton_confidence_threshold', '0.7', 'number', 'Minimum confidence for skeleton tracking');
 
-INSERT OR IGNORE INTO billing_codes (cpt_code, code_description, code_category, minimum_duration_minutes, requires_documentation, is_rpm_code, rpm_time_requirement_minutes) VALUES
+-- Insert demo clinician (password would be hashed in production)
+INSERT INTO clinicians (email, password_hash, first_name, last_name, title, license_number, license_state, npi_number, role, specialties) VALUES
+('demo@physioai.com', '$2a$10$demo_hash_would_go_here', 'Demo', 'Clinician', 'DPT', 'PT12345', 'CA', '1234567890', 'admin', '["orthopedics", "sports medicine", "manual therapy"]');
 
--- Physical Therapy Evaluation
-('97161', 'Physical therapy evaluation - Low complexity', 'evaluation', 20, 1, 0, NULL),
-('97162', 'Physical therapy evaluation - Moderate complexity', 'evaluation', 30, 1, 0, NULL),
-('97163', 'Physical therapy evaluation - High complexity', 'evaluation', 45, 1, 0, NULL),
-
--- Re-evaluation
-('97164', 'Physical therapy re-evaluation', 'evaluation', 20, 1, 0, NULL),
-
--- Therapeutic Exercises
-('97110', 'Therapeutic exercises - Development of strength, endurance, ROM, flexibility', 'treatment', 15, 1, 0, NULL),
-
--- Neuromuscular Re-education
-('97112', 'Neuromuscular re-education of movement, balance, coordination, kinesthetic sense', 'treatment', 15, 1, 0, NULL),
-
--- Gait Training
-('97116', 'Gait training therapy', 'treatment', 15, 1, 0, NULL),
-
--- Manual Therapy
-('97140', 'Manual therapy techniques - Mobilization, manipulation, manual traction', 'treatment', 15, 1, 0, NULL),
-
--- Therapeutic Activities
-('97530', 'Therapeutic activities - Direct patient contact for dynamic activities', 'treatment', 15, 1, 0, NULL),
-
--- Self-care/Home Management Training
-('97535', 'Self-care/home management training', 'treatment', 15, 1, 0, NULL),
-
--- Remote Physiologic Monitoring (RPM)
-('99453', 'RPM - Initial setup and patient education', 'rpm', 16, 1, 1, 16),
-('99454', 'RPM - Device supply with daily recording and transmission', 'rpm', 0, 1, 1, 16),
-('99457', 'RPM - Treatment management services, first 20 minutes', 'rpm', 20, 1, 1, 20),
-('99458', 'RPM - Additional 20 minutes of monitoring', 'rpm', 20, 1, 1, 20),
-
--- Remote Therapeutic Monitoring (RTM) - Added 2022
-('98975', 'RTM - Initial setup and patient education', 'rpm', 16, 1, 1, 16),
-('98976', 'RTM - Device supply for muscle, bone, or joint condition', 'rpm', 0, 1, 1, 16),
-('98977', 'RTM - Treatment management, first 20 minutes', 'rpm', 20, 1, 1, 20),
-('98978', 'RTM - Additional 20 minutes of monitoring', 'rpm', 20, 1, 1, 20),
-
--- Functional Capacity Evaluation
-('97750', 'Physical performance test or measurement', 'evaluation', 15, 1, 0, NULL);
-
--- ============================================================================
--- SAMPLE CLINICIAN
--- ============================================================================
-
-INSERT OR IGNORE INTO clinicians (first_name, last_name, email, credential, license_number, npi_number, specialty) VALUES
-('Dr. Sarah', 'Johnson', 'sjohnson@clinic.com', 'DPT', 'PT12345', '1234567890', 'physical_therapy'),
-('Dr. Michael', 'Chen', 'mchen@clinic.com', 'DC', 'DC54321', '0987654321', 'chiropractic');
+-- Insert demo patient
+INSERT INTO patients (first_name, last_name, date_of_birth, gender, email, phone, address_line1, city, state, zip_code, assessment_reason, chief_complaint, pain_scale, activity_level) VALUES
+('John', 'Doe', '1985-06-15', 'male', 'john.doe@example.com', '555-0123', '123 Main St', 'San Francisco', 'CA', '94102', 'post_surgery', 'Right shoulder pain and limited ROM after rotator cuff repair', 4, 'light');

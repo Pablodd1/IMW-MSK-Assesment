@@ -1,0 +1,20 @@
+This file contains the continuation of API endpoints to be added to index.tsx:
+
+// Exercise Sessions (Patient Home Monitoring)
+app.post('/api/exercise-sessions', async (c) => {})
+app.get('/api/patients/:id/sessions', async (c) => {})
+app.put('/api/exercise-sessions/:id/complete', async (c) => {})
+
+// Exercise Performances (Individual exercise tracking)
+app.post('/api/exercise-performances', async (c) => {})
+app.post('/api/exercise-performances/:id/analyze', async (c) => {})
+
+// RPM Monitoring
+app.get('/api/patients/:id/rpm/:month', async (c) => {})
+app.post('/api/rpm/update', async (c) => {})
+
+// MediaPipe Integration (Phase 2)
+app.post('/api/mediapipe/analyze-pose', async (c) => {})
+
+// Femto Mega Integration (Phase 3 placeholder)
+app.post('/api/femto-mega/capture', async (c) => {})

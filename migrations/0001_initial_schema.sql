@@ -1,24 +1,19 @@
--- Medical Movement Assessment Platform - Complete Database Schema
+-- PhysioAI Medical Assessment System Database Schema
+-- Comprehensive schema for patient management, assessments, and monitoring
 
--- ============================================================================
--- PATIENT MANAGEMENT
--- ============================================================================
-
--- Patients table with comprehensive demographics
+-- Patients table - Complete demographics and medical history
 CREATE TABLE IF NOT EXISTS patients (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   
-  -- Personal Information
+  -- Basic Demographics
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
   date_of_birth TEXT NOT NULL,
   gender TEXT CHECK(gender IN ('male', 'female', 'other', 'prefer_not_to_say')),
   email TEXT UNIQUE,
   phone TEXT,
-  emergency_contact_name TEXT,
-  emergency_contact_phone TEXT,
   
-  -- Address
+  -- Address Information
   address_line1 TEXT,
   address_line2 TEXT,
   city TEXT,
@@ -26,430 +21,371 @@ CREATE TABLE IF NOT EXISTS patients (
   zip_code TEXT,
   country TEXT DEFAULT 'USA',
   
-  -- Medical Information
-  height_cm REAL,
-  weight_kg REAL,
-  blood_type TEXT,
+  -- Emergency Contact
+  emergency_contact_name TEXT,
+  emergency_contact_phone TEXT,
+  emergency_contact_relationship TEXT,
   
-  -- Insurance & Billing
+  -- Medical Information
+  primary_physician TEXT,
   insurance_provider TEXT,
   insurance_policy_number TEXT,
-  insurance_group_number TEXT,
+  medical_history TEXT, -- JSON field for detailed history
+  current_medications TEXT, -- JSON array
+  allergies TEXT, -- JSON array
   
-  -- System Fields
-  patient_status TEXT DEFAULT 'active' CHECK(patient_status IN ('active', 'inactive', 'discharged')),
-  referring_physician TEXT,
-  primary_diagnosis TEXT,
-  notes TEXT,
-  
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- Medical History
-CREATE TABLE IF NOT EXISTS medical_history (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  patient_id INTEGER NOT NULL,
-  
-  -- Pre/Post Surgery
-  surgery_type TEXT CHECK(surgery_type IN ('pre_surgery', 'post_surgery', 'none', 'athletic_performance')),
-  surgery_date TEXT,
-  surgery_description TEXT,
-  
-  -- Medical Conditions
-  conditions TEXT, -- JSON array of conditions
-  medications TEXT, -- JSON array of medications
-  allergies TEXT, -- JSON array of allergies
-  
-  -- Pain Assessment
-  current_pain_level INTEGER CHECK(current_pain_level BETWEEN 0 AND 10),
-  pain_location TEXT, -- JSON array
-  pain_description TEXT,
-  
-  -- Previous Treatments
-  previous_pt_therapy TEXT,
-  previous_chiropractic TEXT,
-  previous_surgeries TEXT,
-  
-  -- Lifestyle
+  -- Assessment Context
+  assessment_reason TEXT CHECK(assessment_reason IN ('pre_surgery', 'post_surgery', 'athletic_performance', 'injury_recovery', 'general_wellness')),
+  chief_complaint TEXT,
+  pain_scale INTEGER CHECK(pain_scale BETWEEN 0 AND 10),
   activity_level TEXT CHECK(activity_level IN ('sedentary', 'light', 'moderate', 'active', 'very_active')),
-  occupation TEXT,
-  sports_activities TEXT, -- JSON array
   
-  -- Goals
-  treatment_goals TEXT,
-  
+  -- Timestamps
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  
-  FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+  last_visit DATETIME
 );
 
--- ============================================================================
--- ASSESSMENT SYSTEM
--- ============================================================================
-
--- Assessment Sessions
+-- Movement assessments table
 CREATE TABLE IF NOT EXISTS assessments (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   patient_id INTEGER NOT NULL,
   clinician_id INTEGER,
   
-  -- Assessment Type
-  assessment_type TEXT NOT NULL CHECK(assessment_type IN ('initial', 'progress', 'discharge', 'athletic_performance')),
-  assessment_status TEXT DEFAULT 'in_progress' CHECK(assessment_status IN ('in_progress', 'completed', 'cancelled')),
+  -- Assessment metadata
+  assessment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  assessment_type TEXT CHECK(assessment_type IN ('initial', 'progress', 'discharge', 'follow_up')),
+  status TEXT CHECK(status IN ('in_progress', 'completed', 'reviewed', 'archived')) DEFAULT 'in_progress',
   
-  -- Session Info
-  session_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-  duration_minutes INTEGER,
+  -- FMS Tests performed
+  tests_completed TEXT, -- JSON array of test names
+  total_score INTEGER,
   
-  -- Overall Scores
-  overall_score REAL,
-  mobility_score REAL,
-  stability_score REAL,
-  movement_pattern_score REAL,
+  -- Video/Image data
+  video_urls TEXT, -- JSON array of R2 storage URLs
+  camera_type TEXT CHECK(camera_type IN ('femto_mega', 'mobile', 'web')),
   
-  -- Clinical Notes
-  subjective_findings TEXT,
+  -- Analysis results (stored as JSON)
+  biomechanical_data TEXT, -- JSON: joint angles, ROM, movement patterns
+  ai_analysis_results TEXT, -- JSON: AI-generated insights
+  deficiencies_detected TEXT, -- JSON array
+  
+  -- Medical notes
+  subjective_notes TEXT,
   objective_findings TEXT,
-  assessment_summary TEXT,
-  plan TEXT,
+  assessment_notes TEXT,
+  treatment_plan TEXT,
   
-  -- Camera Integration
-  femto_mega_connected INTEGER DEFAULT 0, -- boolean
-  video_recorded INTEGER DEFAULT 0, -- boolean
-  
+  -- Timestamps
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  reviewed_at DATETIME,
   
   FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
 );
 
--- Functional Movement Screen (FMS) Tests
+-- Functional Movement Screen (FMS) tests
 CREATE TABLE IF NOT EXISTS movement_tests (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   assessment_id INTEGER NOT NULL,
   
-  -- Test Information
+  -- Test identification
   test_name TEXT NOT NULL,
-  test_category TEXT CHECK(test_category IN ('mobility', 'stability', 'strength', 'balance', 'functional')),
-  test_order INTEGER NOT NULL,
+  test_category TEXT CHECK(test_category IN ('mobility', 'stability', 'flexibility', 'strength', 'balance', 'coordination')),
+  test_order INTEGER,
   
-  -- Test Status
-  test_status TEXT DEFAULT 'pending' CHECK(test_status IN ('pending', 'in_progress', 'completed', 'skipped')),
-  
-  -- Instructions
+  -- Instructions and media
   instructions TEXT NOT NULL,
   demo_video_url TEXT,
+  expected_duration INTEGER, -- seconds
   
-  -- Timing
-  started_at DATETIME,
-  completed_at DATETIME,
-  duration_seconds INTEGER,
+  -- Test results
+  status TEXT CHECK(status IN ('pending', 'recording', 'completed', 'failed')) DEFAULT 'pending',
+  score INTEGER CHECK(score BETWEEN 0 AND 3),
   
-  -- Camera Data
-  camera_recording_url TEXT,
-  skeleton_data TEXT, -- JSON from Femto Mega / MediaPipe
+  -- Captured data
+  video_url TEXT,
+  capture_timestamp DATETIME,
+  skeleton_data TEXT, -- JSON: 32-joint tracking from Femto Mega or MediaPipe
   
+  -- Measurements
+  rom_measurements TEXT, -- JSON: range of motion data
+  joint_angles TEXT, -- JSON: specific joint angles
+  movement_quality_score REAL,
+  
+  -- AI Analysis
+  ai_feedback TEXT,
+  deficiencies TEXT, -- JSON array
+  compensations_detected TEXT, -- JSON array
+  
+  -- Timestamps
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  completed_at DATETIME,
   
   FOREIGN KEY (assessment_id) REFERENCES assessments(id) ON DELETE CASCADE
 );
 
--- Movement Analysis Results
-CREATE TABLE IF NOT EXISTS movement_analysis (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  test_id INTEGER NOT NULL,
-  
-  -- Joint Angles (in degrees)
-  joint_angles TEXT NOT NULL, -- JSON: {joint_name: {left: angle, right: angle}}
-  
-  -- Range of Motion
-  rom_measurements TEXT, -- JSON: {joint: {flexion: deg, extension: deg, etc}}
-  
-  -- Asymmetry Detection
-  left_right_asymmetry TEXT, -- JSON: {joint: difference_percentage}
-  
-  -- Movement Quality Scores (0-100)
-  movement_quality_score REAL,
-  stability_score REAL,
-  compensation_detected INTEGER DEFAULT 0, -- boolean
-  
-  -- Deficiencies Detected
-  deficiencies TEXT, -- JSON array of detected issues
-  
-  -- AI Analysis
-  ai_confidence_score REAL, -- 0-1
-  ai_recommendations TEXT, -- JSON array
-  
-  -- Biomechanical Data
-  velocity_data TEXT, -- JSON
-  acceleration_data TEXT, -- JSON
-  trajectory_data TEXT, -- JSON
-  
-  analyzed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  
-  FOREIGN KEY (test_id) REFERENCES movement_tests(id) ON DELETE CASCADE
-);
-
--- ============================================================================
--- EXERCISE PRESCRIPTION SYSTEM
--- ============================================================================
-
--- Exercise Library
-CREATE TABLE IF NOT EXISTS exercise_library (
+-- Exercise library
+CREATE TABLE IF NOT EXISTS exercises (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   
-  -- Exercise Info
-  exercise_name TEXT NOT NULL UNIQUE,
-  exercise_category TEXT CHECK(exercise_category IN ('strength', 'flexibility', 'balance', 'mobility', 'stability', 'cardio', 'functional')),
+  -- Exercise identification
+  name TEXT NOT NULL UNIQUE,
+  category TEXT CHECK(category IN ('mobility', 'stability', 'strength', 'flexibility', 'balance', 'coordination', 'cardio')),
+  body_region TEXT, -- JSON array: neck, shoulder, spine, hip, knee, ankle, etc.
   
-  -- Targets
-  target_muscles TEXT, -- JSON array
-  target_joints TEXT, -- JSON array
-  target_movements TEXT, -- JSON array
-  
-  -- Difficulty
-  difficulty_level TEXT CHECK(difficulty_level IN ('beginner', 'intermediate', 'advanced')),
-  
-  -- Instructions
+  -- Exercise details
   description TEXT NOT NULL,
   instructions TEXT NOT NULL,
-  contraindications TEXT,
-  
-  -- Media
   demo_video_url TEXT,
   demo_image_url TEXT,
   
-  -- MediaPipe Pose Reference
-  reference_keypoints TEXT, -- JSON: expected body pose landmarks
-  acceptable_deviation REAL, -- degrees of acceptable variation
+  -- Difficulty and modifications
+  difficulty TEXT CHECK(difficulty IN ('beginner', 'intermediate', 'advanced')),
+  prerequisites TEXT, -- JSON array of exercise IDs
+  modifications TEXT, -- JSON array of easier/harder variations
+  
+  -- Default parameters
+  default_sets INTEGER DEFAULT 3,
+  default_reps INTEGER DEFAULT 10,
+  default_hold_time INTEGER, -- seconds
+  default_frequency INTEGER DEFAULT 3, -- times per week
+  
+  -- Clinical information
+  indications TEXT, -- JSON array: conditions this helps
+  contraindications TEXT, -- JSON array: when NOT to do this
+  targeted_deficiencies TEXT, -- JSON array
   
   -- Metadata
-  equipment_required TEXT, -- JSON array
-  estimated_duration_seconds INTEGER,
-  
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Prescribed Exercises for Patients
-CREATE TABLE IF NOT EXISTS prescribed_exercises (
+-- Exercise prescriptions
+CREATE TABLE IF NOT EXISTS prescriptions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   patient_id INTEGER NOT NULL,
-  assessment_id INTEGER,
-  exercise_id INTEGER NOT NULL,
+  assessment_id INTEGER NOT NULL,
+  clinician_id INTEGER,
   
-  -- Prescription Details
-  sets INTEGER NOT NULL,
-  repetitions INTEGER NOT NULL,
-  hold_duration_seconds INTEGER,
-  rest_between_sets_seconds INTEGER,
+  -- Prescription metadata
+  prescription_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  start_date DATE NOT NULL,
+  end_date DATE,
+  status TEXT CHECK(status IN ('active', 'completed', 'discontinued', 'modified')) DEFAULT 'active',
   
-  -- Frequency
-  times_per_week INTEGER NOT NULL,
-  total_weeks INTEGER,
+  -- Program details
+  program_name TEXT,
+  program_goals TEXT, -- JSON array
+  frequency_per_week INTEGER DEFAULT 3,
+  estimated_duration_minutes INTEGER DEFAULT 30,
   
-  -- Status
-  prescription_status TEXT DEFAULT 'active' CHECK(prescription_status IN ('active', 'completed', 'discontinued', 'modified')),
+  -- Clinical notes
+  clinician_notes TEXT,
+  patient_instructions TEXT,
+  precautions TEXT,
   
-  -- Clinical Reasoning
-  clinical_reason TEXT, -- Why this exercise was prescribed
-  target_deficiency TEXT, -- What deficiency this addresses
-  
-  -- Progress Tracking
-  compliance_percentage REAL DEFAULT 0,
-  last_performed_at DATETIME,
-  
-  prescribed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  prescribed_by INTEGER, -- clinician_id
+  -- Timestamps
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   
   FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
-  FOREIGN KEY (assessment_id) REFERENCES assessments(id),
-  FOREIGN KEY (exercise_id) REFERENCES exercise_library(id)
+  FOREIGN KEY (assessment_id) REFERENCES assessments(id) ON DELETE CASCADE
 );
 
--- ============================================================================
--- REMOTE PATIENT MONITORING (RPM)
--- ============================================================================
+-- Prescribed exercises (join table with details)
+CREATE TABLE IF NOT EXISTS prescribed_exercises (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  prescription_id INTEGER NOT NULL,
+  exercise_id INTEGER NOT NULL,
+  
+  -- Exercise parameters (can override defaults)
+  sets INTEGER NOT NULL,
+  reps INTEGER NOT NULL,
+  hold_time INTEGER, -- seconds
+  rest_time INTEGER, -- seconds between sets
+  frequency_per_week INTEGER NOT NULL,
+  
+  -- Exercise order and grouping
+  exercise_order INTEGER,
+  superset_group INTEGER, -- group exercises to be done together
+  
+  -- Progression tracking
+  progression_criteria TEXT,
+  current_level TEXT CHECK(current_level IN ('beginner', 'intermediate', 'advanced')),
+  
+  -- Status
+  status TEXT CHECK(status IN ('active', 'completed', 'skipped', 'modified')) DEFAULT 'active',
+  
+  -- Timestamps
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (prescription_id) REFERENCES prescriptions(id) ON DELETE CASCADE,
+  FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE
+);
 
--- Exercise Sessions (Home Monitoring)
+-- Exercise sessions (patient home tracking)
 CREATE TABLE IF NOT EXISTS exercise_sessions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   patient_id INTEGER NOT NULL,
-  prescribed_exercise_id INTEGER NOT NULL,
+  prescription_id INTEGER NOT NULL,
   
-  -- Session Info
+  -- Session metadata
   session_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-  completed INTEGER DEFAULT 0, -- boolean
+  session_type TEXT CHECK(session_type IN ('home', 'clinic', 'supervised', 'telehealth')),
+  device_type TEXT CHECK(device_type IN ('mobile', 'tablet', 'web')),
   
-  -- Performance Data
-  sets_completed INTEGER,
-  reps_completed INTEGER,
-  duration_seconds INTEGER,
+  -- Session details
+  duration_minutes INTEGER,
+  completed BOOLEAN DEFAULT FALSE,
+  completion_percentage REAL,
   
-  -- Quality Assessment from MediaPipe
-  form_quality_score REAL, -- 0-100
-  pose_accuracy_data TEXT, -- JSON from MediaPipe analysis
+  -- Quality metrics
+  overall_form_score REAL, -- 0-100
+  adherence_score REAL, -- 0-100
+  pain_level INTEGER CHECK(pain_level BETWEEN 0 AND 10),
   
-  -- Errors Detected
-  form_errors TEXT, -- JSON array of errors detected
-  compensation_patterns TEXT, -- JSON array
-  
-  -- Patient Feedback
-  pain_level_during INTEGER CHECK(pain_level_during BETWEEN 0 AND 10),
+  -- Patient feedback
   difficulty_rating INTEGER CHECK(difficulty_rating BETWEEN 1 AND 5),
-  patient_notes TEXT,
+  notes TEXT,
   
-  -- Media
-  recording_url TEXT,
-  
-  analyzed_at DATETIME,
+  -- Timestamps
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  completed_at DATETIME,
   
   FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+  FOREIGN KEY (prescription_id) REFERENCES prescriptions(id) ON DELETE CASCADE
+);
+
+-- Individual exercise performance tracking
+CREATE TABLE IF NOT EXISTS exercise_performances (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER NOT NULL,
+  prescribed_exercise_id INTEGER NOT NULL,
+  
+  -- Performance data
+  sets_completed INTEGER,
+  reps_completed INTEGER,
+  hold_time_achieved INTEGER,
+  
+  -- Quality assessment (from MediaPipe or Femto Mega)
+  video_url TEXT,
+  skeleton_data TEXT, -- JSON: pose tracking data
+  form_score REAL, -- 0-100
+  rom_achieved TEXT, -- JSON: measured range of motion
+  
+  -- AI Feedback
+  ai_corrections TEXT, -- JSON array of form corrections
+  compensations_detected TEXT, -- JSON array
+  quality_rating TEXT CHECK(quality_rating IN ('excellent', 'good', 'fair', 'poor')),
+  
+  -- Patient feedback
+  pain_during_exercise INTEGER CHECK(pain_during_exercise BETWEEN 0 AND 10),
+  difficulty INTEGER CHECK(difficulty BETWEEN 1 AND 5),
+  notes TEXT,
+  
+  -- Timestamps
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (session_id) REFERENCES exercise_sessions(id) ON DELETE CASCADE,
   FOREIGN KEY (prescribed_exercise_id) REFERENCES prescribed_exercises(id) ON DELETE CASCADE
 );
 
--- Real-time Monitoring Alerts
-CREATE TABLE IF NOT EXISTS monitoring_alerts (
+-- Remote Patient Monitoring (RPM) tracking
+CREATE TABLE IF NOT EXISTS rpm_monitoring (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   patient_id INTEGER NOT NULL,
-  exercise_session_id INTEGER,
   
-  -- Alert Type
-  alert_type TEXT CHECK(alert_type IN ('form_error', 'pain_reported', 'non_compliance', 'progress_milestone', 'concern')),
-  alert_severity TEXT CHECK(alert_severity IN ('low', 'medium', 'high', 'critical')),
+  -- Billing period
+  billing_month TEXT NOT NULL, -- YYYY-MM format
   
-  -- Details
-  alert_message TEXT NOT NULL,
-  alert_details TEXT, -- JSON
+  -- CPT code tracking
+  cpt_98975_minutes INTEGER DEFAULT 0, -- Remote therapeutic monitoring treatment
+  cpt_98976_minutes INTEGER DEFAULT 0, -- Additional 20 minutes
+  cpt_98977_count INTEGER DEFAULT 0, -- Interactive communication (20+ min)
+  cpt_98980_count INTEGER DEFAULT 0, -- Remote therapeutic monitoring setup
+  cpt_98981_count INTEGER DEFAULT 0, -- Remote therapeutic monitoring device supply
   
-  -- Status
-  alert_status TEXT DEFAULT 'new' CHECK(alert_status IN ('new', 'reviewed', 'resolved', 'dismissed')),
-  reviewed_by INTEGER, -- clinician_id
-  reviewed_at DATETIME,
+  -- Activity metrics
+  total_sessions INTEGER DEFAULT 0,
+  total_minutes_monitored INTEGER DEFAULT 0,
+  days_with_activity INTEGER DEFAULT 0,
+  adherence_rate REAL, -- percentage
   
+  -- Clinical review
+  reviewed_by_clinician BOOLEAN DEFAULT FALSE,
+  review_date DATETIME,
+  review_notes TEXT,
+  
+  -- Billing status
+  billable BOOLEAN DEFAULT FALSE,
+  billed BOOLEAN DEFAULT FALSE,
+  billing_date DATE,
+  
+  -- Timestamps
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   
   FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
-  FOREIGN KEY (exercise_session_id) REFERENCES exercise_sessions(id)
+  UNIQUE(patient_id, billing_month)
 );
 
--- ============================================================================
--- MEDICAL BILLING & DOCUMENTATION
--- ============================================================================
-
--- CPT Codes for Billing
-CREATE TABLE IF NOT EXISTS billing_codes (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  
-  cpt_code TEXT NOT NULL UNIQUE,
-  code_description TEXT NOT NULL,
-  code_category TEXT CHECK(code_category IN ('evaluation', 'treatment', 'rpm', 'exercise', 'monitoring')),
-  
-  -- Requirements
-  minimum_duration_minutes INTEGER,
-  requires_documentation INTEGER DEFAULT 1, -- boolean
-  
-  -- RPM Specific
-  is_rpm_code INTEGER DEFAULT 0, -- boolean
-  rpm_time_requirement_minutes INTEGER,
-  
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- Billable Events
-CREATE TABLE IF NOT EXISTS billable_events (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  patient_id INTEGER NOT NULL,
-  assessment_id INTEGER,
-  exercise_session_id INTEGER,
-  
-  -- Billing Info
-  cpt_code_id INTEGER NOT NULL,
-  service_date DATETIME NOT NULL,
-  duration_minutes INTEGER,
-  
-  -- Documentation
-  clinical_note TEXT,
-  medical_necessity TEXT,
-  
-  -- Status
-  billing_status TEXT DEFAULT 'pending' CHECK(billing_status IN ('pending', 'submitted', 'paid', 'denied')),
-  
-  -- Provider Info
-  provider_id INTEGER, -- clinician_id
-  provider_npi TEXT,
-  
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  
-  FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
-  FOREIGN KEY (assessment_id) REFERENCES assessments(id),
-  FOREIGN KEY (exercise_session_id) REFERENCES exercise_sessions(id),
-  FOREIGN KEY (cpt_code_id) REFERENCES billing_codes(id)
-);
-
--- ============================================================================
--- CLINICIAN/USER MANAGEMENT
--- ============================================================================
-
--- Clinicians
+-- Clinicians/Users table
 CREATE TABLE IF NOT EXISTS clinicians (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   
-  -- Personal Info
+  -- Basic information
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
-  email TEXT UNIQUE NOT NULL,
   
   -- Credentials
-  credential TEXT, -- PT, DPT, DC, MD, etc.
+  title TEXT, -- DPT, DC, MD, etc.
   license_number TEXT,
-  npi_number TEXT,
+  license_state TEXT,
+  npi_number TEXT, -- National Provider Identifier
   
-  -- Specialization
-  specialty TEXT CHECK(specialty IN ('physical_therapy', 'chiropractic', 'sports_medicine', 'orthopedics', 'other')),
+  -- Role and permissions
+  role TEXT CHECK(role IN ('admin', 'clinician', 'assistant', 'viewer')) DEFAULT 'clinician',
+  specialties TEXT, -- JSON array
   
-  -- Account
-  account_status TEXT DEFAULT 'active' CHECK(account_status IN ('active', 'inactive', 'suspended')),
+  -- Contact
+  phone TEXT,
+  clinic_name TEXT,
   
+  -- Status
+  active BOOLEAN DEFAULT TRUE,
+  
+  -- Timestamps
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  last_login DATETIME
+);
+
+-- System settings and configurations
+CREATE TABLE IF NOT EXISTS system_settings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  setting_key TEXT UNIQUE NOT NULL,
+  setting_value TEXT NOT NULL,
+  setting_type TEXT CHECK(setting_type IN ('string', 'number', 'boolean', 'json')),
+  description TEXT,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- ============================================================================
--- INDEXES FOR PERFORMANCE
--- ============================================================================
-
+-- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_patients_email ON patients(email);
-CREATE INDEX IF NOT EXISTS idx_patients_status ON patients(patient_status);
-CREATE INDEX IF NOT EXISTS idx_medical_history_patient ON medical_history(patient_id);
-
+CREATE INDEX IF NOT EXISTS idx_patients_last_visit ON patients(last_visit);
 CREATE INDEX IF NOT EXISTS idx_assessments_patient ON assessments(patient_id);
-CREATE INDEX IF NOT EXISTS idx_assessments_status ON assessments(assessment_status);
-CREATE INDEX IF NOT EXISTS idx_assessments_date ON assessments(session_date);
-
+CREATE INDEX IF NOT EXISTS idx_assessments_date ON assessments(assessment_date);
+CREATE INDEX IF NOT EXISTS idx_assessments_status ON assessments(status);
 CREATE INDEX IF NOT EXISTS idx_movement_tests_assessment ON movement_tests(assessment_id);
-CREATE INDEX IF NOT EXISTS idx_movement_tests_status ON movement_tests(test_status);
-
-CREATE INDEX IF NOT EXISTS idx_movement_analysis_test ON movement_analysis(test_id);
-
-CREATE INDEX IF NOT EXISTS idx_exercise_library_category ON exercise_library(exercise_category);
-CREATE INDEX IF NOT EXISTS idx_exercise_library_name ON exercise_library(exercise_name);
-
-CREATE INDEX IF NOT EXISTS idx_prescribed_exercises_patient ON prescribed_exercises(patient_id);
-CREATE INDEX IF NOT EXISTS idx_prescribed_exercises_status ON prescribed_exercises(prescription_status);
-
+CREATE INDEX IF NOT EXISTS idx_prescriptions_patient ON prescriptions(patient_id);
+CREATE INDEX IF NOT EXISTS idx_prescriptions_status ON prescriptions(status);
+CREATE INDEX IF NOT EXISTS idx_prescribed_exercises_prescription ON prescribed_exercises(prescription_id);
 CREATE INDEX IF NOT EXISTS idx_exercise_sessions_patient ON exercise_sessions(patient_id);
+CREATE INDEX IF NOT EXISTS idx_exercise_sessions_prescription ON exercise_sessions(prescription_id);
 CREATE INDEX IF NOT EXISTS idx_exercise_sessions_date ON exercise_sessions(session_date);
-CREATE INDEX IF NOT EXISTS idx_exercise_sessions_prescribed ON exercise_sessions(prescribed_exercise_id);
-
-CREATE INDEX IF NOT EXISTS idx_monitoring_alerts_patient ON monitoring_alerts(patient_id);
-CREATE INDEX IF NOT EXISTS idx_monitoring_alerts_status ON monitoring_alerts(alert_status);
-CREATE INDEX IF NOT EXISTS idx_monitoring_alerts_severity ON monitoring_alerts(alert_severity);
-
-CREATE INDEX IF NOT EXISTS idx_billable_events_patient ON billable_events(patient_id);
-CREATE INDEX IF NOT EXISTS idx_billable_events_date ON billable_events(service_date);
-CREATE INDEX IF NOT EXISTS idx_billable_events_status ON billable_events(billing_status);
-
+CREATE INDEX IF NOT EXISTS idx_exercise_performances_session ON exercise_performances(session_id);
+CREATE INDEX IF NOT EXISTS idx_rpm_monitoring_patient ON rpm_monitoring(patient_id);
+CREATE INDEX IF NOT EXISTS idx_rpm_monitoring_month ON rpm_monitoring(billing_month);
 CREATE INDEX IF NOT EXISTS idx_clinicians_email ON clinicians(email);
