@@ -574,6 +574,11 @@ CPT CODES: 97163, 97110, 97112, 98975, 98977
 // FRONTEND ROUTES
 // ============================================================================
 
+// Assessment page - serve static HTML
+app.get('/assessment', (c) => {
+  return c.redirect('/static/assessment')
+})
+
 // Main dashboard
 app.get('/', (c) => {
   return c.html(`

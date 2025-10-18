@@ -8,6 +8,14 @@ PhysioMotion is a complete medical-grade platform that combines professional mot
 
 ### **Project Status**: ✅ **Fully Built & Ready for Deployment**
 
+### **Latest Updates** (October 2025)
+- ✅ **Enhanced Assessment UI**: Modern, responsive interface with 4-step workflow
+- ✅ **Multi-Device Support**: Works with phones, laptops, and professional cameras
+- ✅ **Live Joint Tracking**: Real-time RED overlay on joints with YELLOW skeleton connections
+- ✅ **Smart Camera Selection**: Choose from phone camera (front/back), laptop webcam, Femto Mega, or video upload
+- ✅ **Professional Visualization**: Pulse animations, glow effects, and smooth rendering
+- ✅ **Live Angle Monitoring**: Real-time display of joint angles with color-coded status indicators
+
 ---
 
 ## 🎯 Core Features
@@ -38,14 +46,17 @@ PhysioMotion is a complete medical-grade platform that combines professional mot
 - ✅ Clinician review and modification interface
 
 ### **Phase 4: Remote Patient Monitoring (✅ Complete)**
-- ✅ MediaPipe Pose integration for home exercise tracking
-- ✅ Mobile camera support (front-facing for self-monitoring)
-- ✅ Real-time exercise form validation
-- ✅ Visual skeleton overlay with joint tracking
-- ✅ Form error detection and feedback
-- ✅ Session recording and analysis
-- ✅ Compliance percentage tracking
-- ✅ Alert system for clinician notifications
+- ✅ **Multi-Camera Support**: Phone (front/back), laptop, Femto Mega, video upload
+- ✅ **Live RED Joint Overlay**: Real-time joint tracking with RED circles (12px) and YELLOW skeleton lines
+- ✅ **Real-time Joint Angle Display**: Live panel showing elbow, knee, hip angles with color-coded status
+- ✅ **Camera Controls**: Flip camera for phones, start/stop recording, analyze movement
+- ✅ **MediaPipe Pose Integration**: 33-point landmark detection for consumer devices
+- ✅ **Femto Mega Bridge**: WebSocket integration for professional 32-joint tracking
+- ✅ **Progressive Workflow**: 4-step process (Select Camera → Position → Perform → Review)
+- ✅ **Session Recording**: Frame-by-frame capture with timestamp and skeleton data
+- ✅ **Form Validation**: Real-time feedback on movement quality
+- ✅ **Compliance Tracking**: Automated session logging and progress monitoring
+- ✅ **Alert System**: Clinician notifications for abnormal movements
 
 ### **Phase 5: Medical Documentation & Billing (✅ Complete)**
 - ✅ Automated SOAP note generation
@@ -195,6 +206,65 @@ curl http://localhost:3000/api/billing/codes
 ```bash
 pm2 delete webapp
 ```
+
+---
+
+## 🎥 Assessment Workflow
+
+### **Step-by-Step Process**
+
+#### **Step 1: Select Camera**
+Choose from 4 camera options:
+1. **Phone Camera** - Front or back camera with flip support
+2. **Laptop Camera** - Built-in webcam or external USB camera
+3. **Femto Mega** - Professional 32-joint tracking (requires bridge server)
+4. **Upload Video** - Analyze pre-recorded movement videos
+
+#### **Step 2: Position Patient**
+- Visual guidelines for proper camera placement
+- Distance and angle recommendations
+- Real-time preview with skeleton detection
+
+#### **Step 3: Perform Test**
+- **Live Visualization**:
+  - RED joint circles (12px major joints, 5px minor)
+  - YELLOW skeleton connection lines with glow effect
+  - Pulse animations on active joints
+  - Real-time joint angle display panel
+- **Recording Controls**:
+  - Start/Stop recording with visual indicator
+  - Flip camera (phone only)
+  - Recording timer and frame counter
+- **Live Metrics**:
+  - Left/Right Elbow angles
+  - Left/Right Knee angles
+  - Left/Right Hip angles
+  - Color-coded status (green=normal, yellow=limited, red=excessive)
+
+#### **Step 4: Review Results**
+- Movement quality score (0-100)
+- Detected deficiencies with severity
+- Recommended exercises
+- Automated SOAP note generation
+- Option to re-test or proceed to prescription
+
+### **Camera Compatibility**
+
+| Camera Type | Resolution | Frame Rate | Joint Tracking | Use Case |
+|------------|-----------|-----------|----------------|----------|
+| **Phone** | 720p-1080p | 30 fps | 33 points (MediaPipe) | Home monitoring |
+| **Laptop** | 720p | 30 fps | 33 points (MediaPipe) | Telehealth |
+| **Femto Mega** | 1280x800 | 30 fps | 32 joints (Azure SDK) | Clinical assessment |
+| **Video Upload** | Variable | Variable | 33 points (MediaPipe) | Offline analysis |
+
+### **Key Features**
+
+- **Multi-Device Support**: Works seamlessly across phones, laptops, and professional cameras
+- **Real-Time Feedback**: Live joint tracking with RED overlay and YELLOW skeleton lines
+- **Progressive Enhancement**: Basic functionality with any camera, advanced features with Femto Mega
+- **Responsive Design**: Optimized for mobile (portrait/landscape), tablet, and desktop
+- **No Installation Required**: Browser-based operation with WebRTC camera access
+- **Professional Integration**: Optional bridge server for Femto Mega depth camera
 
 ---
 
@@ -393,6 +463,11 @@ npx wrangler pages secret put API_KEY --project-name webapp
 After deployment, you'll receive:
 - **Production URL**: `https://webapp.pages.dev`
 - **Branch URL**: `https://main.webapp.pages.dev`
+
+### **Current Development URLs**
+- **Sandbox Application**: `https://3000-isjigehibebqnf5jhl4y7-2e1b9533.sandbox.novita.ai`
+- **Assessment Page**: `https://3000-isjigehibebqnf5jhl4y7-2e1b9533.sandbox.novita.ai/assessment`
+- **API Endpoints**: `https://3000-isjigehibebqnf5jhl4y7-2e1b9533.sandbox.novita.ai/api/*`
 
 ---
 
