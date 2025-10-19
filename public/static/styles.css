@@ -512,14 +512,50 @@ body {
   
   .camera-options {
     grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .camera-option {
+    padding: 20px 15px;
+  }
+  
+  .camera-option i {
+    font-size: 36px;
+    margin-bottom: 8px;
+  }
+  
+  .camera-option h3 {
+    font-size: 16px;
+    margin-bottom: 4px;
+  }
+  
+  .camera-option p {
+    font-size: 12px;
+  }
+  
+  .camera-selection-content {
+    padding: 20px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  
+  .camera-selection-content h2 {
+    font-size: 20px;
+    margin-bottom: 16px;
   }
   
   .progress-steps {
     flex-wrap: wrap;
+    gap: 10px;
   }
   
   .progress-step {
-    margin-bottom: 20px;
+    margin-bottom: 0;
+    min-width: 60px;
+  }
+  
+  .progress-step-label {
+    font-size: 11px;
   }
 }
 
@@ -544,5 +580,74 @@ body {
     left: 10px;
     padding: 6px 12px;
     font-size: 12px;
+  }
+  
+  .camera-selection-modal {
+    align-items: flex-start;
+    padding-top: 0;
+  }
+  
+  .camera-selection-content {
+    padding: 16px;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 0;
+    max-height: 100vh;
+    overflow-y: auto;
+  }
+  
+  .camera-selection-content h2 {
+    font-size: 18px;
+    margin-bottom: 12px;
+  }
+  
+  .camera-options {
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  
+  .camera-option {
+    padding: 16px 12px;
+  }
+  
+  .camera-option i {
+    font-size: 32px;
+    margin-bottom: 6px;
+  }
+  
+  .camera-option h3 {
+    font-size: 15px;
+    margin-bottom: 3px;
+  }
+  
+  .camera-option p {
+    font-size: 11px;
+    line-height: 1.3;
+  }
+  
+  nav {
+    padding: 0 12px;
+  }
+  
+  nav .flex {
+    padding: 8px 0;
+  }
+  
+  nav a {
+    font-size: 14px;
+  }
+  
+  .progress-steps {
+    gap: 5px;
+  }
+  
+  .progress-step-circle {
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+  }
+  
+  .progress-step-label {
+    font-size: 10px;
   }
 }
