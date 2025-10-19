@@ -9,10 +9,15 @@ PhysioMotion is a complete medical-grade platform that combines professional mot
 ### **Project Status**: ✅ **Fully Built & Ready for Deployment**
 
 ### **Latest Updates** (October 2025)
-- ✅ **Enhanced Assessment UI**: Modern, responsive interface with 4-step workflow
-- ✅ **Multi-Device Support**: Works with phones, laptops, and professional cameras
+- ✅ **Fixed Database Schema**: Added missing `test_status` column to resolve D1_ERROR
+- ✅ **Complete Assessment Workflow**: Automatic patient selection and test creation
+- ✅ **Enhanced Camera Support**: 
+  - Mobile: Front/back camera switching with facingMode API
+  - Laptop: Built-in webcam with multi-camera detection
+  - External: Automatic detection and enumeration of USB cameras
+  - Smart camera switching with device-specific constraints
+- ✅ **Improved Camera Flip**: Works on mobile (front/back) and desktop (cycle through cameras)
 - ✅ **Live Joint Tracking**: Real-time RED overlay on joints with YELLOW skeleton connections
-- ✅ **Smart Camera Selection**: Choose from phone camera (front/back), laptop webcam, Femto Mega, or video upload
 - ✅ **Professional Visualization**: Pulse animations, glow effects, and smooth rendering
 - ✅ **Live Angle Monitoring**: Real-time display of joint angles with color-coded status indicators
 
