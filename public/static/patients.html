@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patients - PhysioMotion</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/styles.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <i class="fas fa-heartbeat text-blue-600 text-2xl mr-3"></i>
+                    <span class="text-xl font-bold text-gray-800">PhysioMotion</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/" class="text-gray-700 hover:text-blue-600"><i class="fas fa-home mr-2"></i>Home</a>
+                    <a href="/intake" class="text-gray-700 hover:text-blue-600"><i class="fas fa-clipboard-list mr-2"></i>Intake</a>
+                    <a href="/patients" class="text-blue-600 font-semibold"><i class="fas fa-users mr-2"></i>Patients</a>
+                    <a href="/assessment" class="text-gray-700 hover:text-blue-600"><i class="fas fa-video mr-2"></i>Assessment</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-800">
+                <i class="fas fa-users text-blue-600 mr-3"></i>
+                Patient Management
+            </h1>
+            <a href="/intake" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center">
+                <i class="fas fa-plus mr-2"></i>
+                New Patient
+            </a>
+        </div>
+
+        <!-- Search and Filter -->
+        <div class="bg-white rounded-lg shadow p-4 mb-6">
+            <div class="flex flex-col md:flex-row md:items-center md:space-x-4">
+                <div class="flex-1 mb-4 md:mb-0">
+                    <input type="text" id="searchInput" placeholder="Search patients..." 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <button onclick="loadPatients()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    <i class="fas fa-search mr-2"></i>
+                    Search
+                </button>
+            </div>
+        </div>
+
+        <!-- Patients Table -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DOB</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="patientsTableBody" class="bg-white divide-y divide-gray-200">
+                    <!-- Patients will be loaded here -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="hidden text-center py-8">
+            <i class="fas fa-spinner fa-spin text-4xl text-blue-600 mb-4"></i>
+            <p class="text-gray-600">Loading patients...</p>
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden text-center py-12">
+            <i class="fas fa-user-slash text-6xl text-gray-300 mb-4"></i>
+            <h3 class="text-xl font-semibold text-gray-600 mb-2">No Patients Found</h3>
+            <p class="text-gray-500 mb-6">Get started by adding your first patient</p>
+            <a href="/intake" class="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                <i class="fas fa-plus mr-2"></i>
+                Add Patient
+            </a>
+        </div>
+    </div>
+
+    <script>
+        async function loadPatients() {
+            const tableBody = document.getElementById('patientsTableBody');
+            const loadingState = document.getElementById('loadingState');
+            const emptyState = document.getElementById('emptyState');
+            
+            loadingState.classList.remove('hidden');
+            tableBody.innerHTML = '';
+            
+            try {
+                const response = await fetch('/api/patients');
+                const result = await response.json();
+                
+                loadingState.classList.add('hidden');
+                
+                if (result.success && result.data && result.data.length > 0) {
+                    emptyState.classList.add('hidden');
+                    
+                    result.data.forEach(patient => {
+                        const row = document.createElement('tr');
+                        row.className = 'hover:bg-gray-50';
+                        row.innerHTML = `
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                        <i class="fas fa-user text-blue-600"></i>
+                                    </div>
+                                    <div class="ml-4">
+                                        <div class="text-sm font-medium text-gray-900">${patient.first_name} ${patient.last_name}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${patient.date_of_birth || 'N/A'}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${patient.email || 'N/A'}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${patient.phone || 'N/A'}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                    Active
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <a href="/assessment?patient_id=${patient.id}" class="text-blue-600 hover:text-blue-900 mr-4">
+                                    <i class="fas fa-video mr-1"></i>Assess
+                                </a>
+                                <a href="/patients/${patient.id}" class="text-gray-600 hover:text-gray-900">
+                                    <i class="fas fa-eye mr-1"></i>View
+                                </a>
+                            </td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                } else {
+                    emptyState.classList.remove('hidden');
+                }
+            } catch (error) {
+                loadingState.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                console.error('Error loading patients:', error);
+            }
+        }
+
+        // Load patients on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPatients();
+        });
+
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                loadPatients();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -579,6 +579,16 @@ app.get('/assessment', (c) => {
   return c.redirect('/static/assessment')
 })
 
+// Intake page - new patient registration
+app.get('/intake', (c) => {
+  return c.redirect('/static/intake')
+})
+
+// Patients list page
+app.get('/patients', (c) => {
+  return c.redirect('/static/patients')
+})
+
 // Main dashboard
 app.get('/', (c) => {
   return c.html(`
