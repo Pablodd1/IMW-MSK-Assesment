@@ -1,5 +1,5 @@
 // PhysioMotion - Enhanced Assessment Workflow with Live Joint Tracking
-// Supports: Phone Camera, Laptop Camera, and Femto Mega
+// Supports: Phone Camera, Laptop Camera, External Camera, and Femto Mega
 
 // ============================================================================
 // GLOBAL STATE
@@ -7,6 +7,8 @@
 
 const ASSESSMENT_STATE = {
   selectedCamera: null,
+  selectedDeviceId: null,
+  availableCameras: [],
   cameraStream: null,
   currentFacingMode: 'user', // 'user' (front) or 'environment' (back)
   pose: null,
@@ -15,8 +17,135 @@ const ASSESSMENT_STATE = {
   skeletonFrames: [],
   femtoMegaClient: null,
   testId: null,
-  assessmentId: null
+  assessmentId: null,
+  patientId: null,
+  currentTest: null
 };
+
+// ============================================================================
+// INITIALIZATION - LOAD PATIENT AND CREATE ASSESSMENT
+// ============================================================================
+
+async function initializeAssessment() {
+  // Load patient selection from URL params or show patient selector
+  const urlParams = new URLSearchParams(window.location.search);
+  const patientId = urlParams.get('patient_id');
+  
+  if (!patientId) {
+    // Show patient selection modal
+    await showPatientSelector();
+  } else {
+    ASSESSMENT_STATE.patientId = patientId;
+    await createAssessment();
+  }
+}
+
+async function showPatientSelector() {
+  try {
+    // Fetch patients
+    const response = await fetch('/api/patients');
+    const result = await response.json();
+    
+    if (result.success && result.data.length > 0) {
+      // For now, use the first patient
+      ASSESSMENT_STATE.patientId = result.data[0].id;
+      await createAssessment();
+    } else {
+      showNotification('No patients found. Please create a patient first.', 'warning');
+      setTimeout(() => {
+        window.location.href = '/intake';
+      }, 2000);
+    }
+  } catch (error) {
+    console.error('Error loading patients:', error);
+    showNotification('Error loading patients', 'error');
+  }
+}
+
+async function createAssessment() {
+  try {
+    // Create new assessment for patient
+    const response = await fetch('/api/assessments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        patient_id: ASSESSMENT_STATE.patientId,
+        assessment_type: 'initial',
+        clinician_id: 1
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      ASSESSMENT_STATE.assessmentId = result.data.id;
+      console.log('✅ Assessment created:', ASSESSMENT_STATE.assessmentId);
+      
+      // Create a movement test
+      await createMovementTest();
+    } else {
+      showNotification('Failed to create assessment', 'error');
+    }
+  } catch (error) {
+    console.error('Error creating assessment:', error);
+    showNotification('Error creating assessment', 'error');
+  }
+}
+
+async function createMovementTest() {
+  try {
+    // Create a functional movement test
+    const response = await fetch(`/api/assessments/${ASSESSMENT_STATE.assessmentId}/tests`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        test_name: 'Functional Movement Screen',
+        test_category: 'mobility',
+        test_order: 1,
+        instructions: 'Stand in view of camera and perform the requested movements',
+        test_status: 'pending'
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      ASSESSMENT_STATE.testId = result.data.id;
+      ASSESSMENT_STATE.currentTest = result.data;
+      console.log('✅ Movement test created:', ASSESSMENT_STATE.testId);
+    } else {
+      showNotification('Failed to create test', 'error');
+    }
+  } catch (error) {
+    console.error('Error creating test:', error);
+    showNotification('Error creating test', 'error');
+  }
+}
+
+// ============================================================================
+// CAMERA DETECTION AND ENUMERATION
+// ============================================================================
+
+async function detectAvailableCameras() {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoDevices = devices.filter(device => device.kind === 'videoinput');
+    
+    ASSESSMENT_STATE.availableCameras = videoDevices.map(device => ({
+      deviceId: device.deviceId,
+      label: device.label || `Camera ${videoDevices.indexOf(device) + 1}`,
+      isFrontFacing: device.label.toLowerCase().includes('front'),
+      isBackFacing: device.label.toLowerCase().includes('back')
+    }));
+    
+    console.log('📷 Available cameras:', ASSESSMENT_STATE.availableCameras);
+    
+    return ASSESSMENT_STATE.availableCameras;
+  } catch (error) {
+    console.error('Error detecting cameras:', error);
+    return [];
+  }
+}
 
 // ============================================================================
 // CAMERA SELECTION
@@ -37,6 +166,8 @@ function selectCameraType(type) {
   // Show flip button for phone camera
   if (type === 'phone') {
     document.getElementById('flipBtn').style.display = 'flex';
+  } else {
+    document.getElementById('flipBtn').style.display = 'none';
   }
 }
 
@@ -50,10 +181,24 @@ async function startAssessment() {
   // Update progress
   updateProgress(2);
   
+  // Detect available cameras first
+  await detectAvailableCameras();
+  
   // Initialize selected camera
   switch (ASSESSMENT_STATE.selectedCamera) {
     case 'phone':
+      // For phone, try to use back camera by default
+      ASSESSMENT_STATE.currentFacingMode = 'environment';
+      document.getElementById('flipBtn').style.display = 'flex';
+      document.getElementById('flipBtnText').textContent = 'Flip Camera';
+      await initializeWebCamera();
+      break;
     case 'webcam':
+      // For laptop/desktop, show switch button if multiple cameras
+      if (ASSESSMENT_STATE.availableCameras.length > 1) {
+        document.getElementById('flipBtn').style.display = 'flex';
+        document.getElementById('flipBtnText').textContent = 'Switch Camera';
+      }
       await initializeWebCamera();
       break;
     case 'femto':
@@ -66,7 +211,7 @@ async function startAssessment() {
 }
 
 // ============================================================================
-// WEB CAMERA INITIALIZATION (Phone & Laptop)
+// WEB CAMERA INITIALIZATION (Phone & Laptop & External)
 // ============================================================================
 
 async function initializeWebCamera() {
@@ -76,19 +221,59 @@ async function initializeWebCamera() {
     const video = document.getElementById('videoElement');
     const canvas = document.getElementById('canvasElement');
     
-    // Request camera access
-    const constraints = {
-      video: {
-        facingMode: ASSESSMENT_STATE.currentFacingMode,
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      },
-      audio: false
-    };
+    // Stop existing stream if any
+    if (ASSESSMENT_STATE.cameraStream) {
+      ASSESSMENT_STATE.cameraStream.getTracks().forEach(track => track.stop());
+    }
+    
+    // Request camera access with improved constraints
+    let constraints;
+    
+    if (ASSESSMENT_STATE.selectedCamera === 'phone') {
+      // Mobile phone - use facingMode
+      constraints = {
+        video: {
+          facingMode: ASSESSMENT_STATE.currentFacingMode,
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      };
+    } else if (ASSESSMENT_STATE.selectedDeviceId) {
+      // Specific device selected
+      constraints = {
+        video: {
+          deviceId: { exact: ASSESSMENT_STATE.selectedDeviceId },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      };
+    } else {
+      // Default - use any available camera
+      constraints = {
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      };
+    }
+    
+    console.log('📷 Requesting camera with constraints:', constraints);
     
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
     video.srcObject = stream;
     ASSESSMENT_STATE.cameraStream = stream;
+    
+    // Get the actual camera being used
+    const videoTrack = stream.getVideoTracks()[0];
+    const settings = videoTrack.getSettings();
+    console.log('✅ Camera settings:', settings);
+    
+    // Display camera info
+    const cameraLabel = videoTrack.label || 'Unknown Camera';
+    console.log('📹 Using camera:', cameraLabel);
     
     // Wait for video to load
     await new Promise((resolve) => {
@@ -104,12 +289,22 @@ async function initializeWebCamera() {
     // Initialize MediaPipe Pose
     await initializeMediaPipePose();
     
-    showStatus('Camera connected', 'success');
+    showStatus(`Camera connected: ${cameraLabel}`, 'success');
     
   } catch (error) {
     console.error('Camera initialization error:', error);
     showStatus('Camera access denied', 'error');
-    alert('Please allow camera access to continue with the assessment.');
+    
+    // More helpful error messages
+    if (error.name === 'NotAllowedError') {
+      alert('Please allow camera access to continue with the assessment.\n\nOn mobile: Check your browser settings.\nOn desktop: Click the camera icon in the address bar.');
+    } else if (error.name === 'NotFoundError') {
+      alert('No camera found. Please check:\n1. Camera is connected\n2. Camera permissions are granted\n3. No other app is using the camera');
+    } else if (error.name === 'NotReadableError') {
+      alert('Camera is in use by another application. Please close other apps using the camera and try again.');
+    } else {
+      alert('Camera initialization failed: ' + error.message);
+    }
   }
 }
 
@@ -433,23 +628,47 @@ function stopRecording() {
 }
 
 // ============================================================================
-// CAMERA FLIP (PHONE)
+// CAMERA FLIP (PHONE AND EXTERNAL CAMERAS)
 // ============================================================================
 
 async function flipCamera() {
-  // Toggle facing mode
-  ASSESSMENT_STATE.currentFacingMode = 
-    ASSESSMENT_STATE.currentFacingMode === 'user' ? 'environment' : 'user';
-  
-  // Stop current stream
-  if (ASSESSMENT_STATE.cameraStream) {
-    ASSESSMENT_STATE.cameraStream.getTracks().forEach(track => track.stop());
+  if (ASSESSMENT_STATE.selectedCamera === 'phone') {
+    // Mobile phone - toggle facing mode
+    ASSESSMENT_STATE.currentFacingMode = 
+      ASSESSMENT_STATE.currentFacingMode === 'user' ? 'environment' : 'user';
+    
+    // Stop current stream
+    if (ASSESSMENT_STATE.cameraStream) {
+      ASSESSMENT_STATE.cameraStream.getTracks().forEach(track => track.stop());
+    }
+    
+    // Restart with new facing mode
+    await initializeWebCamera();
+    
+    showNotification(`Switched to ${ASSESSMENT_STATE.currentFacingMode === 'user' ? 'front' : 'back'} camera`, 'info');
+  } else {
+    // Desktop/Laptop - cycle through available cameras
+    if (ASSESSMENT_STATE.availableCameras.length > 1) {
+      const currentIndex = ASSESSMENT_STATE.availableCameras.findIndex(
+        cam => cam.deviceId === ASSESSMENT_STATE.selectedDeviceId
+      );
+      
+      const nextIndex = (currentIndex + 1) % ASSESSMENT_STATE.availableCameras.length;
+      ASSESSMENT_STATE.selectedDeviceId = ASSESSMENT_STATE.availableCameras[nextIndex].deviceId;
+      
+      // Stop current stream
+      if (ASSESSMENT_STATE.cameraStream) {
+        ASSESSMENT_STATE.cameraStream.getTracks().forEach(track => track.stop());
+      }
+      
+      // Restart with new camera
+      await initializeWebCamera();
+      
+      showNotification(`Switched to ${ASSESSMENT_STATE.availableCameras[nextIndex].label}`, 'info');
+    } else {
+      showNotification('Only one camera detected', 'info');
+    }
   }
-  
-  // Restart with new facing mode
-  await initializeWebCamera();
-  
-  showNotification(`Switched to ${ASSESSMENT_STATE.currentFacingMode === 'user' ? 'front' : 'back'} camera`, 'info');
 }
 
 // ============================================================================
@@ -640,8 +859,20 @@ function startNewAssessment() {
 // INITIALIZATION
 // ============================================================================
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   console.log('✅ Assessment workflow initialized');
-  console.log('📷 Camera options: Phone, Laptop, Femto Mega');
+  console.log('📷 Camera options: Phone, Laptop, External, Femto Mega');
   console.log('🔴 Live joint tracking enabled');
+  
+  // Initialize assessment (patient selection and test creation)
+  await initializeAssessment();
+  
+  // Detect available cameras early for better UX
+  await detectAvailableCameras();
+  
+  // Show flip button if laptop with multiple cameras
+  if (ASSESSMENT_STATE.selectedCamera === 'webcam' && ASSESSMENT_STATE.availableCameras.length > 1) {
+    document.getElementById('flipBtn').style.display = 'flex';
+    document.getElementById('flipBtn').innerHTML = '<i class="fas fa-sync-alt"></i> Switch Camera';
+  }
 });
