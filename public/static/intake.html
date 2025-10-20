@@ -21,157 +21,337 @@
                     <a href="/" class="text-gray-700 hover:text-blue-600"><i class="fas fa-home mr-2"></i>Home</a>
                     <a href="/intake" class="text-blue-600 font-semibold"><i class="fas fa-clipboard-list mr-2"></i>Intake</a>
                     <a href="/patients" class="text-gray-700 hover:text-blue-600"><i class="fas fa-users mr-2"></i>Patients</a>
-                    <a href="/assessment" class="text-gray-700 hover:text-blue-600"><i class="fas fa-video mr-2"></i>Assessment</a>
                 </div>
             </div>
         </div>
     </nav>
 
     <!-- Main Content -->
-    <div class="max-w-4xl mx-auto px-4 py-8">
+    <div class="max-w-5xl mx-auto px-4 py-8">
+        <!-- Progress Steps -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between">
+                <div class="flex-1">
+                    <div class="progress-step active" id="progressStep1">
+                        <div class="progress-step-circle">1</div>
+                        <div class="progress-step-label">Personal Info</div>
+                    </div>
+                </div>
+                <div class="flex-1">
+                    <div class="progress-step" id="progressStep2">
+                        <div class="progress-step-circle">2</div>
+                        <div class="progress-step-label">Medical History</div>
+                    </div>
+                </div>
+                <div class="flex-1">
+                    <div class="progress-step" id="progressStep3">
+                        <div class="progress-step-circle">3</div>
+                        <div class="progress-step-label">Assessment Info</div>
+                    </div>
+                </div>
+                <div class="flex-1">
+                    <div class="progress-step" id="progressStep4">
+                        <div class="progress-step-circle">4</div>
+                        <div class="progress-step-label">Review</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="bg-white rounded-lg shadow-lg p-8">
-            <h1 class="text-3xl font-bold text-gray-800 mb-6">
-                <i class="fas fa-clipboard-list text-blue-600 mr-3"></i>
-                New Patient Intake
-            </h1>
-            
-            <form id="intakeForm" class="space-y-6">
-                <!-- Personal Information -->
-                <div class="border-b pb-6">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Personal Information</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">First Name *</label>
-                            <input type="text" name="first_name" required 
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            <form id="intakeForm">
+                <!-- STEP 1: Personal Information -->
+                <div id="step1" class="form-step active">
+                    <h1 class="text-3xl font-bold text-gray-800 mb-6">
+                        <i class="fas fa-user text-blue-600 mr-3"></i>
+                        Personal Information
+                    </h1>
+                    
+                    <div class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">First Name *</label>
+                                <input type="text" name="first_name" required 
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Last Name *</label>
+                                <input type="text" name="last_name" required 
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Date of Birth *</label>
+                                <input type="date" name="date_of_birth" required 
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Gender *</label>
+                                <select name="gender" required
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <option value="">Select...</option>
+                                    <option value="male">Male</option>
+                                    <option value="female">Female</option>
+                                    <option value="other">Other</option>
+                                    <option value="prefer_not_to_say">Prefer not to say</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                                <input type="email" name="email" required 
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Phone *</label>
+                                <input type="tel" name="phone" required placeholder="555-123-4567"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Last Name *</label>
-                            <input type="text" name="last_name" required 
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+
+                        <div class="border-t pt-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Address Information</h3>
+                            <div class="grid grid-cols-1 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Address Line 1</label>
+                                    <input type="text" name="address_line1" 
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">City</label>
+                                        <input type="text" name="city" 
+                                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">State</label>
+                                        <input type="text" name="state" maxlength="2" placeholder="CA"
+                                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">ZIP Code</label>
+                                        <input type="text" name="zip_code" placeholder="12345"
+                                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Date of Birth *</label>
-                            <input type="date" name="date_of_birth" required 
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+
+                        <div class="border-t pt-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Emergency Contact</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Contact Name</label>
+                                    <input type="text" name="emergency_contact_name" 
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Contact Phone</label>
+                                    <input type="tel" name="emergency_contact_phone" 
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Gender</label>
-                            <select name="gender" 
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <option value="">Select...</option>
-                                <option value="male">Male</option>
-                                <option value="female">Female</option>
-                                <option value="other">Other</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Email *</label>
-                            <input type="email" name="email" required 
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Phone *</label>
-                            <input type="tel" name="phone" required 
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        </div>
+                    </div>
+
+                    <div class="flex justify-end mt-8">
+                        <button type="button" onclick="nextStep(2)" 
+                            class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center">
+                            Next <i class="fas fa-arrow-right ml-2"></i>
+                        </button>
                     </div>
                 </div>
 
-                <!-- Emergency Contact -->
-                <div class="border-b pb-6">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Emergency Contact</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Contact Name</label>
-                            <input type="text" name="emergency_contact_name" 
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Contact Phone</label>
-                            <input type="tel" name="emergency_contact_phone" 
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        </div>
-                    </div>
-                </div>
+                <!-- STEP 2: Medical History -->
+                <div id="step2" class="form-step hidden">
+                    <h1 class="text-3xl font-bold text-gray-800 mb-6">
+                        <i class="fas fa-notes-medical text-blue-600 mr-3"></i>
+                        Medical History
+                    </h1>
 
-                <!-- Medical Information -->
-                <div class="border-b pb-6">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Medical Information</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Height (cm)</label>
-                            <input type="number" name="height_cm" 
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <div class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Height (cm)</label>
+                                <input type="number" name="height_cm" placeholder="170"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Weight (kg)</label>
+                                <input type="number" name="weight_kg" placeholder="70"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
                         </div>
+
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Weight (kg)</label>
-                            <input type="number" name="weight_kg" 
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        </div>
-                        <div class="md:col-span-2">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Insurance Provider</label>
-                            <input type="text" name="insurance_provider" 
+                            <input type="text" name="insurance_provider" placeholder="Blue Cross Blue Shield"
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                         </div>
+
+                        <div class="border-t pt-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Chief Complaint</h3>
+                            <textarea name="chief_complaint" rows="3" placeholder="Describe the main reason for your visit..."
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Current Pain Level (0-10)</label>
+                                <input type="range" name="pain_scale" min="0" max="10" value="0" 
+                                    oninput="document.getElementById('painValue').textContent = this.value"
+                                    class="w-full">
+                                <div class="flex justify-between text-xs text-gray-600 mt-1">
+                                    <span>No Pain</span>
+                                    <span class="font-bold text-blue-600" id="painValue">0</span>
+                                    <span>Worst Pain</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Activity Level</label>
+                                <select name="activity_level"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <option value="sedentary">Sedentary</option>
+                                    <option value="light">Light Activity</option>
+                                    <option value="moderate">Moderate Activity</option>
+                                    <option value="active">Active</option>
+                                    <option value="very_active">Very Active</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between mt-8">
+                        <button type="button" onclick="prevStep(1)" 
+                            class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center">
+                            <i class="fas fa-arrow-left mr-2"></i> Back
+                        </button>
+                        <button type="button" onclick="nextStep(3)" 
+                            class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center">
+                            Next <i class="fas fa-arrow-right ml-2"></i>
+                        </button>
                     </div>
                 </div>
 
-                <!-- Submit Button -->
-                <div class="flex justify-end space-x-4">
-                    <button type="button" onclick="window.location.href='/'" 
-                        class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-                        Cancel
-                    </button>
-                    <button type="submit" 
-                        class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center">
-                        <i class="fas fa-save mr-2"></i>
-                        Create Patient
-                    </button>
+                <!-- STEP 3: Assessment Information -->
+                <div id="step3" class="form-step hidden">
+                    <h1 class="text-3xl font-bold text-gray-800 mb-6">
+                        <i class="fas fa-clipboard-check text-blue-600 mr-3"></i>
+                        Assessment Information
+                    </h1>
+
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-3">Assessment Reason *</label>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <label class="assessment-card">
+                                    <input type="radio" name="assessment_reason" value="pre_surgery" class="hidden" required>
+                                    <div class="assessment-card-content">
+                                        <i class="fas fa-hospital text-3xl mb-2 text-blue-600"></i>
+                                        <h3 class="font-semibold">Pre-Surgery</h3>
+                                        <p class="text-sm text-gray-600">Baseline assessment before surgical procedure</p>
+                                    </div>
+                                </label>
+                                
+                                <label class="assessment-card">
+                                    <input type="radio" name="assessment_reason" value="post_surgery" class="hidden">
+                                    <div class="assessment-card-content">
+                                        <i class="fas fa-user-injured text-3xl mb-2 text-green-600"></i>
+                                        <h3 class="font-semibold">Post-Surgery</h3>
+                                        <p class="text-sm text-gray-600">Recovery tracking after surgery</p>
+                                    </div>
+                                </label>
+                                
+                                <label class="assessment-card">
+                                    <input type="radio" name="assessment_reason" value="injury_recovery" class="hidden">
+                                    <div class="assessment-card-content">
+                                        <i class="fas fa-band-aid text-3xl mb-2 text-orange-600"></i>
+                                        <h3 class="font-semibold">Injury Recovery</h3>
+                                        <p class="text-sm text-gray-600">Rehabilitation from injury</p>
+                                    </div>
+                                </label>
+                                
+                                <label class="assessment-card">
+                                    <input type="radio" name="assessment_reason" value="athletic_performance" class="hidden">
+                                    <div class="assessment-card-content">
+                                        <i class="fas fa-running text-3xl mb-2 text-purple-600"></i>
+                                        <h3 class="font-semibold">Athletic Performance</h3>
+                                        <p class="text-sm text-gray-600">Performance optimization</p>
+                                    </div>
+                                </label>
+                                
+                                <label class="assessment-card md:col-span-2">
+                                    <input type="radio" name="assessment_reason" value="general_wellness" class="hidden">
+                                    <div class="assessment-card-content">
+                                        <i class="fas fa-heart text-3xl mb-2 text-red-600"></i>
+                                        <h3 class="font-semibold">General Wellness</h3>
+                                        <p class="text-sm text-gray-600">Preventive care and wellness check</p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between mt-8">
+                        <button type="button" onclick="prevStep(2)" 
+                            class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center">
+                            <i class="fas fa-arrow-left mr-2"></i> Back
+                        </button>
+                        <button type="button" onclick="nextStep(4)" 
+                            class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center">
+                            Next <i class="fas fa-arrow-right ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- STEP 4: Review & Submit -->
+                <div id="step4" class="form-step hidden">
+                    <h1 class="text-3xl font-bold text-gray-800 mb-6">
+                        <i class="fas fa-check-circle text-blue-600 mr-3"></i>
+                        Review Information
+                    </h1>
+
+                    <div id="reviewContent" class="space-y-6">
+                        <!-- Review content will be generated dynamically -->
+                    </div>
+
+                    <div class="flex justify-between mt-8">
+                        <button type="button" onclick="prevStep(3)" 
+                            class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center">
+                            <i class="fas fa-arrow-left mr-2"></i> Back
+                        </button>
+                        <button type="submit" id="submitBtn"
+                            class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center">
+                            <i class="fas fa-check mr-2"></i> Create Patient & Start Assessment
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
 
         <!-- Success Message -->
-        <div id="successMessage" class="hidden mt-6 bg-green-50 border-l-4 border-green-500 p-4 rounded">
-            <div class="flex items-center">
-                <i class="fas fa-check-circle text-green-500 text-xl mr-3"></i>
-                <div>
-                    <p class="text-green-800 font-semibold">Patient created successfully!</p>
-                    <p class="text-green-700 text-sm mt-1">Redirecting to patient list...</p>
+        <div id="successMessage" class="hidden mt-6 bg-green-50 border-l-4 border-green-500 p-6 rounded-lg">
+            <div class="flex items-start">
+                <i class="fas fa-check-circle text-green-500 text-2xl mr-4 mt-1"></i>
+                <div class="flex-1">
+                    <p class="text-green-800 font-bold text-lg">Patient Created Successfully!</p>
+                    <p class="text-green-700 mt-2">
+                        <strong id="patientName"></strong> has been added to the system.
+                    </p>
+                    <div class="mt-4 space-x-3">
+                        <button onclick="startAssessment()" 
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            <i class="fas fa-video mr-2"></i>Start Movement Assessment
+                        </button>
+                        <button onclick="window.location.href='/patients'" 
+                            class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                            <i class="fas fa-users mr-2"></i>View All Patients
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script>
-        document.getElementById('intakeForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const formData = new FormData(e.target);
-            const data = Object.fromEntries(formData.entries());
-            
-            try {
-                const response = await fetch('/api/patients', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    document.getElementById('successMessage').classList.remove('hidden');
-                    setTimeout(() => {
-                        window.location.href = '/patients';
-                    }, 2000);
-                } else {
-                    alert('Error: ' + result.error);
-                }
-            } catch (error) {
-                alert('Error creating patient: ' + error.message);
-            }
-        });
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <script src="/static/intake-workflow.js"></script>
 </body>
 </html>

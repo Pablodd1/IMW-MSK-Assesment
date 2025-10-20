@@ -13,6 +13,52 @@
   --connection-color: #ffff00;
 }
 
+/* ============================================================================
+   INTAKE FORM STYLES
+   ============================================================================ */
+
+/* Form Steps */
+.form-step {
+  display: none;
+}
+
+.form-step.active {
+  display: block;
+}
+
+/* Assessment Cards */
+.assessment-card {
+  cursor: pointer;
+  display: block;
+  transition: all 0.3s ease;
+}
+
+.assessment-card-content {
+  padding: 1.5rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.75rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.assessment-card:hover .assessment-card-content {
+  border-color: var(--primary-color);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.assessment-card input:checked + .assessment-card-content {
+  border-color: var(--primary-color);
+  background: #eff6ff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.assessment-card.selected-card .assessment-card-content {
+  border-color: var(--primary-color);
+  background: #eff6ff;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
