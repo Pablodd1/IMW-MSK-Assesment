@@ -123,6 +123,102 @@ async function createMovementTest() {
 }
 
 // ============================================================================
+// CAMERA PERMISSION CHECK
+// ============================================================================
+
+async function checkCameraPermissions() {
+  try {
+    console.log('🔍 Checking camera permissions...');
+    
+    // Check if Permissions API is available
+    if (navigator.permissions && navigator.permissions.query) {
+      try {
+        const result = await navigator.permissions.query({ name: 'camera' });
+        console.log('📋 Permission status:', result.state);
+        
+        if (result.state === 'granted') {
+          showNotification('✅ Camera access already granted!', 'success');
+          await detectAvailableCameras();
+          return true;
+        } else if (result.state === 'prompt') {
+          showNotification('ℹ️ Camera permission will be requested when you start', 'info');
+        } else if (result.state === 'denied') {
+          showNotification('❌ Camera access denied. Please enable in browser settings.', 'error');
+          return false;
+        }
+      } catch (permError) {
+        console.log('⚠️ Permissions API not fully supported, will check via getUserMedia');
+      }
+    }
+    
+    // Try to get camera access to verify
+    showNotification('🔍 Testing camera access...', 'info');
+    
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    
+    // Success! Now stop the stream
+    stream.getTracks().forEach(track => track.stop());
+    
+    showNotification('✅ Camera access granted! You can now start the assessment.', 'success');
+    
+    // Detect available cameras
+    await detectAvailableCameras();
+    
+    console.log('✅ Camera permission check passed');
+    return true;
+    
+  } catch (error) {
+    console.error('❌ Camera permission check failed:', error);
+    
+    let message = '';
+    if (error.name === 'NotAllowedError') {
+      message = '❌ Camera access denied. Please click "Allow" when prompted.';
+    } else if (error.name === 'NotFoundError') {
+      message = '📷 No camera found on this device.';
+    } else {
+      message = '⚠️ Camera check failed: ' + error.message;
+    }
+    
+    showNotification(message, 'error');
+    
+    // Show detailed help
+    setTimeout(() => {
+      alert(`Camera Access Help:
+
+Current status: ${error.name}
+
+To enable camera access:
+
+📱 Mobile (iPhone):
+1. Settings → Safari → Camera
+2. Select "Allow" for this site
+
+📱 Mobile (Android):
+1. Settings → Apps → Chrome/Browser
+2. Permissions → Camera → Allow
+
+💻 Desktop (Chrome):
+1. Click the 🔒 icon in address bar
+2. Camera → Allow
+3. Refresh the page
+
+💻 Desktop (Firefox):
+1. Click the 🔒 icon in address bar  
+2. Permissions → Camera → Allow
+3. Refresh the page
+
+Make sure:
+• You're using HTTPS (${window.location.protocol})
+• No other app is using the camera
+• Camera is not blocked by system settings
+      `);
+    }, 1000);
+    
+    return false;
+  }
+}
+
+// ============================================================================
 // CAMERA DETECTION AND ENUMERATION
 // ============================================================================
 
@@ -131,14 +227,18 @@ async function detectAvailableCameras() {
     const devices = await navigator.mediaDevices.enumerateDevices();
     const videoDevices = devices.filter(device => device.kind === 'videoinput');
     
-    ASSESSMENT_STATE.availableCameras = videoDevices.map(device => ({
+    ASSESSMENT_STATE.availableCameras = videoDevices.map((device, index) => ({
       deviceId: device.deviceId,
-      label: device.label || `Camera ${videoDevices.indexOf(device) + 1}`,
+      label: device.label || `Camera ${index + 1}`,
       isFrontFacing: device.label.toLowerCase().includes('front'),
       isBackFacing: device.label.toLowerCase().includes('back')
     }));
     
     console.log('📷 Available cameras:', ASSESSMENT_STATE.availableCameras);
+    
+    if (ASSESSMENT_STATE.availableCameras.length > 0) {
+      showNotification(`Found ${ASSESSMENT_STATE.availableCameras.length} camera(s)`, 'success');
+    }
     
     return ASSESSMENT_STATE.availableCameras;
   } catch (error) {
@@ -216,10 +316,15 @@ async function startAssessment() {
 
 async function initializeWebCamera() {
   try {
-    showStatus('Initializing camera...', 'warning');
+    showStatus('Requesting camera access...', 'warning');
     
     const video = document.getElementById('videoElement');
     const canvas = document.getElementById('canvasElement');
+    
+    // Check if getUserMedia is supported
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error('Camera API not supported in this browser. Please use Chrome, Firefox, Safari, or Edge.');
+    }
     
     // Stop existing stream if any
     if (ASSESSMENT_STATE.cameraStream) {
@@ -261,8 +366,15 @@ async function initializeWebCamera() {
     }
     
     console.log('📷 Requesting camera with constraints:', constraints);
+    console.log('🌐 Page URL:', window.location.href);
+    console.log('🔒 Is HTTPS:', window.location.protocol === 'https:');
+    
+    showStatus('Please allow camera access in your browser...', 'warning');
     
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    
+    console.log('✅ Camera access granted!');
+    
     video.srcObject = stream;
     ASSESSMENT_STATE.cameraStream = stream;
     
@@ -277,34 +389,173 @@ async function initializeWebCamera() {
     
     // Wait for video to load
     await new Promise((resolve) => {
-      video.onloadedmetadata = resolve;
+      video.onloadedmetadata = () => {
+        console.log('✅ Video metadata loaded');
+        resolve();
+      };
     });
     
     await video.play();
+    console.log('✅ Video playing');
     
     // Set canvas size to match video
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     
+    console.log(`✅ Canvas size: ${canvas.width}x${canvas.height}`);
+    
     // Initialize MediaPipe Pose
     await initializeMediaPipePose();
     
     showStatus(`Camera connected: ${cameraLabel}`, 'success');
+    showNotification('Camera connected successfully!', 'success');
     
   } catch (error) {
-    console.error('Camera initialization error:', error);
+    console.error('❌ Camera initialization error:', error);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    
     showStatus('Camera access denied', 'error');
     
-    // More helpful error messages
-    if (error.name === 'NotAllowedError') {
-      alert('Please allow camera access to continue with the assessment.\n\nOn mobile: Check your browser settings.\nOn desktop: Click the camera icon in the address bar.');
-    } else if (error.name === 'NotFoundError') {
-      alert('No camera found. Please check:\n1. Camera is connected\n2. Camera permissions are granted\n3. No other app is using the camera');
-    } else if (error.name === 'NotReadableError') {
-      alert('Camera is in use by another application. Please close other apps using the camera and try again.');
+    // More helpful error messages with specific instructions
+    let errorMessage = '';
+    let helpText = '';
+    
+    if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+      errorMessage = '🚫 Camera Access Denied';
+      helpText = `
+Please grant camera permissions:
+
+📱 Mobile:
+• iPhone: Settings → Safari → Camera → Allow
+• Android Chrome: Settings → Site Settings → Camera → Allow for this site
+
+💻 Desktop:
+• Chrome: Click the 🔒 lock icon → Camera → Allow
+• Firefox: Click the 🔒 lock icon → Permissions → Camera → Allow
+• Safari: Settings → Websites → Camera → Allow for this site
+
+After granting permission, please refresh this page.
+      `.trim();
+    } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+      errorMessage = '📷 No Camera Found';
+      helpText = `
+No camera detected. Please check:
+
+1. ✓ Camera is physically connected (USB cameras)
+2. ✓ Camera is not covered or blocked
+3. ✓ No other app is using the camera
+4. ✓ Camera drivers are installed (Windows/Linux)
+5. ✓ Try a different browser
+
+For built-in cameras, try restarting your device.
+      `.trim();
+    } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+      errorMessage = '⚠️ Camera In Use';
+      helpText = `
+Camera is already being used by another application.
+
+Please:
+1. Close other apps that might be using the camera
+2. Close other browser tabs with camera access
+3. Restart your browser
+4. Try again
+
+Common apps that use camera: Zoom, Skype, Teams, OBS
+      `.trim();
+    } else if (error.name === 'OverconstrainedError' || error.name === 'ConstraintNotSatisfiedError') {
+      errorMessage = '⚙️ Camera Constraints Not Supported';
+      helpText = `
+The requested camera settings are not supported.
+
+Trying with default settings...
+      `.trim();
+      
+      // Try again with minimal constraints
+      setTimeout(() => {
+        retryWithMinimalConstraints();
+      }, 2000);
+      
+    } else if (error.message && error.message.includes('not supported')) {
+      errorMessage = '🌐 Browser Not Supported';
+      helpText = `
+This browser doesn't support camera access.
+
+Please use:
+• Google Chrome
+• Mozilla Firefox  
+• Safari (iOS/macOS)
+• Microsoft Edge
+
+Make sure you're accessing via HTTPS (secure connection).
+      `.trim();
     } else {
-      alert('Camera initialization failed: ' + error.message);
+      errorMessage = '❌ Camera Error';
+      helpText = `
+An unexpected error occurred: ${error.message}
+
+Please try:
+1. Refresh the page
+2. Use a different browser
+3. Check browser console for details
+4. Contact support if issue persists
+
+Debug Info:
+• Error: ${error.name}
+• Protocol: ${window.location.protocol}
+• Browser: ${navigator.userAgent.split(' ').pop()}
+      `.trim();
     }
+    
+    // Show detailed error message
+    alert(`${errorMessage}\n\n${helpText}`);
+    
+    // Log detailed error for debugging
+    console.log('🔍 Full error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      protocol: window.location.protocol,
+      userAgent: navigator.userAgent
+    });
+  }
+}
+
+// Retry with minimal constraints if advanced constraints fail
+async function retryWithMinimalConstraints() {
+  try {
+    console.log('🔄 Retrying with minimal constraints...');
+    showStatus('Retrying with basic settings...', 'warning');
+    
+    const video = document.getElementById('videoElement');
+    const canvas = document.getElementById('canvasElement');
+    
+    // Ultra-simple constraints
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: false
+    });
+    
+    video.srcObject = stream;
+    ASSESSMENT_STATE.cameraStream = stream;
+    
+    await new Promise((resolve) => {
+      video.onloadedmetadata = resolve;
+    });
+    
+    await video.play();
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    await initializeMediaPipePose();
+    
+    showStatus('Camera connected (basic mode)', 'success');
+    showNotification('Camera connected with basic settings', 'success');
+    
+  } catch (retryError) {
+    console.error('❌ Retry also failed:', retryError);
+    showStatus('Camera initialization failed', 'error');
   }
 }
 
