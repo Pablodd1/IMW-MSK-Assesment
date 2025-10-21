@@ -1,16 +1,17 @@
 /* PhysioMotion - Enhanced Styles */
 
 :root {
-  --primary-color: #3b82f6;
-  --primary-dark: #2563eb;
-  --secondary-color: #10b981;
-  --danger-color: #ef4444;
-  --warning-color: #f59e0b;
-  --dark-color: #1f2937;
-  --light-color: #f3f4f6;
-  --skeleton-color: #ff0000;
-  --joint-color: #00ff00;
-  --connection-color: #ffff00;
+  /* Modern Teal & Purple Medical Theme */
+  --primary-color: #0891b2;        /* Teal - Primary buttons & accents */
+  --primary-dark: #0e7490;         /* Dark Teal - Hover states */
+  --secondary-color: #8b5cf6;      /* Purple - Success & completed states */
+  --danger-color: #f43f5e;         /* Rose - Errors & warnings */
+  --warning-color: #f59e0b;        /* Amber - Caution states */
+  --dark-color: #1e293b;           /* Slate - Dark text & backgrounds */
+  --light-color: #f1f5f9;          /* Light slate - Light backgrounds */
+  --skeleton-color: #06b6d4;       /* Cyan - Skeleton tracking points */
+  --joint-color: #a78bfa;          /* Light purple - Joint highlights */
+  --connection-color: #22d3ee;     /* Bright cyan - Connection lines */
 }
 
 /* ============================================================================
@@ -45,18 +46,18 @@
 .assessment-card:hover .assessment-card-content {
   border-color: var(--primary-color);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 4px 12px rgba(8, 145, 178, 0.2);
 }
 
 .assessment-card input:checked + .assessment-card-content {
   border-color: var(--primary-color);
-  background: #eff6ff;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  background: #ecfeff;
+  box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.15);
 }
 
 .assessment-card.selected-card .assessment-card-content {
   border-color: var(--primary-color);
-  background: #eff6ff;
+  background: #ecfeff;
 }
 
 * {
@@ -387,12 +388,12 @@ body {
 .camera-option:hover {
   border-color: var(--primary-color);
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 8px 24px rgba(8, 145, 178, 0.25);
 }
 
 .camera-option.selected {
   border-color: var(--primary-color);
-  background: rgba(59, 130, 246, 0.05);
+  background: rgba(8, 145, 178, 0.08);
 }
 
 .camera-option i {

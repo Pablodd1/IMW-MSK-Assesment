@@ -604,33 +604,33 @@ app.get('/', (c) => {
     <body class="bg-gray-50">
         <div id="app">
             <!-- Navigation -->
-            <nav class="bg-white shadow-lg">
+            <nav class="bg-white shadow-lg border-b-2 border-cyan-500">
                 <div class="max-w-7xl mx-auto px-4">
                     <div class="flex justify-between h-16">
                         <div class="flex items-center">
-                            <i class="fas fa-heartbeat text-blue-600 text-2xl mr-3"></i>
-                            <span class="text-xl font-bold text-gray-800">PhysioMotion</span>
+                            <i class="fas fa-heartbeat text-cyan-600 text-2xl mr-3"></i>
+                            <span class="text-xl font-bold text-slate-800">PhysioMotion</span>
                         </div>
                         <div class="flex items-center space-x-4">
-                            <a href="/dashboard" class="text-gray-700 hover:text-blue-600"><i class="fas fa-home mr-2"></i>Dashboard</a>
-                            <a href="/patients" class="text-gray-700 hover:text-blue-600"><i class="fas fa-users mr-2"></i>Patients</a>
-                            <a href="/assessments" class="text-gray-700 hover:text-blue-600"><i class="fas fa-clipboard-check mr-2"></i>Assessments</a>
-                            <a href="/monitoring" class="text-gray-700 hover:text-blue-600"><i class="fas fa-chart-line mr-2"></i>Monitoring</a>
+                            <a href="/dashboard" class="text-gray-700 hover:text-cyan-600 transition-colors"><i class="fas fa-home mr-2"></i>Dashboard</a>
+                            <a href="/patients" class="text-gray-700 hover:text-cyan-600 transition-colors"><i class="fas fa-users mr-2"></i>Patients</a>
+                            <a href="/assessments" class="text-gray-700 hover:text-cyan-600 transition-colors"><i class="fas fa-clipboard-check mr-2"></i>Assessments</a>
+                            <a href="/monitoring" class="text-gray-700 hover:text-cyan-600 transition-colors"><i class="fas fa-chart-line mr-2"></i>Monitoring</a>
                         </div>
                     </div>
                 </div>
             </nav>
 
             <!-- Hero Section -->
-            <div class="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-16">
+            <div class="bg-gradient-to-r from-cyan-600 to-purple-600 text-white py-16">
                 <div class="max-w-7xl mx-auto px-4 text-center">
                     <h1 class="text-4xl font-bold mb-4">Medical Movement Assessment Platform</h1>
                     <p class="text-xl mb-8">AI-Powered Biomechanical Analysis for Physical Therapy & Chiropractic Care</p>
                     <div class="flex justify-center space-x-4">
-                        <button onclick="window.location.href='/intake'" class="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100">
+                        <button onclick="window.location.href='/intake'" class="bg-white text-cyan-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-all">
                             <i class="fas fa-user-plus mr-2"></i>New Patient Intake
                         </button>
-                        <button onclick="window.location.href='/assessment'" class="bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-400">
+                        <button onclick="window.location.href='/assessment'" class="bg-purple-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-400 transition-all">
                             <i class="fas fa-video mr-2"></i>Start Assessment
                         </button>
                     </div>
@@ -641,42 +641,42 @@ app.get('/', (c) => {
             <div class="max-w-7xl mx-auto px-4 py-12">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <!-- Feature 1 -->
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <div class="text-blue-600 text-3xl mb-4"><i class="fas fa-camera"></i></div>
+                    <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+                        <div class="text-cyan-600 text-3xl mb-4"><i class="fas fa-camera"></i></div>
                         <h3 class="text-xl font-bold mb-2">Real-Time Motion Capture</h3>
                         <p class="text-gray-600">Advanced Orbbec Femto Mega integration with Azure Kinect Body Tracking SDK for professional clinical assessments</p>
                     </div>
 
                     <!-- Feature 2 -->
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <div class="text-green-600 text-3xl mb-4"><i class="fas fa-brain"></i></div>
+                    <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+                        <div class="text-purple-600 text-3xl mb-4"><i class="fas fa-brain"></i></div>
                         <h3 class="text-xl font-bold mb-2">AI Biomechanical Analysis</h3>
                         <p class="text-gray-600">Automated joint angle calculations, ROM measurements, and compensation pattern detection</p>
                     </div>
 
                     <!-- Feature 3 -->
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <div class="text-purple-600 text-3xl mb-4"><i class="fas fa-mobile-alt"></i></div>
+                    <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+                        <div class="text-violet-600 text-3xl mb-4"><i class="fas fa-mobile-alt"></i></div>
                         <h3 class="text-xl font-bold mb-2">Home Exercise Monitoring</h3>
                         <p class="text-gray-600">MediaPipe Pose integration for remote patient monitoring via mobile camera with real-time feedback</p>
                     </div>
 
                     <!-- Feature 4 -->
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <div class="text-red-600 text-3xl mb-4"><i class="fas fa-file-medical"></i></div>
+                    <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+                        <div class="text-rose-600 text-3xl mb-4"><i class="fas fa-file-medical"></i></div>
                         <h3 class="text-xl font-bold mb-2">Automated Medical Notes</h3>
                         <p class="text-gray-600">AI-generated SOAP notes with comprehensive deficiency documentation and treatment plans</p>
                     </div>
 
                     <!-- Feature 5 -->
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <div class="text-orange-600 text-3xl mb-4"><i class="fas fa-dumbbell"></i></div>
+                    <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+                        <div class="text-teal-600 text-3xl mb-4"><i class="fas fa-dumbbell"></i></div>
                         <h3 class="text-xl font-bold mb-2">Exercise Prescription</h3>
                         <p class="text-gray-600">Evidence-based exercise library with automated prescription based on identified deficiencies</p>
                     </div>
 
                     <!-- Feature 6 -->
-                    <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
                         <div class="text-indigo-600 text-3xl mb-4"><i class="fas fa-dollar-sign"></i></div>
                         <h3 class="text-xl font-bold mb-2">Medical Billing</h3>
                         <p class="text-gray-600">Integrated CPT coding with RPM/RTM billing support for remote patient monitoring</p>
@@ -685,23 +685,23 @@ app.get('/', (c) => {
             </div>
 
             <!-- Stats Section -->
-            <div class="bg-white py-12">
+            <div class="bg-gradient-to-r from-slate-50 to-slate-100 py-12">
                 <div class="max-w-7xl mx-auto px-4">
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-6 text-center">
                         <div>
-                            <div class="text-4xl font-bold text-blue-600">32</div>
+                            <div class="text-4xl font-bold text-cyan-600">32</div>
                             <div class="text-gray-600">Joint Points Tracked</div>
                         </div>
                         <div>
-                            <div class="text-4xl font-bold text-green-600">15+</div>
+                            <div class="text-4xl font-bold text-purple-600">15+</div>
                             <div class="text-gray-600">Evidence-Based Exercises</div>
                         </div>
                         <div>
-                            <div class="text-4xl font-bold text-purple-600">Real-Time</div>
+                            <div class="text-4xl font-bold text-violet-600">Real-Time</div>
                             <div class="text-gray-600">Analysis & Feedback</div>
                         </div>
                         <div>
-                            <div class="text-4xl font-bold text-red-600">92%</div>
+                            <div class="text-4xl font-bold text-teal-600">92%</div>
                             <div class="text-gray-600">AI Confidence Score</div>
                         </div>
                     </div>
@@ -709,10 +709,10 @@ app.get('/', (c) => {
             </div>
 
             <!-- Footer -->
-            <footer class="bg-gray-800 text-white py-8">
+            <footer class="bg-gradient-to-r from-slate-800 to-slate-900 text-white py-8 border-t-4 border-cyan-500">
                 <div class="max-w-7xl mx-auto px-4 text-center">
                     <p>&copy; 2025 PhysioMotion. Medical-Grade Movement Assessment Platform.</p>
-                    <p class="text-sm text-gray-400 mt-2">Powered by Orbbec Femto Mega, Azure Kinect Body Tracking SDK, and MediaPipe Pose</p>
+                    <p class="text-sm text-slate-400 mt-2">Powered by Orbbec Femto Mega, Azure Kinect Body Tracking SDK, and MediaPipe Pose</p>
                 </div>
             </footer>
         </div>
