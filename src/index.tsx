@@ -114,7 +114,7 @@ app.post('/api/assessments', async (c) => {
     
     const result = await c.env.DB.prepare(`
       INSERT INTO assessments (
-        patient_id, clinician_id, assessment_type, assessment_status
+        patient_id, clinician_id, assessment_type, status
       ) VALUES (?, ?, ?, ?)
     `).bind(
       assessment.patient_id, assessment.clinician_id || 1,
@@ -153,7 +153,7 @@ app.post('/api/assessments/:id/tests', async (c) => {
     
     const result = await c.env.DB.prepare(`
       INSERT INTO movement_tests (
-        assessment_id, test_name, test_category, test_order, instructions, test_status
+        assessment_id, test_name, test_category, test_order, instructions, status
       ) VALUES (?, ?, ?, ?, ?, ?)
     `).bind(
       assessmentId, test.test_name, test.test_category,
@@ -178,7 +178,7 @@ app.put('/api/tests/:id/analyze', async (c) => {
     // Update movement test with skeleton data
     await c.env.DB.prepare(`
       UPDATE movement_tests 
-      SET skeleton_data = ?, test_status = 'completed', completed_at = CURRENT_TIMESTAMP
+      SET skeleton_data = ?, status = 'completed', completed_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).bind(JSON.stringify(skeleton_data), testId).run()
     
@@ -434,7 +434,7 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
           objective_findings = ?,
           assessment_summary = ?,
           plan = ?,
-          assessment_status = 'completed'
+          status = 'completed'
       WHERE id = ?
     `).bind(
       medicalNote.subjective,
