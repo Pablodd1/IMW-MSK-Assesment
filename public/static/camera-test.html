@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Diagnostics - PhysioMotion</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6">
+            <i class="fas fa-camera text-blue-600 mr-3"></i>
+            Camera Diagnostics
+        </h1>
+
+        <!-- System Information -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-bold mb-4">System Information</h2>
+            <div id="systemInfo" class="space-y-2 text-sm font-mono"></div>
+        </div>
+
+        <!-- Camera Test -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-bold mb-4">Camera Test</h2>
+            
+            <div class="space-y-4">
+                <button onclick="testBasicCamera()" class="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    <i class="fas fa-play mr-2"></i>Test Basic Camera Access
+                </button>
+                
+                <button onclick="testFacingMode()" class="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                    <i class="fas fa-mobile mr-2"></i>Test Front Camera (user)
+                </button>
+                
+                <button onclick="testBackCamera()" class="w-full px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                    <i class="fas fa-camera mr-2"></i>Test Back Camera (environment)
+                </button>
+                
+                <button onclick="enumerateDevices()" class="w-full px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700">
+                    <i class="fas fa-list mr-2"></i>List All Cameras
+                </button>
+            </div>
+
+            <!-- Video Preview -->
+            <div class="mt-6">
+                <video id="videoPreview" autoplay playsinline class="w-full rounded-lg bg-black"></video>
+            </div>
+            
+            <!-- Stop Button -->
+            <button onclick="stopCamera()" class="w-full mt-4 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 hidden" id="stopBtn">
+                <i class="fas fa-stop mr-2"></i>Stop Camera
+            </button>
+        </div>
+
+        <!-- Results Log -->
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-bold mb-4">Test Results</h2>
+            <div id="resultsLog" class="space-y-2 text-sm font-mono max-h-96 overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentStream = null;
+        const video = document.getElementById('videoPreview');
+        const resultsLog = document.getElementById('resultsLog');
+
+        // Display system info
+        function displaySystemInfo() {
+            const info = {
+                'User Agent': navigator.userAgent,
+                'Platform': navigator.platform,
+                'Protocol': window.location.protocol,
+                'URL': window.location.href,
+                'MediaDevices API': !!navigator.mediaDevices,
+                'getUserMedia': !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+                'Screen Width': window.screen.width,
+                'Screen Height': window.screen.height,
+                'Device Pixel Ratio': window.devicePixelRatio
+            };
+
+            const systemInfo = document.getElementById('systemInfo');
+            systemInfo.innerHTML = Object.entries(info).map(([key, value]) => 
+                `<div><span class="font-bold text-blue-600">${key}:</span> ${value}</div>`
+            ).join('');
+        }
+
+        function log(message, type = 'info') {
+            const colors = {
+                'info': 'text-blue-600',
+                'success': 'text-green-600',
+                'error': 'text-red-600',
+                'warning': 'text-orange-600'
+            };
+            
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = colors[type];
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            resultsLog.appendChild(logEntry);
+            resultsLog.scrollTop = resultsLog.scrollHeight;
+            
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        async function testBasicCamera() {
+            log('Testing basic camera access...', 'info');
+            stopCamera();
+            
+            try {
+                log('Requesting camera with minimal constraints: { video: true }', 'info');
+                
+                currentStream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: false
+                });
+                
+                log('✅ Camera access granted!', 'success');
+                
+                video.srcObject = currentStream;
+                await video.play();
+                
+                const track = currentStream.getVideoTracks()[0];
+                const settings = track.getSettings();
+                
+                log(`Camera Label: ${track.label}`, 'success');
+                log(`Resolution: ${settings.width}x${settings.height}`, 'success');
+                log(`Device ID: ${settings.deviceId}`, 'success');
+                log(`Facing Mode: ${settings.facingMode || 'Not specified'}`, 'success');
+                
+                document.getElementById('stopBtn').classList.remove('hidden');
+                
+            } catch (error) {
+                log(`❌ Error: ${error.name}`, 'error');
+                log(`Message: ${error.message}`, 'error');
+                showErrorHelp(error);
+            }
+        }
+
+        async function testFacingMode() {
+            log('Testing front camera (facingMode: user)...', 'info');
+            stopCamera();
+            
+            try {
+                log('Requesting camera with facingMode: user', 'info');
+                
+                currentStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'user',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
+                });
+                
+                log('✅ Front camera access granted!', 'success');
+                
+                video.srcObject = currentStream;
+                await video.play();
+                
+                const track = currentStream.getVideoTracks()[0];
+                const settings = track.getSettings();
+                
+                log(`Camera: ${track.label}`, 'success');
+                log(`Facing Mode: ${settings.facingMode}`, 'success');
+                log(`Resolution: ${settings.width}x${settings.height}`, 'success');
+                
+                document.getElementById('stopBtn').classList.remove('hidden');
+                
+            } catch (error) {
+                log(`❌ Error: ${error.name}`, 'error');
+                log(`Message: ${error.message}`, 'error');
+                showErrorHelp(error);
+            }
+        }
+
+        async function testBackCamera() {
+            log('Testing back camera (facingMode: environment)...', 'info');
+            stopCamera();
+            
+            try {
+                log('Requesting camera with facingMode: environment', 'info');
+                
+                currentStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
+                });
+                
+                log('✅ Back camera access granted!', 'success');
+                
+                video.srcObject = currentStream;
+                await video.play();
+                
+                const track = currentStream.getVideoTracks()[0];
+                const settings = track.getSettings();
+                
+                log(`Camera: ${track.label}`, 'success');
+                log(`Facing Mode: ${settings.facingMode}`, 'success');
+                log(`Resolution: ${settings.width}x${settings.height}`, 'success');
+                
+                document.getElementById('stopBtn').classList.remove('hidden');
+                
+            } catch (error) {
+                log(`❌ Error: ${error.name}`, 'error');
+                log(`Message: ${error.message}`, 'error');
+                
+                // Try fallback without facingMode
+                log('Trying fallback without facingMode...', 'warning');
+                try {
+                    currentStream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        }
+                    });
+                    log('✅ Fallback successful!', 'success');
+                    video.srcObject = currentStream;
+                    await video.play();
+                    document.getElementById('stopBtn').classList.remove('hidden');
+                } catch (fallbackError) {
+                    log(`❌ Fallback failed: ${fallbackError.message}`, 'error');
+                    showErrorHelp(fallbackError);
+                }
+            }
+        }
+
+        async function enumerateDevices() {
+            log('Enumerating all media devices...', 'info');
+            
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(d => d.kind === 'videoinput');
+                
+                log(`Found ${videoDevices.length} camera(s):`, 'success');
+                
+                videoDevices.forEach((device, index) => {
+                    log(`Camera ${index + 1}:`, 'info');
+                    log(`  Label: ${device.label || 'Unknown (grant permission first)'}`, 'info');
+                    log(`  Device ID: ${device.deviceId}`, 'info');
+                    log(`  Group ID: ${device.groupId}`, 'info');
+                });
+                
+                if (videoDevices.length === 0) {
+                    log('⚠️ No cameras found!', 'warning');
+                    log('Possible reasons:', 'warning');
+                    log('  - No camera connected', 'warning');
+                    log('  - Camera disabled in system settings', 'warning');
+                    log('  - Camera in use by another app', 'warning');
+                }
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        function stopCamera() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => {
+                    track.stop();
+                    log('Camera stopped', 'info');
+                });
+                currentStream = null;
+                video.srcObject = null;
+                document.getElementById('stopBtn').classList.add('hidden');
+            }
+        }
+
+        function showErrorHelp(error) {
+            log('', 'info');
+            log('=== TROUBLESHOOTING HELP ===', 'warning');
+            
+            if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                log('Camera permission denied!', 'error');
+                log('', 'info');
+                log('📱 On iPhone:', 'info');
+                log('  Settings → Safari → Camera → Allow', 'info');
+                log('', 'info');
+                log('📱 On Android:', 'info');
+                log('  Settings → Apps → Chrome → Permissions → Camera → Allow', 'info');
+                log('', 'info');
+                log('💻 On Desktop:', 'info');
+                log('  Click the 🔒 icon in address bar → Camera → Allow', 'info');
+                log('  Then refresh this page', 'info');
+                
+            } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                log('No camera found!', 'error');
+                log('', 'info');
+                log('Possible solutions:', 'info');
+                log('  1. Check camera is connected (USB cameras)', 'info');
+                log('  2. Check camera is not disabled in BIOS', 'info');
+                log('  3. Close other apps using camera', 'info');
+                log('  4. Restart your device', 'info');
+                
+            } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                log('Camera is in use!', 'error');
+                log('', 'info');
+                log('Close these apps:', 'info');
+                log('  - Zoom, Teams, Skype', 'info');
+                log('  - Other browser tabs', 'info');
+                log('  - Video recording software', 'info');
+                
+            } else if (error.name === 'OverconstrainedError') {
+                log('Camera constraints not supported!', 'error');
+                log('This camera may not support the requested settings', 'warning');
+                log('Try the "Test Basic Camera Access" button', 'info');
+                
+            } else {
+                log('Unknown error occurred!', 'error');
+                log(`Error name: ${error.name}`, 'error');
+                log(`Error message: ${error.message}`, 'error');
+            }
+            
+            log('', 'info');
+            log('=========================', 'warning');
+        }
+
+        // Check browser compatibility
+        function checkCompatibility() {
+            log('Checking browser compatibility...', 'info');
+            
+            if (!navigator.mediaDevices) {
+                log('❌ MediaDevices API not supported!', 'error');
+                log('Please use Chrome, Firefox, Safari, or Edge', 'error');
+                return false;
+            }
+            
+            if (!navigator.mediaDevices.getUserMedia) {
+                log('❌ getUserMedia not supported!', 'error');
+                log('Please update your browser', 'error');
+                return false;
+            }
+            
+            if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+                log('⚠️ WARNING: Not using HTTPS!', 'warning');
+                log('Camera access requires HTTPS', 'warning');
+            }
+            
+            log('✅ Browser is compatible!', 'success');
+            return true;
+        }
+
+        // Initialize
+        window.addEventListener('DOMContentLoaded', () => {
+            displaySystemInfo();
+            checkCompatibility();
+            log('Camera diagnostics ready. Click a button to start testing.', 'info');
+            log('', 'info');
+        });
+    </script>
+</body>
+</html>
