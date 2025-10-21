@@ -237,15 +237,15 @@ app.get('/api/exercises', async (c) => {
   try {
     const category = c.req.query('category')
     
-    let query = 'SELECT * FROM exercise_library'
+    let query = 'SELECT * FROM exercises'
     const params: any[] = []
     
     if (category) {
-      query += ' WHERE exercise_category = ?'
+      query += ' WHERE category = ?'
       params.push(category)
     }
     
-    query += ' ORDER BY exercise_name'
+    query += ' ORDER BY name'
     
     const { results } = await c.env.DB.prepare(query).bind(...params).all()
     
@@ -290,16 +290,15 @@ app.get('/api/patients/:id/prescriptions', async (c) => {
     const { results } = await c.env.DB.prepare(`
       SELECT 
         pe.*,
-        el.exercise_name,
-        el.description,
-        el.instructions,
-        el.demo_video_url,
-        el.equipment_required,
-        el.difficulty_level
+        e.name as exercise_name,
+        e.description,
+        e.instructions,
+        e.demo_video_url,
+        e.difficulty
       FROM prescribed_exercises pe
-      JOIN exercise_library el ON pe.exercise_id = el.id
-      WHERE pe.patient_id = ? AND pe.prescription_status = 'active'
-      ORDER BY pe.prescribed_at DESC
+      JOIN exercises e ON pe.exercise_id = e.id
+      WHERE pe.patient_id = ? AND pe.status = 'active'
+      ORDER BY pe.created_at DESC
     `).bind(patientId).all()
     
     return c.json({ success: true, data: results })
@@ -347,12 +346,12 @@ app.get('/api/patients/:id/sessions', async (c) => {
     const { results } = await c.env.DB.prepare(`
       SELECT 
         es.*,
-        el.exercise_name,
+        e.name as exercise_name,
         pe.sets as prescribed_sets,
-        pe.repetitions as prescribed_reps
+        pe.reps as prescribed_reps
       FROM exercise_sessions es
-      JOIN prescribed_exercises pe ON es.prescribed_exercise_id = pe.id
-      JOIN exercise_library el ON pe.exercise_id = el.id
+      JOIN prescribed_exercises pe ON es.prescription_id = pe.prescription_id
+      JOIN exercises e ON pe.exercise_id = e.id
       WHERE es.patient_id = ?
       ORDER BY es.session_date DESC
       LIMIT 50
