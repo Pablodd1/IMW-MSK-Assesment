@@ -344,6 +344,23 @@ async function startAssessment() {
       await initializeWebCamera();
       break;
     case 'femto':
+      // Show configuration dialog if bridge URL not set
+      const savedUrl = localStorage.getItem('femto_bridge_url');
+      if (!savedUrl) {
+        const configUrl = prompt(
+          'Enter Femto Mega Bridge Server URL:\n\n' +
+          'Examples:\n' +
+          '  - ws://localhost:8765 (same machine)\n' +
+          '  - ws://192.168.1.100:8765 (local network)\n\n' +
+          'You can change this later in browser console:\n' +
+          'localStorage.setItem(\'femto_bridge_url\', \'ws://YOUR_IP:8765\')',
+          'ws://localhost:8765'
+        );
+        if (configUrl) {
+          localStorage.setItem('femto_bridge_url', configUrl);
+          console.log(`✅ Femto bridge URL saved: ${configUrl}`);
+        }
+      }
       await initializeFemtoMega();
       break;
     case 'upload':
@@ -1014,7 +1031,11 @@ async function initializeFemtoMega() {
   try {
     showStatus('Connecting to Femto Mega...', 'warning');
     
-    const femtoClient = new FemtoMegaClient('ws://localhost:8765');
+    // Get bridge server URL from localStorage or use default
+    const bridgeUrl = localStorage.getItem('femto_bridge_url') || 'ws://localhost:8765';
+    console.log(`📡 Connecting to Femto Mega bridge at: ${bridgeUrl}`);
+    
+    const femtoClient = new FemtoMegaClient(bridgeUrl);
     await femtoClient.connect();
     
     ASSESSMENT_STATE.femtoMegaClient = femtoClient;
