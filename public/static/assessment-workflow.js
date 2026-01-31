@@ -499,14 +499,59 @@ async function initializeWebCamera() {
     await video.play();
     console.log('✅ Video playing');
     
+    // Check if video has actual dimensions (not black screen)
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      console.error('⚠️ WARNING: Video has no dimensions! Camera may be blocked or in use.');
+      showNotification('Camera is connected but showing black screen. Check if another app is using the camera.', 'warning');
+    }
+    
     // Set canvas size to match video
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
     
     console.log(`✅ Canvas size: ${canvas.width}x${canvas.height}`);
     
     // Initialize MediaPipe Pose
     await initializeMediaPipePose();
+    
+    // Add diagnostic check after 2 seconds
+    setTimeout(() => {
+      const video = document.getElementById('videoElement');
+      const canvas = document.getElementById('canvasElement');
+      
+      if (video.videoWidth === 0 || video.videoHeight === 0) {
+        console.error('🚨 DIAGNOSTIC: Camera stream exists but no video dimensions!');
+        console.error('   This usually means:');
+        console.error('   1. Another app is using the camera (Zoom, Teams, Skype, etc.)');
+        console.error('   2. Camera privacy settings are blocking video');
+        console.error('   3. Camera driver issue');
+        console.error('   Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+        console.error('   Video ready state:', video.readyState);
+        console.error('   Stream active:', ASSESSMENT_STATE.cameraStream?.active);
+        
+        // Draw diagnostic message on canvas
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#00ff00';
+        ctx.font = 'bold 32px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('⚠️ CAMERA CONNECTED BUT NO VIDEO', canvas.width/2, canvas.height/2 - 100);
+        ctx.font = '24px Arial';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('Camera detected: ' + (ASSESSMENT_STATE.cameraStream?.getVideoTracks()[0]?.label || 'Unknown'), canvas.width/2, canvas.height/2 - 40);
+        ctx.fillText('Possible causes:', canvas.width/2, canvas.height/2 + 20);
+        ctx.font = '20px Arial';
+        ctx.fillText('1. Another app is using your camera (close Zoom, Teams, etc.)', canvas.width/2, canvas.height/2 + 60);
+        ctx.fillText('2. Camera privacy settings are blocking video', canvas.width/2, canvas.height/2 + 90);
+        ctx.fillText('3. Try closing all apps and refresh this page', canvas.width/2, canvas.height/2 + 120);
+        ctx.fillText('Press F12 to see console logs for more details', canvas.width/2, canvas.height/2 + 160);
+        
+        showNotification('Camera connected but showing black screen. Check console (F12) for details.', 'warning');
+      } else {
+        console.log('✅ Video feed working! Dimensions:', video.videoWidth, 'x', video.videoHeight);
+      }
+    }, 2000);
     
     showStatus(`Camera connected: ${cameraLabel}`, 'success');
     showNotification('Camera connected successfully!', 'success');
