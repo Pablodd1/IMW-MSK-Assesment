@@ -718,12 +718,12 @@ function onPoseResults(results, ctx, canvas) {
   
   const landmarks = results.poseLandmarks;
   
-  // Draw connections in YELLOW
+  // Draw connections in BRIGHT GREEN
   const connections = window.POSE_CONNECTIONS;
-  ctx.strokeStyle = '#ffff00'; // YELLOW lines
+  ctx.strokeStyle = '#00ff00'; // BRIGHT GREEN lines
   ctx.lineWidth = 4;
-  ctx.shadowBlur = 10;
-  ctx.shadowColor = '#ffff00';
+  ctx.shadowBlur = 15;
+  ctx.shadowColor = '#00ff00';
   
   for (const connection of connections) {
     const start = landmarks[connection[0]];
@@ -737,12 +737,12 @@ function onPoseResults(results, ctx, canvas) {
     }
   }
   
-  // Draw joints in RED
-  ctx.fillStyle = '#ff0000'; // RED circles
+  // Draw joints in BRIGHT GREEN
+  ctx.fillStyle = '#00ff00'; // BRIGHT GREEN circles
   ctx.strokeStyle = '#ffffff'; // WHITE border
-  ctx.lineWidth = 2;
-  ctx.shadowBlur = 15;
-  ctx.shadowColor = '#ff0000';
+  ctx.lineWidth = 3;
+  ctx.shadowBlur = 20;
+  ctx.shadowColor = '#00ff00';
   
   // Major joints (larger circles)
   const majorJoints = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
@@ -751,7 +751,7 @@ function onPoseResults(results, ctx, canvas) {
     if (landmark.visibility > 0.5) {
       const x = landmark.x * canvas.width;
       const y = landmark.y * canvas.height;
-      const radius = majorJoints.includes(index) ? 8 : 5;
+      const radius = majorJoints.includes(index) ? 10 : 6;
       
       ctx.beginPath();
       ctx.arc(x, y, radius, 0, 2 * Math.PI);
