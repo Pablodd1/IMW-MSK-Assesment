@@ -19,7 +19,15 @@ const ASSESSMENT_STATE = {
   testId: null,
   assessmentId: null,
   patientId: null,
-  currentTest: null
+  currentTest: null,
+  features: {
+    ghostMode: false,
+    voiceFeedback: false,
+    repCounter: false
+  },
+  repCount: 0,
+  repState: 'up', // 'up', 'down'
+  ghostSkeleton: null // Captured "perfect" frame
 };
 
 // ============================================================================
@@ -120,6 +128,134 @@ async function createMovementTest() {
     console.error('Error creating test:', error);
     showNotification('Error creating test', 'error');
   }
+}
+
+// ============================================================================
+// ADVANCED FEATURES (Voice, Reps, Ghost)
+// ============================================================================
+
+function toggleFeature(feature) {
+  ASSESSMENT_STATE.features[feature] = !ASSESSMENT_STATE.features[feature];
+  
+  // Update button UI
+  const btn = document.getElementById(`btn-${feature}`);
+  if (ASSESSMENT_STATE.features[feature]) {
+    btn.classList.remove('opacity-50', 'bg-gray-700');
+    btn.classList.add('opacity-100', 'bg-blue-600', 'ring-2', 'ring-blue-300');
+    showNotification(`${feature} enabled`, 'success');
+    
+    // Feature specific init
+    if (feature === 'ghostMode' && !ASSESSMENT_STATE.ghostSkeleton && ASSESSMENT_STATE.skeletonFrames.length > 0) {
+      // Use middle frame of current recording as ghost if available
+      const mid = Math.floor(ASSESSMENT_STATE.skeletonFrames.length / 2);
+      ASSESSMENT_STATE.ghostSkeleton = ASSESSMENT_STATE.skeletonFrames[mid];
+    } else if (feature === 'voiceFeedback') {
+      VoiceFeedback.speak("Voice coaching enabled. I will guide your movements.");
+    }
+  } else {
+    btn.classList.add('opacity-50', 'bg-gray-700');
+    btn.classList.remove('opacity-100', 'bg-blue-600', 'ring-2', 'ring-blue-300');
+    showNotification(`${feature} disabled`, 'info');
+  }
+}
+
+const VoiceFeedback = {
+  lastSpoken: 0,
+  speak: (text) => {
+    const now = Date.now();
+    if (now - VoiceFeedback.lastSpoken < 2500) return; // Throttle speech
+    
+    // Cancel previous
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.1;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+    window.speechSynthesis.speak(utterance);
+    VoiceFeedback.lastSpoken = now;
+  }
+};
+
+function updateRepCounter(angles, ctx, canvas) {
+  if (!ASSESSMENT_STATE.features.repCounter) return;
+  
+  // Simple squat logic based on knee angle
+  // Assuming 'Right Knee' is available. If side view, might need detection.
+  const kneeAngle = angles['Right Knee']?.angle || angles['Left Knee']?.angle;
+  
+  if (!kneeAngle) return;
+
+  // Draw Rep Counter Overlay
+  ctx.save();
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+  ctx.roundRect(20, 20, 120, 80, 10);
+  ctx.fill();
+  
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 40px Arial';
+  ctx.fillText(ASSESSMENT_STATE.repCount, 50, 75);
+  
+  ctx.font = '14px Arial';
+  ctx.fillStyle = '#cccccc';
+  ctx.fillText('REPS', 50, 40);
+  
+  // State Indicator
+  ctx.beginPath();
+  ctx.arc(110, 60, 10, 0, 2 * Math.PI);
+  ctx.fillStyle = ASSESSMENT_STATE.repState === 'down' ? '#00ff00' : '#ffff00';
+  ctx.fill();
+  ctx.restore();
+  
+  // Logic
+  if (ASSESSMENT_STATE.repState === 'up' && kneeAngle < 100) {
+    ASSESSMENT_STATE.repState = 'down';
+    // Optional: Voice feedback for "Down"
+  } else if (ASSESSMENT_STATE.repState === 'down' && kneeAngle > 150) {
+    ASSESSMENT_STATE.repState = 'up';
+    ASSESSMENT_STATE.repCount++;
+    VoiceFeedback.speak(ASSESSMENT_STATE.repCount.toString());
+    
+    // Visual Pulse
+    const counter = document.getElementById('repCounterDisplay'); // if we had DOM element
+  }
+}
+
+function drawGhostSkeleton(ctx, canvas) {
+  if (!ASSESSMENT_STATE.features.ghostMode || !ASSESSMENT_STATE.ghostSkeleton) return;
+  
+  const landmarks = ASSESSMENT_STATE.ghostSkeleton.landmarks;
+  if (!landmarks) return;
+
+  ctx.save();
+  ctx.globalAlpha = 0.3; // Ghost effect
+  ctx.strokeStyle = '#00ffff'; // Cyan for ghost
+  ctx.fillStyle = '#00ffff';
+  
+  // We need to convert our stored skeleton structure back to array-like or iterate keys
+  // Our stored structure is object with named keys.
+  // We need to map connections manually or reuse logic.
+  
+  // Simplified drawing for ghost (just major connections)
+  const connections = [
+    ['left_shoulder', 'right_shoulder'],
+    ['left_shoulder', 'left_hip'], ['right_shoulder', 'right_hip'],
+    ['left_hip', 'left_knee'], ['right_hip', 'right_knee'],
+    ['left_knee', 'left_ankle'], ['right_knee', 'right_ankle']
+  ];
+  
+  connections.forEach(([startName, endName]) => {
+    const start = landmarks[startName];
+    const end = landmarks[endName];
+    if (start && end && start.visibility > 0.5 && end.visibility > 0.5) {
+      ctx.beginPath();
+      ctx.moveTo(start.x * canvas.width, start.y * canvas.height);
+      ctx.lineTo(end.x * canvas.width, end.y * canvas.height);
+      ctx.stroke();
+    }
+  });
+  
+  ctx.restore();
 }
 
 // ============================================================================
@@ -808,13 +944,25 @@ function onPoseResults(results, ctx, canvas) {
   // Reset shadow
   ctx.shadowBlur = 0;
   
-  // If recording, store skeleton data
-  if (ASSESSMENT_STATE.isRecording) {
-    const skeletonData = convertLandmarksToSkeletonData(landmarks);
-    ASSESSMENT_STATE.skeletonFrames.push(skeletonData);
-    
-    // Calculate and display joint angles in real-time
+  // Calculate and display joint angles in real-time
     updateJointAnglesPanel(skeletonData);
+    
+    // Advanced Features
+    drawGhostSkeleton(ctx, canvas);
+    updateRepCounter(calculateQuickJointAngles(skeletonData.landmarks), ctx, canvas);
+  } else {
+    // Even if not recording, allow testing features
+    const skeletonData = convertLandmarksToSkeletonData(landmarks);
+    const angles = calculateQuickJointAngles(skeletonData.landmarks);
+    updateRepCounter(angles, ctx, canvas);
+    drawGhostSkeleton(ctx, canvas);
+    updateJointAnglesPanel(skeletonData); // Show angles even when not recording
+    
+    // Capture Ghost if enabled and requested (simple logic: first valid frame becomes ghost if empty)
+    if (ASSESSMENT_STATE.features.ghostMode && !ASSESSMENT_STATE.ghostSkeleton) {
+        ASSESSMENT_STATE.ghostSkeleton = skeletonData;
+        showNotification("Ghost reference set!", "success");
+    }
   }
 }
 
@@ -958,6 +1106,18 @@ function calculateQuickJointAngles(landmarks) {
       status: rightHipAngle >= 90 ? 'normal' : 'limited'
     };
     
+    // Voice Feedback Logic
+    if (ASSESSMENT_STATE.features.voiceFeedback) {
+        if (angles['Right Knee'].status === 'limited' && angles['Right Knee'].angle < 70) {
+            VoiceFeedback.speak("Go lower");
+        } else if (angles['Right Knee'].angle > 160) {
+            // VoiceFeedback.speak("Good extension");
+        }
+        
+        // Valgus check (simplified 2D check)
+        // If knee X is inside ankle X significantly
+    }
+
   } catch (error) {
     console.error('Error calculating angles:', error);
   }

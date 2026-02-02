@@ -10,7 +10,7 @@ const app = new Hono<{ Bindings: Bindings }>()
 app.use('/api/*', cors())
 
 // Serve static files
-app.use('/static/*', serveStatic({ root: './public' }))
+app.use('/static/*', serveStatic({ root: './public', manifest: {} }))
 
 // ============================================================================
 // PATIENT MANAGEMENT API
@@ -132,10 +132,47 @@ app.get('/api/patients/:id/assessments', async (c) => {
   try {
     const patientId = c.req.param('id')
     const { results } = await c.env.DB.prepare(`
-      SELECT * FROM assessments WHERE patient_id = ? ORDER BY session_date DESC
+      SELECT * FROM assessments WHERE patient_id = ? ORDER BY assessment_date DESC
     `).bind(patientId).all()
     
     return c.json({ success: true, data: results })
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
+// Get all assessments
+app.get('/api/assessments', async (c) => {
+  try {
+    const { results } = await c.env.DB.prepare(`
+      SELECT a.*, p.first_name, p.last_name 
+      FROM assessments a
+      JOIN patients p ON a.patient_id = p.id
+      ORDER BY a.assessment_date DESC
+    `).all()
+    
+    return c.json({ success: true, data: results })
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
+// Get assessment by ID
+app.get('/api/assessments/:id', async (c) => {
+  try {
+    const id = c.req.param('id')
+    const assessment = await c.env.DB.prepare(`
+      SELECT a.*, p.first_name, p.last_name, p.date_of_birth
+      FROM assessments a
+      JOIN patients p ON a.patient_id = p.id
+      WHERE a.id = ?
+    `).bind(id).first()
+    
+    if (!assessment) {
+      return c.json({ success: false, error: 'Assessment not found' }, 404)
+    }
+    
+    return c.json({ success: true, data: assessment })
   } catch (error: any) {
     return c.json({ success: false, error: error.message }, 500)
   }
@@ -166,8 +203,8 @@ app.post('/api/assessments/:id/tests', async (c) => {
   }
 })
 
-// Update test with skeleton data
-app.put('/api/tests/:id/analyze', async (c) => {
+// Update test with skeleton data and perform biomechanical analysis
+app.post('/api/tests/:id/analyze', async (c) => {
   try {
     const testId = c.req.param('id')
     const { skeleton_data } = await c.req.json<{ skeleton_data: SkeletonData }>()
@@ -175,33 +212,31 @@ app.put('/api/tests/:id/analyze', async (c) => {
     // Perform biomechanical analysis
     const analysis = performBiomechanicalAnalysis(skeleton_data)
     
-    // Update movement test with skeleton data
+    // Update movement test with skeleton data and analysis results
     await c.env.DB.prepare(`
       UPDATE movement_tests 
-      SET skeleton_data = ?, status = 'completed', completed_at = CURRENT_TIMESTAMP
+      SET skeleton_data = ?, 
+          movement_quality_score = ?,
+          deficiencies = ?,
+          compensations_detected = ?,
+          status = 'completed', 
+          completed_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).bind(JSON.stringify(skeleton_data), testId).run()
-    
-    // Insert analysis results
-    const analysisResult = await c.env.DB.prepare(`
-      INSERT INTO movement_analysis (
-        test_id, joint_angles, deficiencies, movement_quality_score,
-        ai_recommendations, ai_confidence_score
-      ) VALUES (?, ?, ?, ?, ?, ?)
     `).bind(
-      testId,
-      JSON.stringify(analysis.joint_angles),
-      JSON.stringify(analysis.deficiencies),
+      JSON.stringify(skeleton_data),
       analysis.movement_quality_score,
-      JSON.stringify(analysis.recommendations),
-      0.92 // High confidence for our biomechanical calculations
+      JSON.stringify(analysis.deficiencies),
+      JSON.stringify(analysis.detected_compensations),
+      testId
     ).run()
     
     return c.json({
       success: true,
       data: {
-        analysis_id: analysisResult.meta.last_row_id,
-        analysis
+        movement_quality_score: analysis.movement_quality_score,
+        deficiencies: analysis.deficiencies,
+        compensations: analysis.detected_compensations,
+        recommendations: analysis.recommendations
       }
     })
   } catch (error: any) {
@@ -218,11 +253,25 @@ app.get('/api/tests/:id/results', async (c) => {
       SELECT * FROM movement_tests WHERE id = ?
     `).bind(testId).first()
     
-    const analysis = await c.env.DB.prepare(`
-      SELECT * FROM movement_analysis WHERE test_id = ?
-    `).bind(testId).first()
+    if (!test) {
+      return c.json({ success: false, error: 'Test not found' }, 404)
+    }
     
-    return c.json({ success: true, data: { test, analysis } })
+    return c.json({ success: true, data: test })
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
+// Get movement tests for assessment
+app.get('/api/assessments/:id/tests', async (c) => {
+  try {
+    const assessmentId = c.req.param('id')
+    const { results } = await c.env.DB.prepare(`
+      SELECT * FROM movement_tests WHERE assessment_id = ? ORDER BY test_order
+    `).bind(assessmentId).all()
+    
+    return c.json({ success: true, data: results })
   } catch (error: any) {
     return c.json({ success: false, error: error.message }, 500)
   }
@@ -454,7 +503,7 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
 // HELPER FUNCTIONS
 // ============================================================================
 
-async function updateCompliancePercentage(db: D1Database, prescribedExerciseId: number) {
+async function updateCompliancePercentage(db: any, prescribedExerciseId: number) {
   // Get total sessions completed vs expected
   const result = await db.prepare(`
     SELECT COUNT(*) as completed_count

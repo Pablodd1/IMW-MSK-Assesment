@@ -122,6 +122,19 @@
                     </div>
                 </div>
                 
+                <!-- Advanced Features Controls -->
+                <div class="camera-controls-advanced mb-4 flex justify-center gap-2">
+                    <button onclick="toggleFeature('ghostMode')" class="feature-btn bg-gray-700 text-white px-3 py-1 rounded-full text-sm opacity-50 hover:opacity-100 transition-opacity" id="btn-ghostMode">
+                        <i class="fas fa-ghost mr-1"></i> Ghost Mode
+                    </button>
+                    <button onclick="toggleFeature('voiceFeedback')" class="feature-btn bg-gray-700 text-white px-3 py-1 rounded-full text-sm opacity-50 hover:opacity-100 transition-opacity" id="btn-voiceFeedback">
+                        <i class="fas fa-volume-up mr-1"></i> Voice Coach
+                    </button>
+                    <button onclick="toggleFeature('repCounter')" class="feature-btn bg-gray-700 text-white px-3 py-1 rounded-full text-sm opacity-50 hover:opacity-100 transition-opacity" id="btn-repCounter">
+                        <i class="fas fa-dumbbell mr-1"></i> Rep Counter
+                    </button>
+                </div>
+
                 <!-- Camera Controls -->
                 <div class="camera-controls">
                     <button onclick="flipCamera()" class="camera-btn primary" id="flipBtn" style="display: none;">
@@ -201,6 +214,11 @@
                     <button onclick="prescribeExercises()" class="camera-btn success">
                         <i class="fas fa-prescription"></i>
                         Prescribe Exercises
+                    </button>
+                    
+                    <button onclick="window.print()" class="camera-btn" style="background: #4b5563; color: white;">
+                        <i class="fas fa-file-pdf"></i>
+                        Download Report
                     </button>
                     
                     <button onclick="startNewAssessment()" class="camera-btn" style="background: #6b7280; color: white;">
