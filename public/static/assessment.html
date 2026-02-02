@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movement Assessment - PhysioMotion</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/styles.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <i class="fas fa-heartbeat text-blue-600 text-2xl mr-3"></i>
+                    <span class="text-xl font-bold text-gray-800">PhysioMotion</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/" class="text-gray-700 hover:text-blue-600"><i class="fas fa-home mr-2"></i>Home</a>
+                    <a href="/assessment" class="text-blue-600 font-semibold"><i class="fas fa-video mr-2"></i>Assessment</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Progress Steps -->
+        <div class="progress-steps mb-8">
+            <div class="progress-step active" id="step1">
+                <div class="progress-step-circle">1</div>
+                <div class="progress-step-label">Select Camera</div>
+            </div>
+            <div class="progress-step" id="step2">
+                <div class="progress-step-circle">2</div>
+                <div class="progress-step-label">Position Patient</div>
+            </div>
+            <div class="progress-step" id="step3">
+                <div class="progress-step-circle">3</div>
+                <div class="progress-step-label">Perform Test</div>
+            </div>
+            <div class="progress-step" id="step4">
+                <div class="progress-step-circle">4</div>
+                <div class="progress-step-label">Review Results</div>
+            </div>
+        </div>
+
+        <!-- Camera Selection Modal -->
+        <div id="cameraSelectionModal" class="camera-selection-modal">
+            <div class="camera-selection-content">
+                <h2><i class="fas fa-camera mr-2"></i>Select Camera Type</h2>
+
+                <div class="camera-options">
+                    <div class="camera-option" onclick="selectCameraType('phone')">
+                        <i class="fas fa-mobile-alt"></i>
+                        <h3>Mobile Phone</h3>
+                        <p>Use your smartphone camera (front or back)</p>
+                    </div>
+
+                    <div class="camera-option" onclick="selectCameraType('webcam')">
+                        <i class="fas fa-laptop"></i>
+                        <h3>Laptop Camera</h3>
+                        <p>Use built-in or external webcam</p>
+                    </div>
+
+                    <div class="camera-option" onclick="selectCameraType('femto')">
+                        <i class="fas fa-video"></i>
+                        <h3>Femto Mega</h3>
+                        <p>Professional motion capture camera</p>
+                    </div>
+
+                    <div class="camera-option" onclick="selectCameraType('upload')">
+                        <i class="fas fa-file-video"></i>
+                        <h3>Upload Video</h3>
+                        <p>Analyze pre-recorded video</p>
+                    </div>
+                </div>
+
+                <div class="text-center">
+                    <button onclick="checkCameraPermissions()" class="camera-btn" style="background: #6366f1; color: white; margin-bottom: 1rem;">
+                        <i class="fas fa-shield-alt"></i>
+                        Check Camera Access
+                    </button>
+                    <br>
+                    <button onclick="startAssessment()" class="camera-btn primary" id="startBtn" disabled>
+                        <i class="fas fa-play"></i>
+                        Start Assessment
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Camera Container -->
+        <div id="cameraContainer" class="camera-container" style="display: none;">
+            <div class="video-wrapper">
+                <!-- Video Element -->
+                <video id="videoElement" autoplay playsinline></video>
+
+                <!-- Canvas for Skeleton Overlay -->
+                <canvas id="canvasElement"></canvas>
+
+                <!-- Recording Indicator -->
+                <div id="recordingIndicator" class="recording-indicator" style="display: none;">
+                    <div class="recording-dot"></div>
+                    <span>RECORDING</span>
+                    <span id="recordingTime">00:00</span>
+                </div>
+
+                <!-- Camera Status -->
+                <div id="cameraStatus" class="camera-status disconnected">
+                    <i class="fas fa-circle mr-2"></i>
+                    <span id="statusText">Disconnected</span>
+                </div>
+
+                <!-- Joint Info Panel -->
+                <div id="jointInfoPanel" class="joint-info-panel" style="display: none;">
+                    <h3><i class="fas fa-chart-line mr-2"></i>Live Joint Angles</h3>
+                    <div id="jointAnglesList">
+                        <!-- Joint angles will be inserted here dynamically -->
+                    </div>
+                </div>
+
+                <!-- Advanced Features Controls -->
+                <div class="camera-controls-advanced mb-4 flex justify-center gap-2">
+                    <button onclick="toggleFeature('ghostMode')" class="feature-btn bg-gray-700 text-white px-3 py-1 rounded-full text-sm opacity-50 hover:opacity-100 transition-opacity" id="btn-ghostMode">
+                        <i class="fas fa-ghost mr-1"></i> Ghost Mode
+                    </button>
+                    <button onclick="toggleFeature('voiceFeedback')" class="feature-btn bg-gray-700 text-white px-3 py-1 rounded-full text-sm opacity-50 hover:opacity-100 transition-opacity" id="btn-voiceFeedback">
+                        <i class="fas fa-volume-up mr-1"></i> Voice Coach
+                    </button>
+                    <button onclick="toggleFeature('repCounter')" class="feature-btn bg-gray-700 text-white px-3 py-1 rounded-full text-sm opacity-50 hover:opacity-100 transition-opacity" id="btn-repCounter">
+                        <i class="fas fa-dumbbell mr-1"></i> Rep Counter
+                    </button>
+                    <button onclick="toggleFeature('voiceControl')" class="feature-btn bg-gray-700 text-white px-3 py-1 rounded-full text-sm opacity-50 hover:opacity-100 transition-opacity" id="btn-voiceControl">
+                        <i class="fas fa-microphone mr-1"></i> Voice Control
+                    </button>
+                </div>
+
+                <!-- Camera Controls -->
+                <div class="camera-controls">
+                    <button onclick="flipCamera()" class="camera-btn primary" id="flipBtn" style="display: none;">
+                        <i class="fas fa-sync-alt"></i>
+                        <span id="flipBtnText">Flip Camera</span>
+                    </button>
+
+                    <button onclick="startRecording()" class="camera-btn success" id="recordBtn">
+                        <i class="fas fa-record-vinyl"></i>
+                        Start Recording
+                    </button>
+
+                    <button onclick="stopRecording()" class="camera-btn danger" id="stopBtn" style="display: none;">
+                        <i class="fas fa-stop"></i>
+                        Stop Recording
+                    </button>
+
+                    <button onclick="analyzeMovement()" class="camera-btn primary" id="analyzeBtn" style="display: none;">
+                        <i class="fas fa-brain"></i>
+                        Analyze Movement
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Container -->
+        <div id="resultsContainer" style="display: none;" class="mt-8">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-2xl font-bold mb-4">
+                    <i class="fas fa-chart-bar text-blue-600 mr-2"></i>
+                    Analysis Results
+                </h2>
+
+                <!-- Movement Quality Score -->
+                <div class="mb-6 p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold mb-2">Movement Quality Score</h3>
+                            <p class="text-gray-600">Based on joint angles, ROM, and compensation patterns</p>
+                        </div>
+                        <div class="text-center">
+                            <div id="qualityScore" class="text-6xl font-bold text-blue-600">--</div>
+                            <div class="text-sm text-gray-600">out of 100</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detected Deficiencies -->
+                <div class="mb-6">
+                    <h3 class="text-xl font-bold mb-4">
+                        <i class="fas fa-exclamation-triangle text-yellow-600 mr-2"></i>
+                        Detected Deficiencies
+                    </h3>
+                    <div id="deficienciesList" class="space-y-4">
+                        <!-- Deficiencies will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Recommended Exercises -->
+                <div class="mb-6">
+                    <h3 class="text-xl font-bold mb-4">
+                        <i class="fas fa-dumbbell text-green-600 mr-2"></i>
+                        Recommended Exercises
+                    </h3>
+                    <div id="exercisesList" class="space-y-4">
+                        <!-- Exercises will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex gap-4">
+                    <button onclick="generateMedicalNote()" class="camera-btn primary">
+                        <i class="fas fa-file-medical"></i>
+                        Generate Medical Note
+                    </button>
+
+                    <button onclick="prescribeExercises()" class="camera-btn success">
+                        <i class="fas fa-prescription"></i>
+                        Prescribe Exercises
+                    </button>
+
+                    <button onclick="window.print()" class="camera-btn" style="background: #4b5563; color: white;">
+                        <i class="fas fa-file-pdf"></i>
+                        Download Report
+                    </button>
+
+                    <button onclick="startNewAssessment()" class="camera-btn" style="background: #6b7280; color: white;">
+                        <i class="fas fa-redo"></i>
+                        New Assessment
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MediaPipe Pose Detection -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+
+    <!-- Main Application Script -->
+    <script src="/static/assessment-workflow.js"></script>
+</body>
+</html>

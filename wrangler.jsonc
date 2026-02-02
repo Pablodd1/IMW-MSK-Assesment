@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "physiomotion",
+  "main": "src/index.tsx",
+  "compatibility_date": "2026-01-31",
+  "pages_build_output_dir": "./dist",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "physiomotion-production",
+      "database_id": "b0d92aa7-2112-41cc-b66b-f9fa20a9b95d"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "R2",
+      "bucket_name": "webapp-videos"
+    }
+  ]
+}
