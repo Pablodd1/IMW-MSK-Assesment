@@ -445,7 +445,7 @@ export function generateDeficiencies(
     const maxAsymmetry = Math.max(...Object.values(asymmetries));
     deficiencies.push({
       area: 'Bilateral Asymmetry',
-      severity: maxAsymmetry > 20 ? 'severe' : maxAsymmetry > 15 ? 'moderate' : 'mild',
+      severity: (maxAsymmetry > 20 ? 'severe' : maxAsymmetry > 15 ? 'moderate' : 'mild') as 'severe' | 'moderate' | 'mild',
       description: `Significant differences between left and right sides detected. Asymmetries found in: ${Object.keys(asymmetries).join(', ')}. This increases injury risk and affects functional performance.`,
       recommended_exercises: [7, 8] // Single Leg RDL, Lunge Pattern
     });
