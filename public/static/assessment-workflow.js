@@ -944,25 +944,23 @@ function onPoseResults(results, ctx, canvas) {
   // Reset shadow
   ctx.shadowBlur = 0;
   
-  // Calculate and display joint angles in real-time
-    updateJointAnglesPanel(skeletonData);
-    
-    // Advanced Features
-    drawGhostSkeleton(ctx, canvas);
-    updateRepCounter(calculateQuickJointAngles(skeletonData.landmarks), ctx, canvas);
-  } else {
-    // Even if not recording, allow testing features
-    const skeletonData = convertLandmarksToSkeletonData(landmarks);
-    const angles = calculateQuickJointAngles(skeletonData.landmarks);
-    updateRepCounter(angles, ctx, canvas);
-    drawGhostSkeleton(ctx, canvas);
-    updateJointAnglesPanel(skeletonData); // Show angles even when not recording
-    
-    // Capture Ghost if enabled and requested (simple logic: first valid frame becomes ghost if empty)
-    if (ASSESSMENT_STATE.features.ghostMode && !ASSESSMENT_STATE.ghostSkeleton) {
-        ASSESSMENT_STATE.ghostSkeleton = skeletonData;
-        showNotification("Ghost reference set!", "success");
-    }
+  // Convert landmarks to skeleton data for analysis
+  const skeletonData = convertLandmarksToSkeletonData(landmarks);
+
+  // If recording, save frame
+  if (ASSESSMENT_STATE.isRecording) {
+    ASSESSMENT_STATE.skeletonFrames.push(skeletonData);
+  }
+
+  // Always update UI components
+  updateJointAnglesPanel(skeletonData);
+  drawGhostSkeleton(ctx, canvas);
+  updateRepCounter(calculateQuickJointAngles(skeletonData.landmarks), ctx, canvas);
+
+  // Ghost mode capture logic
+  if (ASSESSMENT_STATE.features.ghostMode && !ASSESSMENT_STATE.ghostSkeleton) {
+      ASSESSMENT_STATE.ghostSkeleton = skeletonData;
+      showNotification("Ghost reference set!", "success");
   }
 }
 
