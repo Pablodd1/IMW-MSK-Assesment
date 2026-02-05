@@ -7,8 +7,14 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     <link href="/static/styles.css" rel="stylesheet">
+    <script src="/static/notifications.js"></script>
+    <script src="/static/auth.js"></script>
 </head>
 <body class="bg-gray-50">
+    <script>
+        // Check authentication
+        checkAuth();
+    </script>
     <!-- Navigation -->
     <nav class="bg-white shadow-lg">
         <div class="max-w-7xl mx-auto px-4">
@@ -22,6 +28,12 @@
                     <a href="/intake" class="text-gray-700 hover:text-blue-600"><i class="fas fa-clipboard-list mr-2"></i>Intake</a>
                     <a href="/patients" class="text-blue-600 font-semibold"><i class="fas fa-users mr-2"></i>Patients</a>
                     <a href="/assessment" class="text-gray-700 hover:text-blue-600"><i class="fas fa-video mr-2"></i>Assessment</a>
+                    <div class="flex items-center space-x-3 ml-4 pl-4 border-l border-gray-300">
+                        <span id="clinicianName" class="text-gray-700 font-medium"></span>
+                        <button onclick="logout()" class="text-red-600 hover:text-red-700 transition-colors">
+                            <i class="fas fa-sign-out-alt mr-1"></i>Logout
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -93,6 +105,14 @@
     </div>
 
     <script>
+        // Utility function to escape HTML and prevent XSS
+        function escapeHtml(text) {
+            if (!text) return text;
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         async function loadPatients() {
             const tableBody = document.getElementById('patientsTableBody');
             const loadingState = document.getElementById('loadingState');
@@ -100,14 +120,24 @@
             
             loadingState.classList.remove('hidden');
             tableBody.innerHTML = '';
+            emptyState.classList.add('hidden');
             
             try {
                 const response = await fetch('/api/patients');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
                 const result = await response.json();
                 
                 loadingState.classList.add('hidden');
                 
-                if (result.success && result.data && result.data.length > 0) {
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to load patients');
+                }
+                
+                if (result.data && result.data.length > 0) {
                     emptyState.classList.add('hidden');
                     
                     result.data.forEach(patient => {
@@ -120,13 +150,13 @@
                                         <i class="fas fa-user text-blue-600"></i>
                                     </div>
                                     <div class="ml-4">
-                                        <div class="text-sm font-medium text-gray-900">${patient.first_name} ${patient.last_name}</div>
+                                        <div class="text-sm font-medium text-gray-900">${escapeHtml(patient.first_name)} ${escapeHtml(patient.last_name)}</div>
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${patient.date_of_birth || 'N/A'}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${patient.email || 'N/A'}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${patient.phone || 'N/A'}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHtml(patient.date_of_birth) || 'N/A'}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHtml(patient.email) || 'N/A'}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHtml(patient.phone) || 'N/A'}</td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                                     Active
@@ -143,6 +173,8 @@
                         `;
                         tableBody.appendChild(row);
                     });
+                    
+                    showSuccess(`Loaded ${result.data.length} patient(s)`, 2000);
                 } else {
                     emptyState.classList.remove('hidden');
                 }
@@ -150,6 +182,7 @@
                 loadingState.classList.add('hidden');
                 emptyState.classList.remove('hidden');
                 console.error('Error loading patients:', error);
+                showError(`Failed to load patients: ${error.message}`);
             }
         }
 
@@ -164,6 +197,8 @@
                 loadPatients();
             }
         });
+        // Display clinician info on page load
+        displayClinicianInfo();
     </script>
 </body>
 </html>

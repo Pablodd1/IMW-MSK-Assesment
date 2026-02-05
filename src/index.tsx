@@ -13,6 +13,106 @@ app.use('/api/*', cors())
 app.use('/static/*', serveStatic({ root: './public', manifest: {} }))
 
 // ============================================================================
+// AUTHENTICATION API
+// ============================================================================
+
+// Register new clinician
+app.post('/api/auth/register', async (c) => {
+  try {
+    const data = await c.req.json()
+    
+    // Check if email already exists
+    const existing = await c.env.DB.prepare(`
+      SELECT id FROM clinicians WHERE email = ?
+    `).bind(data.email).first()
+    
+    if (existing) {
+      return c.json({ success: false, error: 'Email already registered' }, 400)
+    }
+    
+    // Hash password (simple hash for demo - use bcrypt in production)
+    const passwordHash = await hashPassword(data.password)
+    
+    const result = await c.env.DB.prepare(`
+      INSERT INTO clinicians (
+        email, password_hash, first_name, last_name, title,
+        license_number, license_state, npi_number, phone, clinic_name
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      data.email, passwordHash, data.first_name, data.last_name, data.title,
+      data.license_number, data.license_state, data.npi_number,
+      data.phone, data.clinic_name
+    ).run()
+    
+    return c.json({
+      success: true,
+      data: { id: result.meta.last_row_id }
+    })
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
+// Login
+app.post('/api/auth/login', async (c) => {
+  try {
+    const { email, password } = await c.req.json()
+    
+    const clinician = await c.env.DB.prepare(`
+      SELECT * FROM clinicians WHERE email = ? AND active = 1
+    `).bind(email).first() as any
+    
+    if (!clinician) {
+      return c.json({ success: false, error: 'Invalid email or password' }, 401)
+    }
+    
+    // Verify password
+    const isValid = await verifyPassword(password, clinician.password_hash)
+    
+    if (!isValid) {
+      return c.json({ success: false, error: 'Invalid email or password' }, 401)
+    }
+    
+    // Update last login
+    await c.env.DB.prepare(`
+      UPDATE clinicians SET last_login = CURRENT_TIMESTAMP WHERE id = ?
+    `).bind(clinician.id).run()
+    
+    // Return user data (excluding password)
+    const { password_hash, ...userData } = clinician
+    
+    return c.json({
+      success: true,
+      data: userData
+    })
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
+// Get current clinician profile
+app.get('/api/auth/profile/:id', async (c) => {
+  try {
+    const id = c.req.param('id')
+    
+    const clinician = await c.env.DB.prepare(`
+      SELECT id, email, first_name, last_name, title, license_number,
+             license_state, npi_number, phone, clinic_name, role, active,
+             created_at, last_login
+      FROM clinicians WHERE id = ?
+    `).bind(id).first()
+    
+    if (!clinician) {
+      return c.json({ success: false, error: 'Clinician not found' }, 404)
+    }
+    
+    return c.json({ success: true, data: clinician })
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
+// ============================================================================
 // PATIENT MANAGEMENT API
 // ============================================================================
 
@@ -393,13 +493,13 @@ app.get('/api/patients/:id/sessions', async (c) => {
     const patientId = c.req.param('id')
     
     const { results } = await c.env.DB.prepare(`
-      SELECT 
+      SELECT
         es.*,
         e.name as exercise_name,
         pe.sets as prescribed_sets,
-        pe.reps as prescribed_reps
+        pe.repetitions as prescribed_reps
       FROM exercise_sessions es
-      JOIN prescribed_exercises pe ON es.prescription_id = pe.prescription_id
+      JOIN prescribed_exercises pe ON es.prescribed_exercise_id = pe.id
       JOIN exercises e ON pe.exercise_id = e.id
       WHERE es.patient_id = ?
       ORDER BY es.session_date DESC
@@ -503,6 +603,21 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
 // HELPER FUNCTIONS
 // ============================================================================
 
+// Simple password hashing (for demo - use proper bcrypt in production)
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const data = encoder.encode(password + 'physiomotion-salt-2025')
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  return hashHex
+}
+
+async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  const computedHash = await hashPassword(password)
+  return computedHash === hash
+}
+
 async function updateCompliancePercentage(db: any, prescribedExerciseId: number) {
   // Get total sessions completed vs expected
   const result = await db.prepare(`
@@ -516,11 +631,23 @@ async function updateCompliancePercentage(db: any, prescribedExerciseId: number)
   `).bind(prescribedExerciseId).first() as any
   
   if (result && prescription) {
-    const weeksSincePrescribed = Math.floor(
-      (Date.now() - new Date(prescription.prescribed_at).getTime()) / (7 * 24 * 60 * 60 * 1000)
-    )
-    const expectedSessions = Math.max(1, prescription.times_per_week * weeksSincePrescribed)
-    const compliance = Math.min(100, (result.completed_count / expectedSessions) * 100)
+    const prescribedDate = new Date(prescription.prescribed_at)
+    const now = new Date()
+    
+    // Don't calculate compliance for future dates
+    if (prescribedDate > now) {
+      return
+    }
+    
+    // Calculate weeks since prescribed (minimum 1 week to avoid division by zero)
+    const weeksSincePrescribed = Math.max(1, Math.floor(
+      (now.getTime() - prescribedDate.getTime()) / (7 * 24 * 60 * 60 * 1000)
+    ))
+    
+    const expectedSessions = prescription.times_per_week * weeksSincePrescribed
+    
+    // Calculate compliance percentage, capped at 100%
+    const compliance = Math.min(100, Math.round((result.completed_count / expectedSessions) * 100))
     
     await db.prepare(`
       UPDATE prescribed_exercises
@@ -637,6 +764,15 @@ app.get('/patients', (c) => {
   return c.redirect('/static/patients')
 })
 
+// Login redirect
+app.get('/login', (c) => {
+  return c.redirect('/static/login.html')
+})
+
+app.get('/register', (c) => {
+  return c.redirect('/static/register.html')
+})
+
 // Main dashboard
 app.get('/', (c) => {
   return c.html(`
@@ -650,6 +786,13 @@ app.get('/', (c) => {
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     </head>
     <body class="bg-gray-50">
+        <script>
+            // Check authentication on page load
+            const session = localStorage.getItem('clinician_session') || sessionStorage.getItem('clinician_session');
+            if (!session) {
+                window.location.href = '/static/login.html';
+            }
+        </script>
         <div id="app">
             <!-- Navigation -->
             <nav class="bg-white shadow-lg border-b-2 border-cyan-500">
@@ -660,10 +803,16 @@ app.get('/', (c) => {
                             <span class="text-xl font-bold text-slate-800">PhysioMotion</span>
                         </div>
                         <div class="flex items-center space-x-4">
-                            <a href="/dashboard" class="text-gray-700 hover:text-cyan-600 transition-colors"><i class="fas fa-home mr-2"></i>Dashboard</a>
+                            <a href="/" class="text-gray-700 hover:text-cyan-600 transition-colors"><i class="fas fa-home mr-2"></i>Home</a>
                             <a href="/patients" class="text-gray-700 hover:text-cyan-600 transition-colors"><i class="fas fa-users mr-2"></i>Patients</a>
-                            <a href="/assessments" class="text-gray-700 hover:text-cyan-600 transition-colors"><i class="fas fa-clipboard-check mr-2"></i>Assessments</a>
-                            <a href="/monitoring" class="text-gray-700 hover:text-cyan-600 transition-colors"><i class="fas fa-chart-line mr-2"></i>Monitoring</a>
+                            <a href="/intake" class="text-gray-700 hover:text-cyan-600 transition-colors"><i class="fas fa-user-plus mr-2"></i>New Patient</a>
+                            <a href="/assessment" class="text-gray-700 hover:text-cyan-600 transition-colors"><i class="fas fa-video mr-2"></i>Assessment</a>
+                            <div class="flex items-center space-x-3 ml-4 pl-4 border-l border-gray-300">
+                                <span id="clinicianName" class="text-gray-700 font-medium"></span>
+                                <button onclick="logout()" class="text-red-600 hover:text-red-700 transition-colors">
+                                    <i class="fas fa-sign-out-alt mr-1"></i>Logout
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -766,6 +915,36 @@ app.get('/', (c) => {
         </div>
 
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script>
+            // Display logged-in clinician info
+            function displayClinicianInfo() {
+                const session = localStorage.getItem('clinician_session') || sessionStorage.getItem('clinician_session');
+                if (session) {
+                    try {
+                        const clinician = JSON.parse(session);
+                        const nameElement = document.getElementById('clinicianName');
+                        if (nameElement) {
+                            const demoLabel = clinician.is_demo ? ' <span class="text-xs bg-violet-500 text-white px-2 py-1 rounded">DEMO</span>' : '';
+                            nameElement.innerHTML = '<i class="fas fa-user-md mr-1"></i>' + clinician.first_name + ' ' + clinician.last_name + (clinician.title ? ', ' + clinician.title : '') + demoLabel;
+                        }
+                    } catch (e) {
+                        console.error('Error parsing session:', e);
+                    }
+                }
+            }
+
+            // Logout function
+            function logout() {
+                if (confirm('Are you sure you want to logout?')) {
+                    localStorage.removeItem('clinician_session');
+                    sessionStorage.removeItem('clinician_session');
+                    window.location.href = '/static/login.html';
+                }
+            }
+
+            // Initialize on page load
+            displayClinicianInfo();
+        </script>
     </body>
     </html>
   `)
