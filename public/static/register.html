@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhysioMotion - Clinician Registration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-cyan-50 to-purple-50 min-h-screen py-8">
+    <div class="w-full max-w-2xl mx-auto px-4">
+        <!-- Logo and Title -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-cyan-600 to-purple-600 rounded-full mb-4 shadow-lg">
+                <i class="fas fa-heartbeat text-white text-3xl"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-slate-800 mb-2">PhysioMotion</h1>
+            <p class="text-gray-600">Create Your Clinician Account</p>
+        </div>
+
+        <!-- Registration Card -->
+        <div class="bg-white rounded-2xl shadow-2xl p-8 mb-4">
+            <h2 class="text-2xl font-bold text-slate-800 mb-6 text-center">Register</h2>
+            
+            <!-- Error Message -->
+            <div id="errorMessage" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+                <i class="fas fa-exclamation-circle mr-2"></i>
+                <span id="errorText"></span>
+            </div>
+
+            <!-- Success Message -->
+            <div id="successMessage" class="hidden bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">
+                <i class="fas fa-check-circle mr-2"></i>
+                <span id="successText"></span>
+            </div>
+
+            <!-- Registration Form -->
+            <form id="registerForm" class="space-y-4">
+                <!-- Personal Information -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="firstName" class="block text-sm font-medium text-gray-700 mb-2">
+                            First Name*
+                        </label>
+                        <input 
+                            type="text" 
+                            id="firstName" 
+                            name="firstName"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
+                            required
+                        >
+                    </div>
+                    <div>
+                        <label for="lastName" class="block text-sm font-medium text-gray-700 mb-2">
+                            Last Name*
+                        </label>
+                        <input 
+                            type="text" 
+                            id="lastName" 
+                            name="lastName"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
+                            required
+                        >
+                    </div>
+                </div>
+
+                <!-- Email -->
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-envelope mr-2 text-cyan-600"></i>Email*
+                    </label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email"
+                        placeholder="clinician@example.com"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
+                        required
+                    >
+                </div>
+
+                <!-- Password -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-lock mr-2 text-purple-600"></i>Password*
+                        </label>
+                        <input 
+                            type="password" 
+                            id="password" 
+                            name="password"
+                            placeholder="Min 8 characters"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                            required
+                            minlength="8"
+                        >
+                    </div>
+                    <div>
+                        <label for="confirmPassword" class="block text-sm font-medium text-gray-700 mb-2">
+                            Confirm Password*
+                        </label>
+                        <input 
+                            type="password" 
+                            id="confirmPassword" 
+                            name="confirmPassword"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                            required
+                        >
+                    </div>
+                </div>
+
+                <!-- Professional Information -->
+                <div class="border-t pt-4 mt-6">
+                    <h3 class="text-lg font-semibold text-slate-800 mb-4">Professional Information</h3>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="title" class="block text-sm font-medium text-gray-700 mb-2">
+                                Title*
+                            </label>
+                            <select 
+                                id="title" 
+                                name="title"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
+                                required
+                            >
+                                <option value="">Select title</option>
+                                <option value="DPT">DPT - Doctor of Physical Therapy</option>
+                                <option value="PT">PT - Physical Therapist</option>
+                                <option value="DC">DC - Doctor of Chiropractic</option>
+                                <option value="MD">MD - Medical Doctor</option>
+                                <option value="DO">DO - Doctor of Osteopathic Medicine</option>
+                                <option value="ATC">ATC - Athletic Trainer</option>
+                                <option value="OT">OT - Occupational Therapist</option>
+                                <option value="PTA">PTA - Physical Therapist Assistant</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="licenseNumber" class="block text-sm font-medium text-gray-700 mb-2">
+                                License Number
+                            </label>
+                            <input 
+                                type="text" 
+                                id="licenseNumber" 
+                                name="licenseNumber"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
+                            >
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 mt-4">
+                        <div>
+                            <label for="licenseState" class="block text-sm font-medium text-gray-700 mb-2">
+                                License State
+                            </label>
+                            <input 
+                                type="text" 
+                                id="licenseState" 
+                                name="licenseState"
+                                placeholder="e.g., CA"
+                                maxlength="2"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
+                            >
+                        </div>
+                        <div>
+                            <label for="npiNumber" class="block text-sm font-medium text-gray-700 mb-2">
+                                NPI Number
+                            </label>
+                            <input 
+                                type="text" 
+                                id="npiNumber" 
+                                name="npiNumber"
+                                placeholder="10-digit NPI"
+                                maxlength="10"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
+                            >
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <label for="clinicName" class="block text-sm font-medium text-gray-700 mb-2">
+                            Clinic/Practice Name
+                        </label>
+                        <input 
+                            type="text" 
+                            id="clinicName" 
+                            name="clinicName"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
+                        >
+                    </div>
+
+                    <div class="mt-4">
+                        <label for="phone" class="block text-sm font-medium text-gray-700 mb-2">
+                            Phone Number
+                        </label>
+                        <input 
+                            type="tel" 
+                            id="phone" 
+                            name="phone"
+                            placeholder="(555) 123-4567"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
+                        >
+                    </div>
+                </div>
+
+                <!-- Terms and Conditions -->
+                <div class="flex items-start mt-4">
+                    <input 
+                        type="checkbox" 
+                        id="terms" 
+                        class="w-4 h-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500 mt-1"
+                        required
+                    >
+                    <label for="terms" class="ml-2 text-sm text-gray-600">
+                        I agree to the <a href="#" class="text-cyan-600 hover:text-cyan-700">Terms of Service</a> 
+                        and <a href="#" class="text-cyan-600 hover:text-cyan-700">Privacy Policy</a>
+                    </label>
+                </div>
+
+                <!-- Submit Button -->
+                <button 
+                    type="submit" 
+                    id="registerButton"
+                    class="w-full bg-gradient-to-r from-cyan-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-cyan-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 mt-6"
+                >
+                    <i class="fas fa-user-plus mr-2"></i>
+                    Create Account
+                </button>
+            </form>
+
+            <!-- Divider -->
+            <div class="relative my-6">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-gray-300"></div>
+                </div>
+                <div class="relative flex justify-center text-sm">
+                    <span class="px-2 bg-white text-gray-500">OR</span>
+                </div>
+            </div>
+
+            <!-- Skip Button -->
+            <button 
+                id="skipButton"
+                class="w-full bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white py-3 rounded-lg font-semibold hover:from-violet-600 hover:to-fuchsia-600 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+            >
+                <i class="fas fa-fast-forward mr-2"></i>
+                Skip to Demo Mode
+            </button>
+        </div>
+
+        <!-- Login Link -->
+        <div class="text-center">
+            <p class="text-gray-600">
+                Already have an account? 
+                <a href="/static/login.html" class="text-cyan-600 hover:text-cyan-700 font-semibold">
+                    <i class="fas fa-sign-in-alt mr-1"></i>Login here
+                </a>
+            </p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <script>
+        const registerForm = document.getElementById('registerForm');
+        const skipButton = document.getElementById('skipButton');
+        const errorMessage = document.getElementById('errorMessage');
+        const errorText = document.getElementById('errorText');
+        const successMessage = document.getElementById('successMessage');
+        const successText = document.getElementById('successText');
+        const registerButton = document.getElementById('registerButton');
+
+        // Show error message
+        function showError(message) {
+            errorText.textContent = message;
+            errorMessage.classList.remove('hidden');
+            successMessage.classList.add('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Show success message
+        function showSuccess(message) {
+            successText.textContent = message;
+            successMessage.classList.remove('hidden');
+            errorMessage.classList.add('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Handle registration form submission
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            // Validate passwords match
+            if (password !== confirmPassword) {
+                showError('Passwords do not match!');
+                return;
+            }
+
+            const formData = {
+                email: document.getElementById('email').value,
+                password: password,
+                first_name: document.getElementById('firstName').value,
+                last_name: document.getElementById('lastName').value,
+                title: document.getElementById('title').value,
+                license_number: document.getElementById('licenseNumber').value || null,
+                license_state: document.getElementById('licenseState').value || null,
+                npi_number: document.getElementById('npiNumber').value || null,
+                phone: document.getElementById('phone').value || null,
+                clinic_name: document.getElementById('clinicName').value || null
+            };
+
+            registerButton.disabled = true;
+            registerButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Creating account...';
+
+            try {
+                const response = await axios.post('/api/auth/register', formData);
+
+                if (response.data.success) {
+                    showSuccess('Account created successfully! Redirecting to login...');
+                    
+                    setTimeout(() => {
+                        window.location.href = '/static/login.html';
+                    }, 2000);
+                } else {
+                    showError(response.data.error || 'Registration failed. Please try again.');
+                    registerButton.disabled = false;
+                    registerButton.innerHTML = '<i class="fas fa-user-plus mr-2"></i>Create Account';
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                showError(error.response?.data?.error || 'Registration failed. Please try again.');
+                registerButton.disabled = false;
+                registerButton.innerHTML = '<i class="fas fa-user-plus mr-2"></i>Create Account';
+            }
+        });
+
+        // Handle skip to demo mode
+        skipButton.addEventListener('click', () => {
+            const demoSession = {
+                id: 0,
+                email: 'demo@physiomotion.com',
+                first_name: 'Demo',
+                last_name: 'Clinician',
+                title: 'DPT',
+                role: 'clinician',
+                is_demo: true
+            };
+
+            sessionStorage.setItem('clinician_session', JSON.stringify(demoSession));
+            
+            showSuccess('Demo mode activated! Redirecting...');
+            
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 800);
+        });
+    </script>
+</body>
+</html>

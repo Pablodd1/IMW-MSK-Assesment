@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhysioMotion - Clinician Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-cyan-50 to-purple-50 min-h-screen flex items-center justify-center">
+    <div class="w-full max-w-md">
+        <!-- Logo and Title -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-cyan-600 to-purple-600 rounded-full mb-4 shadow-lg">
+                <i class="fas fa-heartbeat text-white text-3xl"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-slate-800 mb-2">PhysioMotion</h1>
+            <p class="text-gray-600">Medical Movement Assessment Platform</p>
+        </div>
+
+        <!-- Login Card -->
+        <div class="bg-white rounded-2xl shadow-2xl p-8 mb-4">
+            <h2 class="text-2xl font-bold text-slate-800 mb-6 text-center">Clinician Login</h2>
+            
+            <!-- Error Message -->
+            <div id="errorMessage" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+                <i class="fas fa-exclamation-circle mr-2"></i>
+                <span id="errorText"></span>
+            </div>
+
+            <!-- Success Message -->
+            <div id="successMessage" class="hidden bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">
+                <i class="fas fa-check-circle mr-2"></i>
+                <span id="successText"></span>
+            </div>
+
+            <!-- Login Form -->
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-envelope mr-2 text-cyan-600"></i>Email
+                    </label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email"
+                        placeholder="clinician@example.com"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
+                        required
+                    >
+                </div>
+
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-lock mr-2 text-purple-600"></i>Password
+                    </label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password"
+                        placeholder="Enter your password"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                        required
+                    >
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <label class="flex items-center">
+                        <input type="checkbox" id="rememberMe" class="w-4 h-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500">
+                        <span class="ml-2 text-sm text-gray-600">Remember me</span>
+                    </label>
+                    <a href="#" class="text-sm text-cyan-600 hover:text-cyan-700">Forgot password?</a>
+                </div>
+
+                <button 
+                    type="submit" 
+                    id="loginButton"
+                    class="w-full bg-gradient-to-r from-cyan-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-cyan-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                >
+                    <i class="fas fa-sign-in-alt mr-2"></i>
+                    Sign In
+                </button>
+            </form>
+
+            <!-- Divider -->
+            <div class="relative my-6">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-gray-300"></div>
+                </div>
+                <div class="relative flex justify-center text-sm">
+                    <span class="px-2 bg-white text-gray-500">OR</span>
+                </div>
+            </div>
+
+            <!-- Demo Mode Button -->
+            <button 
+                id="skipButton"
+                class="w-full bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white py-3 rounded-lg font-semibold hover:from-violet-600 hover:to-fuchsia-600 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+            >
+                <i class="fas fa-fast-forward mr-2"></i>
+                Skip to Demo Mode
+            </button>
+            <p class="text-xs text-center text-gray-500 mt-2">Full access with demo data for testing</p>
+        </div>
+
+        <!-- Registration Link -->
+        <div class="text-center">
+            <p class="text-gray-600">
+                Don't have an account? 
+                <a href="/static/register.html" class="text-cyan-600 hover:text-cyan-700 font-semibold">
+                    <i class="fas fa-user-plus mr-1"></i>Register here
+                </a>
+            </p>
+        </div>
+
+        <!-- Demo Credentials -->
+        <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p class="text-sm font-semibold text-blue-800 mb-2">
+                <i class="fas fa-info-circle mr-2"></i>Demo Credentials
+            </p>
+            <div class="text-xs text-blue-700 space-y-1">
+                <p><strong>Email:</strong> demo@physiomotion.com</p>
+                <p><strong>Password:</strong> demo123</p>
+                <p class="mt-2 text-blue-600"><em>Or click "Skip to Demo Mode" for instant access</em></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <script>
+        const loginForm = document.getElementById('loginForm');
+        const skipButton = document.getElementById('skipButton');
+        const errorMessage = document.getElementById('errorMessage');
+        const errorText = document.getElementById('errorText');
+        const successMessage = document.getElementById('successMessage');
+        const successText = document.getElementById('successText');
+        const loginButton = document.getElementById('loginButton');
+
+        // Show error message
+        function showError(message) {
+            errorText.textContent = message;
+            errorMessage.classList.remove('hidden');
+            successMessage.classList.add('hidden');
+            setTimeout(() => {
+                errorMessage.classList.add('hidden');
+            }, 5000);
+        }
+
+        // Show success message
+        function showSuccess(message) {
+            successText.textContent = message;
+            successMessage.classList.remove('hidden');
+            errorMessage.classList.add('hidden');
+        }
+
+        // Handle login form submission
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const rememberMe = document.getElementById('rememberMe').checked;
+
+            loginButton.disabled = true;
+            loginButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Signing in...';
+
+            try {
+                const response = await axios.post('/api/auth/login', {
+                    email,
+                    password
+                });
+
+                if (response.data.success) {
+                    // Store session data
+                    const storage = rememberMe ? localStorage : sessionStorage;
+                    storage.setItem('clinician_session', JSON.stringify(response.data.data));
+                    
+                    showSuccess('Login successful! Redirecting...');
+                    
+                    // Redirect to dashboard
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1000);
+                } else {
+                    showError(response.data.error || 'Login failed. Please try again.');
+                    loginButton.disabled = false;
+                    loginButton.innerHTML = '<i class="fas fa-sign-in-alt mr-2"></i>Sign In';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showError(error.response?.data?.error || 'Invalid email or password. Please try again.');
+                loginButton.disabled = false;
+                loginButton.innerHTML = '<i class="fas fa-sign-in-alt mr-2"></i>Sign In';
+            }
+        });
+
+        // Handle skip to demo mode
+        skipButton.addEventListener('click', () => {
+            // Create demo session
+            const demoSession = {
+                id: 0,
+                email: 'demo@physiomotion.com',
+                first_name: 'Demo',
+                last_name: 'Clinician',
+                title: 'DPT',
+                role: 'clinician',
+                is_demo: true
+            };
+
+            sessionStorage.setItem('clinician_session', JSON.stringify(demoSession));
+            
+            showSuccess('Demo mode activated! Redirecting...');
+            
+            // Redirect to dashboard
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 800);
+        });
+
+        // Check if already logged in
+        const existingSession = localStorage.getItem('clinician_session') || sessionStorage.getItem('clinician_session');
+        if (existingSession) {
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>
