@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     <link href="/static/styles.css" rel="stylesheet">
+    <script src="/static/notifications.js"></script>
 </head>
 <body class="bg-gray-50">
     <!-- Navigation -->
@@ -93,6 +94,14 @@
     </div>
 
     <script>
+        // Utility function to escape HTML and prevent XSS
+        function escapeHtml(text) {
+            if (!text) return text;
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         async function loadPatients() {
             const tableBody = document.getElementById('patientsTableBody');
             const loadingState = document.getElementById('loadingState');
@@ -100,14 +109,24 @@
             
             loadingState.classList.remove('hidden');
             tableBody.innerHTML = '';
+            emptyState.classList.add('hidden');
             
             try {
                 const response = await fetch('/api/patients');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
                 const result = await response.json();
                 
                 loadingState.classList.add('hidden');
                 
-                if (result.success && result.data && result.data.length > 0) {
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to load patients');
+                }
+                
+                if (result.data && result.data.length > 0) {
                     emptyState.classList.add('hidden');
                     
                     result.data.forEach(patient => {
@@ -120,13 +139,13 @@
                                         <i class="fas fa-user text-blue-600"></i>
                                     </div>
                                     <div class="ml-4">
-                                        <div class="text-sm font-medium text-gray-900">${patient.first_name} ${patient.last_name}</div>
+                                        <div class="text-sm font-medium text-gray-900">${escapeHtml(patient.first_name)} ${escapeHtml(patient.last_name)}</div>
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${patient.date_of_birth || 'N/A'}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${patient.email || 'N/A'}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${patient.phone || 'N/A'}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHtml(patient.date_of_birth) || 'N/A'}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHtml(patient.email) || 'N/A'}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHtml(patient.phone) || 'N/A'}</td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                                     Active
@@ -143,6 +162,8 @@
                         `;
                         tableBody.appendChild(row);
                     });
+                    
+                    showSuccess(`Loaded ${result.data.length} patient(s)`, 2000);
                 } else {
                     emptyState.classList.remove('hidden');
                 }
@@ -150,6 +171,7 @@
                 loadingState.classList.add('hidden');
                 emptyState.classList.remove('hidden');
                 console.error('Error loading patients:', error);
+                showError(`Failed to load patients: ${error.message}`);
             }
         }
 

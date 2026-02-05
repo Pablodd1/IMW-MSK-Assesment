@@ -393,13 +393,13 @@ app.get('/api/patients/:id/sessions', async (c) => {
     const patientId = c.req.param('id')
     
     const { results } = await c.env.DB.prepare(`
-      SELECT 
+      SELECT
         es.*,
         e.name as exercise_name,
         pe.sets as prescribed_sets,
-        pe.reps as prescribed_reps
+        pe.repetitions as prescribed_reps
       FROM exercise_sessions es
-      JOIN prescribed_exercises pe ON es.prescription_id = pe.prescription_id
+      JOIN prescribed_exercises pe ON es.prescribed_exercise_id = pe.id
       JOIN exercises e ON pe.exercise_id = e.id
       WHERE es.patient_id = ?
       ORDER BY es.session_date DESC
@@ -516,11 +516,23 @@ async function updateCompliancePercentage(db: any, prescribedExerciseId: number)
   `).bind(prescribedExerciseId).first() as any
   
   if (result && prescription) {
-    const weeksSincePrescribed = Math.floor(
-      (Date.now() - new Date(prescription.prescribed_at).getTime()) / (7 * 24 * 60 * 60 * 1000)
-    )
-    const expectedSessions = Math.max(1, prescription.times_per_week * weeksSincePrescribed)
-    const compliance = Math.min(100, (result.completed_count / expectedSessions) * 100)
+    const prescribedDate = new Date(prescription.prescribed_at)
+    const now = new Date()
+    
+    // Don't calculate compliance for future dates
+    if (prescribedDate > now) {
+      return
+    }
+    
+    // Calculate weeks since prescribed (minimum 1 week to avoid division by zero)
+    const weeksSincePrescribed = Math.max(1, Math.floor(
+      (now.getTime() - prescribedDate.getTime()) / (7 * 24 * 60 * 60 * 1000)
+    ))
+    
+    const expectedSessions = prescription.times_per_week * weeksSincePrescribed
+    
+    // Calculate compliance percentage, capped at 100%
+    const compliance = Math.min(100, Math.round((result.completed_count / expectedSessions) * 100))
     
     await db.prepare(`
       UPDATE prescribed_exercises
@@ -660,10 +672,10 @@ app.get('/', (c) => {
                             <span class="text-xl font-bold text-slate-800">PhysioMotion</span>
                         </div>
                         <div class="flex items-center space-x-4">
-                            <a href="/dashboard" class="text-gray-700 hover:text-cyan-600 transition-colors"><i class="fas fa-home mr-2"></i>Dashboard</a>
+                            <a href="/" class="text-gray-700 hover:text-cyan-600 transition-colors"><i class="fas fa-home mr-2"></i>Home</a>
                             <a href="/patients" class="text-gray-700 hover:text-cyan-600 transition-colors"><i class="fas fa-users mr-2"></i>Patients</a>
-                            <a href="/assessments" class="text-gray-700 hover:text-cyan-600 transition-colors"><i class="fas fa-clipboard-check mr-2"></i>Assessments</a>
-                            <a href="/monitoring" class="text-gray-700 hover:text-cyan-600 transition-colors"><i class="fas fa-chart-line mr-2"></i>Monitoring</a>
+                            <a href="/intake" class="text-gray-700 hover:text-cyan-600 transition-colors"><i class="fas fa-user-plus mr-2"></i>New Patient</a>
+                            <a href="/assessment" class="text-gray-700 hover:text-cyan-600 transition-colors"><i class="fas fa-video mr-2"></i>Assessment</a>
                         </div>
                     </div>
                 </div>
