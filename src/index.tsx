@@ -1,13 +1,13 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
-import type { Bindings, Patient, Assessment, Exercise, PrescribedExercise, ExerciseSession, SkeletonData } from './types'
+import type { Bindings, Patient, Assessment, Exercise, PrescribedExercise, ExerciseSession, SkeletonData, BillingCode } from './types'
 import { performBiomechanicalAnalysis } from './utils/biomechanics'
 
 const app = new Hono<{ Bindings: Bindings }>()
 
 // Simple in-memory cache for billing codes
-let billingCodesCache: any = null
+let billingCodesCache: BillingCode[] | null = null
 
 // Enable CORS for API routes
 app.use('/api/*', cors())
@@ -529,8 +529,8 @@ app.get('/api/billing/codes', async (c) => {
 
     const { results } = await c.env.DB.prepare(`
       SELECT * FROM billing_codes ORDER BY cpt_code
-    `).all()
-    
+    `).all<BillingCode>()
+
     billingCodesCache = results
     c.header('Cache-Control', 'public, max-age=86400')
 
