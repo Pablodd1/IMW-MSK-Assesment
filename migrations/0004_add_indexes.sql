@@ -16,21 +16,19 @@ CREATE INDEX IF NOT EXISTS idx_movement_tests_assessment_id ON movement_tests(as
 CREATE INDEX IF NOT EXISTS idx_movement_tests_status ON movement_tests(status);
 
 -- Prescribed exercise indexes
-CREATE INDEX IF NOT EXISTS idx_prescribed_exercises_patient_id ON prescribed_exercises(patient_id);
-CREATE INDEX IF NOT EXISTS idx_prescribed_exercises_assessment_id ON prescribed_exercises(assessment_id);
-CREATE INDEX IF NOT EXISTS idx_prescribed_exercises_status ON prescribed_exercises(prescription_status);
-CREATE INDEX IF NOT EXISTS idx_prescribed_exercises_patient_status ON prescribed_exercises(patient_id, prescription_status);
+-- prescribed_exercises does not have patient_id directly, it is linked via prescription_id
+CREATE INDEX IF NOT EXISTS idx_prescribed_exercises_prescription_id ON prescribed_exercises(prescription_id);
+-- prescribed_exercises uses 'status', not 'prescription_status'
+CREATE INDEX IF NOT EXISTS idx_prescribed_exercises_status ON prescribed_exercises(status);
 
 -- Exercise session indexes
 CREATE INDEX IF NOT EXISTS idx_exercise_sessions_patient_id ON exercise_sessions(patient_id);
-CREATE INDEX IF NOT EXISTS idx_exercise_sessions_prescribed_exercise_id ON exercise_sessions(prescribed_exercise_id);
+-- exercise_sessions has prescription_id, NOT prescribed_exercise_id
+CREATE INDEX IF NOT EXISTS idx_exercise_sessions_prescription_id ON exercise_sessions(prescription_id);
 CREATE INDEX IF NOT EXISTS idx_exercise_sessions_date ON exercise_sessions(session_date DESC);
 
 -- Exercise library indexes
 CREATE INDEX IF NOT EXISTS idx_exercises_category ON exercises(category);
 CREATE INDEX IF NOT EXISTS idx_exercises_difficulty ON exercises(difficulty);
 
--- Billable event indexes
-CREATE INDEX IF NOT EXISTS idx_billable_events_patient_id ON billable_events(patient_id);
-CREATE INDEX IF NOT EXISTS idx_billable_events_service_date ON billable_events(service_date DESC);
-CREATE INDEX IF NOT EXISTS idx_billable_events_status ON billable_events(billing_status);
+-- Billable events table does not exist in migration 0001, so skipping its indexes
