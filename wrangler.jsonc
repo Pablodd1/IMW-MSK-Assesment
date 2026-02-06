@@ -1,8 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "physiomotion",
-  "main": "src/index.tsx",
-  "compatibility_date": "2026-01-31",
+  "compatibility_date": "2025-10-08",
   "pages_build_output_dir": "./dist",
   "compatibility_flags": [
     "nodejs_compat"
