@@ -18,8 +18,8 @@ CREATE INDEX IF NOT EXISTS idx_movement_tests_status ON movement_tests(status);
 -- Prescribed exercise indexes
 CREATE INDEX IF NOT EXISTS idx_prescribed_exercises_patient_id ON prescribed_exercises(patient_id);
 CREATE INDEX IF NOT EXISTS idx_prescribed_exercises_assessment_id ON prescribed_exercises(assessment_id);
-CREATE INDEX IF NOT EXISTS idx_prescribed_exercises_status ON prescribed_exercises(prescription_status);
-CREATE INDEX IF NOT EXISTS idx_prescribed_exercises_patient_status ON prescribed_exercises(patient_id, prescription_status);
+CREATE INDEX IF NOT EXISTS idx_prescribed_exercises_status ON prescribed_exercises(status);
+CREATE INDEX IF NOT EXISTS idx_prescribed_exercises_patient_status ON prescribed_exercises(patient_id, status);
 
 -- Exercise session indexes
 CREATE INDEX IF NOT EXISTS idx_exercise_sessions_patient_id ON exercise_sessions(patient_id);
