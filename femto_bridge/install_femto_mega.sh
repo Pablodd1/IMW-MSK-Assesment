@@ -141,6 +141,15 @@ pip3 install --user websockets
 pip3 install --user numpy
 pip3 install --user opencv-python
 
+# Try to install pyk4a (optional, for Body Tracking)
+echo "Attempting to install pyk4a (for Azure Kinect Body Tracking)..."
+if pip3 install --user pyk4a; then
+    echo "✅ pyk4a installed successfully"
+else
+    echo "⚠️  pyk4a installation failed (this is expected if Azure Kinect SDK is not installed)"
+    echo "    The system will fall back to native Orbbec SDK or simulation."
+fi
+
 echo "✅ Python dependencies installed"
 
 echo ""
