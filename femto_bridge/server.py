@@ -16,6 +16,8 @@ import websockets
 import logging
 from datetime import datetime
 import sys
+import random
+import math
 
 # Try to import Orbbec SDK
 try:
@@ -72,9 +74,6 @@ class FemtoBridgeServer:
     
     def generate_simulated_skeleton(self):
         """Generate simulated skeleton data for testing"""
-        import random
-        import math
-        
         # Simulate a person doing a squat movement
         time = datetime.now().timestamp()
         squat_phase = (math.sin(time * 0.5) + 1) / 2  # 0 to 1
