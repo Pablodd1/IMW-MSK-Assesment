@@ -6,6 +6,9 @@ import { performBiomechanicalAnalysis } from './utils/biomechanics'
 
 const app = new Hono<{ Bindings: Bindings }>()
 
+// Simple in-memory cache for billing codes
+let billingCodesCache: any = null
+
 // Enable CORS for API routes
 app.use('/api/*', cors())
 
@@ -519,10 +522,18 @@ app.get('/api/patients/:id/sessions', async (c) => {
 // Get CPT codes
 app.get('/api/billing/codes', async (c) => {
   try {
+    if (billingCodesCache) {
+      c.header('Cache-Control', 'public, max-age=86400')
+      return c.json({ success: true, data: billingCodesCache })
+    }
+
     const { results } = await c.env.DB.prepare(`
       SELECT * FROM billing_codes ORDER BY cpt_code
     `).all()
     
+    billingCodesCache = results
+    c.header('Cache-Control', 'public, max-age=86400')
+
     return c.json({ success: true, data: results })
   } catch (error: any) {
     return c.json({ success: false, error: error.message }, 500)
