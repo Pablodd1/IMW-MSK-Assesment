@@ -3,6 +3,7 @@ import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
 import type { Bindings, Patient, Assessment, Exercise, PrescribedExercise, ExerciseSession, SkeletonData } from './types'
 import { performBiomechanicalAnalysis } from './utils/biomechanics'
+import { queryExerciseKnowledge } from './utils/rag'
 
 const app = new Hono<{ Bindings: Bindings }>()
 
@@ -11,6 +12,17 @@ app.use('/api/*', cors())
 
 // Serve static files
 app.use('/static/*', serveStatic({ root: './public', manifest: {} }))
+
+// ============================================================================
+// CACHING
+// ============================================================================
+let exercisesCache: any[] | null = null
+let lastExerciseCacheTime = 0
+const EXERCISE_CACHE_TTL = 3600 * 1000 // 1 hour
+
+let billingCodesCache: any[] | null = null
+let lastBillingCacheTime = 0
+const BILLING_CACHE_TTL = 3600 * 1000 // 1 hour
 
 // ============================================================================
 // AUTHENTICATION API
@@ -381,11 +393,17 @@ app.get('/api/assessments/:id/tests', async (c) => {
 // EXERCISE LIBRARY API
 // ============================================================================
 
-// Get all exercises
+// Get all exercises (with caching)
 app.get('/api/exercises', async (c) => {
   try {
     const category = c.req.query('category')
     
+    // Use cache if available and no category filter
+    const now = Date.now()
+    if (!category && exercisesCache && (now - lastExerciseCacheTime < EXERCISE_CACHE_TTL)) {
+       return c.json({ success: true, data: exercisesCache })
+    }
+
     let query = 'SELECT * FROM exercises'
     const params: any[] = []
     
@@ -398,6 +416,12 @@ app.get('/api/exercises', async (c) => {
     
     const { results } = await c.env.DB.prepare(query).bind(...params).all()
     
+    // Update cache if no filter
+    if (!category) {
+        exercisesCache = results
+        lastExerciseCacheTime = now
+    }
+
     return c.json({ success: true, data: results })
   } catch (error: any) {
     return c.json({ success: false, error: error.message }, 500)
@@ -516,13 +540,21 @@ app.get('/api/patients/:id/sessions', async (c) => {
 // BILLING API
 // ============================================================================
 
-// Get CPT codes
+// Get CPT codes (with caching)
 app.get('/api/billing/codes', async (c) => {
   try {
+    const now = Date.now()
+    if (billingCodesCache && (now - lastBillingCacheTime < BILLING_CACHE_TTL)) {
+        return c.json({ success: true, data: billingCodesCache })
+    }
+
     const { results } = await c.env.DB.prepare(`
       SELECT * FROM billing_codes ORDER BY cpt_code
     `).all()
     
+    billingCodesCache = results
+    lastBillingCacheTime = now
+
     return c.json({ success: true, data: results })
   } catch (error: any) {
     return c.json({ success: false, error: error.message }, 500)
@@ -553,6 +585,20 @@ app.post('/api/billing/events', async (c) => {
 })
 
 // ============================================================================
+// RAG & ANALYTICS API
+// ============================================================================
+
+app.post('/api/rag/query', async (c) => {
+  try {
+    const { query } = await c.req.json<{ query: string }>()
+    const result = await queryExerciseKnowledge(c.env.DB, query)
+    return c.json({ success: true, data: result })
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
+// ============================================================================
 // MEDICAL NOTE GENERATION
 // ============================================================================
 
@@ -576,6 +622,22 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
     // Generate comprehensive medical note
     const medicalNote = generateMedicalNote(assessment, tests)
     
+    // Try to enhance with AI insights if deficiencies exist
+    let aiInsights = ""
+    if (tests.length > 0 && tests[0].deficiencies) {
+        try {
+            const defs = JSON.parse(tests[0].deficiencies)
+            if (defs.length > 0) {
+                const ragResult = await queryExerciseKnowledge(c.env.DB, defs[0].area)
+                aiInsights = ragResult.answer
+            }
+        } catch (e) {}
+    }
+
+    if (aiInsights) {
+        medicalNote.plan += `\n\nAI CLINICAL INSIGHTS:\n${aiInsights}`
+    }
+
     // Update assessment with generated notes
     await c.env.DB.prepare(`
       UPDATE assessments
