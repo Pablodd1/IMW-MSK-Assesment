@@ -19,7 +19,7 @@ BODY_TRACKING_AVAILABLE = False
 try:
     from pyorbbecsdk import (
         Pipeline, Config, OBSensorType, OBFormat,
-        OBAlignMode, VideoStreamProfile
+        OBAlignMode
     )
     SDK_AVAILABLE = True
     print("✅ OrbbecSDK imported successfully")
