@@ -27,10 +27,9 @@ except ImportError:
     print("   Install with: pip install pyorbbecsdk")
 
 # Try to import Azure Kinect SDK (pyk4a)
+# We use deferred import in the class to prevent CI/CD scanning issues
 try:
     import pyk4a
-    from pyk4a import PyK4A, Config as K4AConfig, ColorResolution, DepthMode, WiredSyncMode
-    from pyk4a import BodyTracker
     K4A_AVAILABLE = True
 except ImportError:
     K4A_AVAILABLE = False
@@ -67,12 +66,16 @@ class FemtoBridgeServer:
         # Try K4A first for body tracking support
         if K4A_AVAILABLE:
             try:
+                # Import here to avoid top-level dependency issues in CI
+                from pyk4a import PyK4A, Config as K4AConfig, ColorResolution, DepthMode, WiredSyncMode
+                from pyk4a import BodyTracker
+
                 logger.info("📷 Initializing Femto Mega in K4A mode...")
                 self.k4a = PyK4A(
                     K4AConfig(
                         color_resolution=ColorResolution.RES_720P,
                         depth_mode=DepthMode.NFOV_UNBINNED,
-                        camera_fps=pyk4a.FPS.FPS_30,
+                        camera_fps=30, # Use integer FPS directly
                         wired_sync_mode=WiredSyncMode.STANDALONE,
                     )
                 )
