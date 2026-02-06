@@ -32,8 +32,8 @@ export function calculateAngle(a: PoseLandmark, b: PoseLandmark, c: PoseLandmark
   const magBA = Math.sqrt(ba.x * ba.x + ba.y * ba.y + ba.z * ba.z);
   const magBC = Math.sqrt(bc.x * bc.x + bc.y * bc.y + bc.z * bc.z);
   
-  // Angle in radians
-  const angleRad = Math.acos(dotProduct / (magBA * magBC));
+  // Angle in radians (clamped to [-1, 1] to prevent NaN)
+  const angleRad = Math.acos(Math.max(-1, Math.min(1, dotProduct / (magBA * magBC))));
   
   // Convert to degrees
   const angleDeg = angleRad * (180 / Math.PI);
@@ -240,21 +240,21 @@ export function calculateJointAngles(skeleton: SkeletonData): Record<string, Joi
   return jointAngles;
 }
 
+const JOINT_ANGLE_PAIRS: Array<[string, string, string]> = [
+  ['left_shoulder_flexion', 'right_shoulder_flexion', 'shoulder'],
+  ['left_elbow_flexion', 'right_elbow_flexion', 'elbow'],
+  ['left_hip_flexion', 'right_hip_flexion', 'hip'],
+  ['left_knee_flexion', 'right_knee_flexion', 'knee'],
+  ['left_ankle_dorsiflexion', 'right_ankle_dorsiflexion', 'ankle']
+];
+
 /**
  * Detect asymmetries between left and right sides
  */
 export function detectAsymmetries(jointAngles: Record<string, JointAngle>): Record<string, number> {
   const asymmetries: Record<string, number> = {};
   
-  const jointPairs = [
-    ['left_shoulder_flexion', 'right_shoulder_flexion', 'shoulder'],
-    ['left_elbow_flexion', 'right_elbow_flexion', 'elbow'],
-    ['left_hip_flexion', 'right_hip_flexion', 'hip'],
-    ['left_knee_flexion', 'right_knee_flexion', 'knee'],
-    ['left_ankle_dorsiflexion', 'right_ankle_dorsiflexion', 'ankle']
-  ];
-  
-  for (const [leftKey, rightKey, name] of jointPairs) {
+  for (const [leftKey, rightKey, name] of JOINT_ANGLE_PAIRS) {
     const leftJoint = jointAngles[leftKey];
     const rightJoint = jointAngles[rightKey];
     

@@ -1,9 +1,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "physiomotion",
-  "main": "src/index.tsx",
-  "compatibility_date": "2026-01-31",
-  "pages_build_output_dir": "./dist",
+  "name": "imw-assesment",
+  "main": "dist/index.js",
+  "compatibility_date": "2025-02-14",
   "compatibility_flags": [
     "nodejs_compat"
   ],
