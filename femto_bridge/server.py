@@ -33,6 +33,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# 32 joints from Azure Kinect Body Tracking SDK
+JOINT_NAMES = [
+    'PELVIS', 'SPINE_NAVAL', 'SPINE_CHEST', 'NECK', 'CLAVICLE_LEFT',
+    'SHOULDER_LEFT', 'ELBOW_LEFT', 'WRIST_LEFT', 'HAND_LEFT', 'HANDTIP_LEFT',
+    'THUMB_LEFT', 'CLAVICLE_RIGHT', 'SHOULDER_RIGHT', 'ELBOW_RIGHT', 'WRIST_RIGHT',
+    'HAND_RIGHT', 'HANDTIP_RIGHT', 'THUMB_RIGHT', 'HIP_LEFT', 'KNEE_LEFT',
+    'ANKLE_LEFT', 'FOOT_LEFT', 'HIP_RIGHT', 'KNEE_RIGHT', 'ANKLE_RIGHT',
+    'FOOT_RIGHT', 'HEAD', 'NOSE', 'EYE_LEFT', 'EAR_LEFT', 'EYE_RIGHT', 'EAR_RIGHT'
+]
+
+
 class FemtoBridgeServer:
     """WebSocket server for Femto Mega skeleton streaming"""
     
@@ -79,18 +90,9 @@ class FemtoBridgeServer:
         time = datetime.now().timestamp()
         squat_phase = (math.sin(time * 0.5) + 1) / 2  # 0 to 1
         
-        # 32 joints from Azure Kinect Body Tracking SDK
         joints = {}
-        joint_names = [
-            'PELVIS', 'SPINE_NAVAL', 'SPINE_CHEST', 'NECK', 'CLAVICLE_LEFT',
-            'SHOULDER_LEFT', 'ELBOW_LEFT', 'WRIST_LEFT', 'HAND_LEFT', 'HANDTIP_LEFT',
-            'THUMB_LEFT', 'CLAVICLE_RIGHT', 'SHOULDER_RIGHT', 'ELBOW_RIGHT', 'WRIST_RIGHT',
-            'HAND_RIGHT', 'HANDTIP_RIGHT', 'THUMB_RIGHT', 'HIP_LEFT', 'KNEE_LEFT',
-            'ANKLE_LEFT', 'FOOT_LEFT', 'HIP_RIGHT', 'KNEE_RIGHT', 'ANKLE_RIGHT',
-            'FOOT_RIGHT', 'HEAD', 'NOSE', 'EYE_LEFT', 'EAR_LEFT', 'EYE_RIGHT', 'EAR_RIGHT'
-        ]
         
-        for i, name in enumerate(joint_names):
+        for i, name in enumerate(JOINT_NAMES):
             # Simulate squatting motion (pelvis and legs move down)
             y_offset = 0
             if 'PELVIS' in name or 'HIP' in name or 'KNEE' in name:
