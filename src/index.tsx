@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
-import type { Bindings, Patient, Assessment, Exercise, PrescribedExercise, ExerciseSession, SkeletonData, BillingCode } from './types'
+import type { Bindings, Patient, Assessment, Exercise, PrescribedExercise, ExerciseSession, SkeletonData } from './types'
 import { performBiomechanicalAnalysis } from './utils/biomechanics'
 
 const app = new Hono<{ Bindings: Bindings }>()
@@ -521,7 +521,7 @@ app.get('/api/billing/codes', async (c) => {
   try {
     const { results } = await c.env.DB.prepare(`
       SELECT * FROM billing_codes ORDER BY cpt_code
-    `).all<BillingCode>()
+    `).all()
 
     // Cache for 24 hours (86400 seconds)
     c.header('Cache-Control', 'public, max-age=86400')
