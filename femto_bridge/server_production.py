@@ -17,6 +17,7 @@ import cv2
 import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
+import urllib.request
 
 # SDK imports with fallback
 SDK_AVAILABLE = False
@@ -55,23 +56,33 @@ class FemtoMegaBodyTracker:
 
             # Path to model file
             script_dir = os.path.dirname(os.path.abspath(__file__))
-            model_path = os.path.join(script_dir, 'models', 'pose_landmarker_full.task')
+            models_dir = os.path.join(script_dir, 'models')
+            if not os.path.exists(models_dir):
+                os.makedirs(models_dir)
+
+            model_path = os.path.join(models_dir, 'pose_landmarker_full.task')
 
             if not os.path.exists(model_path):
-                logger.error(f"❌ Model not found at {model_path}")
-                logger.info(f"   Please download it using: curl -L -o {model_path} https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task")
-            else:
-                base_options = python.BaseOptions(model_asset_path=model_path)
-                options = vision.PoseLandmarkerOptions(
-                    base_options=base_options,
-                    running_mode=vision.RunningMode.VIDEO,
-                    min_pose_detection_confidence=0.5,
-                    min_pose_presence_confidence=0.5,
-                    min_tracking_confidence=0.5,
-                    output_segmentation_masks=False
-                )
-                self.landmarker = vision.PoseLandmarker.create_from_options(options)
-                logger.info("✅ MediaPipe Pose Landmarker initialized")
+                logger.info(f"⬇️  Downloading MediaPipe model to {model_path}...")
+                url = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task"
+                try:
+                    urllib.request.urlretrieve(url, model_path)
+                    logger.info("✅ Model downloaded successfully")
+                except Exception as e:
+                    logger.error(f"❌ Failed to download model: {e}")
+                    raise
+
+            base_options = python.BaseOptions(model_asset_path=model_path)
+            options = vision.PoseLandmarkerOptions(
+                base_options=base_options,
+                running_mode=vision.RunningMode.VIDEO,
+                min_pose_detection_confidence=0.5,
+                min_pose_presence_confidence=0.5,
+                min_tracking_confidence=0.5,
+                output_segmentation_masks=False
+            )
+            self.landmarker = vision.PoseLandmarker.create_from_options(options)
+            logger.info("✅ MediaPipe Pose Landmarker initialized")
 
         except Exception as e:
             logger.error(f"❌ Failed to initialize MediaPipe: {e}")
