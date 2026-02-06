@@ -22,34 +22,62 @@ import websockets
 # Try to import Orbbec SDK
 try:
     from pyorbbecsdk import Pipeline, Config, OBSensorType, OBFormat
+
     SDK_AVAILABLE = True
 except ImportError:
     SDK_AVAILABLE = False
-    print("⚠️  WARNING: pyorbbecsdk not installed. Running in simulation mode.")
+    print("⚠️  WARNING: pyorbbecsdk not installed.")
+    print("   Running in simulation mode.")
     print("   Install with: pip install pyorbbecsdk")
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
 
 # 32 joints from Azure Kinect Body Tracking SDK
 JOINT_NAMES = [
-    'PELVIS', 'SPINE_NAVAL', 'SPINE_CHEST', 'NECK', 'CLAVICLE_LEFT',
-    'SHOULDER_LEFT', 'ELBOW_LEFT', 'WRIST_LEFT', 'HAND_LEFT', 'HANDTIP_LEFT',
-    'THUMB_LEFT', 'CLAVICLE_RIGHT', 'SHOULDER_RIGHT', 'ELBOW_RIGHT', 'WRIST_RIGHT',
-    'HAND_RIGHT', 'HANDTIP_RIGHT', 'THUMB_RIGHT', 'HIP_LEFT', 'KNEE_LEFT',
-    'ANKLE_LEFT', 'FOOT_LEFT', 'HIP_RIGHT', 'KNEE_RIGHT', 'ANKLE_RIGHT',
-    'FOOT_RIGHT', 'HEAD', 'NOSE', 'EYE_LEFT', 'EAR_LEFT', 'EYE_RIGHT', 'EAR_RIGHT'
+    "PELVIS",
+    "SPINE_NAVAL",
+    "SPINE_CHEST",
+    "NECK",
+    "CLAVICLE_LEFT",
+    "SHOULDER_LEFT",
+    "ELBOW_LEFT",
+    "WRIST_LEFT",
+    "HAND_LEFT",
+    "HANDTIP_LEFT",
+    "THUMB_LEFT",
+    "CLAVICLE_RIGHT",
+    "SHOULDER_RIGHT",
+    "ELBOW_RIGHT",
+    "WRIST_RIGHT",
+    "HAND_RIGHT",
+    "HANDTIP_RIGHT",
+    "THUMB_RIGHT",
+    "HIP_LEFT",
+    "KNEE_LEFT",
+    "ANKLE_LEFT",
+    "FOOT_LEFT",
+    "HIP_RIGHT",
+    "KNEE_RIGHT",
+    "ANKLE_RIGHT",
+    "FOOT_RIGHT",
+    "HEAD",
+    "NOSE",
+    "EYE_LEFT",
+    "EAR_LEFT",
+    "EYE_RIGHT",
+    "EAR_RIGHT",
 ]
 
 
 class FemtoBridgeServer:
     """WebSocket server for Femto Mega skeleton streaming"""
 
-    def __init__(self, host='0.0.0.0', port=8765, simulation=False):
+    def __init__(self, host="0.0.0.0", port=8765, simulation=False):
         self.host = host
         self.port = port
         self.simulation = simulation or not SDK_AVAILABLE
@@ -69,8 +97,12 @@ class FemtoBridgeServer:
 
             # Configure streams
             config = Config()
-            config.enable_stream(OBSensorType.DEPTH_SENSOR, 640, 576, OBFormat.Y16, 30)
-            config.enable_stream(OBSensorType.COLOR_SENSOR, 1920, 1080, OBFormat.RGB, 30)
+            config.enable_stream(
+                OBSensorType.DEPTH_SENSOR, 640, 576, OBFormat.Y16, 30
+            )
+            config.enable_stream(
+                OBSensorType.COLOR_SENSOR, 1920, 1080, OBFormat.RGB, 30
+            )
 
             # Start pipeline
             self.pipeline.start(config)
@@ -94,29 +126,24 @@ class FemtoBridgeServer:
         for i, name in enumerate(JOINT_NAMES):
             # Simulate squatting motion (pelvis and legs move down)
             y_offset = 0
-            if 'PELVIS' in name or 'HIP' in name or 'KNEE' in name:
+            if "PELVIS" in name or "HIP" in name or "KNEE" in name:
                 y_offset = -squat_phase * 300  # Squat down by 300mm
 
             joints[name] = {
-                'position': {
-                    'x': random.uniform(-200, 200) + (i * 10),
-                    'y': 500 + y_offset + (i * 20),
-                    'z': 1500 + random.uniform(-50, 50)
+                "position": {
+                    "x": random.uniform(-200, 200) + (i * 10),
+                    "y": 500 + y_offset + (i * 20),
+                    "z": 1500 + random.uniform(-50, 50),
                 },
-                'orientation': {
-                    'w': 1.0,
-                    'x': 0.0,
-                    'y': 0.0,
-                    'z': 0.0
-                },
-                'confidence': 'HIGH' if random.random() > 0.1 else 'MEDIUM'
+                "orientation": {"w": 1.0, "x": 0.0, "y": 0.0, "z": 0.0},
+                "confidence": "HIGH" if random.random() > 0.1 else "MEDIUM",
             }
 
         return {
-            'timestamp': datetime.now().isoformat(),
-            'body_id': 0,
-            'joints': joints,
-            'simulation': True
+            "timestamp": datetime.now().isoformat(),
+            "body_id": 0,
+            "joints": joints,
+            "simulation": True,
         }
 
     def capture_skeleton(self):
@@ -130,11 +157,14 @@ class FemtoBridgeServer:
             if frames is None:
                 return None
 
-            # TODO: Implement actual body tracking with Azure Kinect Body Tracking SDK
-            # This requires k4abt library integration
+            # TODO: Implement actual body tracking with Azure Kinect
+            # Body Tracking SDK. This requires k4abt library integration.
             # For now, return None to indicate no body detected
 
-            logger.warning("⚠️  Body tracking not yet implemented. Install Azure Kinect Body Tracking SDK.")
+            logger.warning(
+                "⚠️  Body tracking not yet implemented. "
+                "Install Azure Kinect Body Tracking SDK."
+            )
             return None
 
         except Exception as e:
@@ -152,10 +182,9 @@ class FemtoBridgeServer:
 
                 if skeleton and self.clients:
                     # Broadcast to all connected clients
-                    message = json.dumps({
-                        'type': 'skeleton',
-                        'skeleton': skeleton
-                    })
+                    message = json.dumps(
+                        {"type": "skeleton", "skeleton": skeleton}
+                    )
 
                     # Send to all clients
                     disconnected = set()
@@ -183,36 +212,44 @@ class FemtoBridgeServer:
 
         try:
             # Send connection success message
-            await websocket.send(json.dumps({
-                'type': 'connected',
-                'message': 'Femto Mega bridge server connected',
-                'simulation': self.simulation,
-                'timestamp': datetime.now().isoformat()
-            }))
+            await websocket.send(
+                json.dumps(
+                    {
+                        "type": "connected",
+                        "message": "Femto Mega bridge server connected",
+                        "simulation": self.simulation,
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                )
+            )
 
             # Handle incoming messages
             async for message in websocket:
                 try:
                     data = json.loads(message)
-                    command = data.get('command')
+                    command = data.get("command")
 
-                    if command == 'ping':
-                        await websocket.send(json.dumps({'type': 'pong'}))
+                    if command == "ping":
+                        await websocket.send(json.dumps({"type": "pong"}))
 
-                    elif command == 'start_streaming':
+                    elif command == "start_streaming":
                         if not self.is_streaming:
                             self.is_streaming = True
                             asyncio.create_task(self.stream_skeleton_data())
-                        await websocket.send(json.dumps({
-                            'type': 'streaming_started',
-                            'simulation': self.simulation
-                        }))
+                        await websocket.send(
+                            json.dumps(
+                                {
+                                    "type": "streaming_started",
+                                    "simulation": self.simulation,
+                                }
+                            )
+                        )
 
-                    elif command == 'stop_streaming':
+                    elif command == "stop_streaming":
                         self.is_streaming = False
-                        await websocket.send(json.dumps({
-                            'type': 'streaming_stopped'
-                        }))
+                        await websocket.send(
+                            json.dumps({"type": "streaming_stopped"})
+                        )
 
                     else:
                         logger.warning(f"⚠️  Unknown command: {command}")
@@ -241,7 +278,9 @@ class FemtoBridgeServer:
 
         async with websockets.serve(self.handle_client, self.host, self.port):
             logger.info(f"✅ Server ready at ws://{self.host}:{self.port}")
-            logger.info("👉 Open PhysioMotion web app and select 'Femto Mega' camera")
+            logger.info(
+                "👉 Open PhysioMotion web app and select 'Femto Mega' camera"
+            )
             logger.info("=" * 60)
 
             if self.simulation:
@@ -265,15 +304,23 @@ def main():
     """Main entry point"""
     import argparse
 
-    parser = argparse.ArgumentParser(description='Femto Mega Bridge Server')
-    parser.add_argument('--host', default='0.0.0.0', help='Server host (default: 0.0.0.0)')
-    parser.add_argument('--port', type=int, default=8765, help='Server port (default: 8765)')
-    parser.add_argument('--simulate', action='store_true', help='Force simulation mode')
+    parser = argparse.ArgumentParser(description="Femto Mega Bridge Server")
+    parser.add_argument(
+        "--host", default="0.0.0.0", help="Server host (default: 0.0.0.0)"
+    )
+    parser.add_argument(
+        "--port", type=int, default=8765, help="Server port (default: 8765)"
+    )
+    parser.add_argument(
+        "--simulate", action="store_true", help="Force simulation mode"
+    )
 
     args = parser.parse_args()
 
     # Create and start server
-    server = FemtoBridgeServer(host=args.host, port=args.port, simulation=args.simulate)
+    server = FemtoBridgeServer(
+        host=args.host, port=args.port, simulation=args.simulate
+    )
 
     try:
         asyncio.run(server.start())
@@ -285,5 +332,5 @@ def main():
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
