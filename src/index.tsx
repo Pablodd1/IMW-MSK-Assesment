@@ -131,9 +131,9 @@ app.post('/api/patients', async (c) => {
     `).bind(
       patient.first_name, patient.last_name, patient.date_of_birth,
       patient.gender, patient.email, patient.phone,
-      patient.emergency_contact_name, patient.emergency_contact_phone,
-      patient.address_line1, patient.city, patient.state, patient.zip_code,
-      patient.height_cm, patient.weight_kg, patient.insurance_provider
+      patient.emergency_contact_name || null, patient.emergency_contact_phone || null,
+      patient.address_line1 || null, patient.city || null, patient.state || null, patient.zip_code || null,
+      patient.height_cm || null, patient.weight_kg || null, patient.insurance_provider || null
     ).run()
     
     return c.json({
