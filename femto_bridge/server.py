@@ -129,7 +129,8 @@ class FemtoBridgeServer:
         
         try:
             # Get frames from camera
-            frames = await asyncio.to_thread(self._wait_for_frames_blocking)
+            loop = asyncio.get_running_loop()
+            frames = await loop.run_in_executor(None, self._wait_for_frames_blocking)
 
             if frames is None:
                 return None
