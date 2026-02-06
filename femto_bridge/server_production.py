@@ -11,6 +11,8 @@ import logging
 from datetime import datetime
 import sys
 import signal
+import random
+import math
 
 # SDK imports with fallback
 SDK_AVAILABLE = False
@@ -118,9 +120,6 @@ class FemtoMegaBodyTracker:
     
     def generate_simulated_skeleton(self):
         """Generate simulated skeleton for testing"""
-        import random
-        import math
-        
         time = datetime.now().timestamp()
         squat_phase = (math.sin(time * 0.5) + 1) / 2
         
