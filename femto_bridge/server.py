@@ -26,6 +26,17 @@ except ImportError:
     print("⚠️  WARNING: pyorbbecsdk not installed. Running in simulation mode.")
     print("   Install with: pip install pyorbbecsdk")
 
+# Try to import Azure Kinect SDK (pyk4a)
+try:
+    import pyk4a
+    from pyk4a import PyK4A, Config as K4AConfig, ColorResolution, DepthMode, WiredSyncMode
+    from pyk4a import BodyTracker
+    K4A_AVAILABLE = True
+except ImportError:
+    K4A_AVAILABLE = False
+    print("⚠️  WARNING: pyk4a not installed. Azure Kinect Body Tracking will be unavailable.")
+    print("   Install with: pip install pyk4a")
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -39,9 +50,12 @@ class FemtoBridgeServer:
     def __init__(self, host='0.0.0.0', port=8765, simulation=False):
         self.host = host
         self.port = port
-        self.simulation = simulation or not SDK_AVAILABLE
+        self.simulation = simulation or (not SDK_AVAILABLE and not K4A_AVAILABLE)
         self.clients = set()
         self.pipeline = None
+        self.k4a = None
+        self.tracker = None
+        self.use_k4a = False
         self.is_streaming = False
         
     def init_camera(self):
@@ -49,26 +63,53 @@ class FemtoBridgeServer:
         if self.simulation:
             logger.info("📷 Running in SIMULATION mode (no camera required)")
             return True
-            
-        try:
-            logger.info("📷 Initializing Femto Mega camera...")
-            self.pipeline = Pipeline()
-            
-            # Configure streams
-            config = Config()
-            config.enable_stream(OBSensorType.DEPTH_SENSOR, 640, 576, OBFormat.Y16, 30)
-            config.enable_stream(OBSensorType.COLOR_SENSOR, 1920, 1080, OBFormat.RGB, 30)
-            
-            # Start pipeline
-            self.pipeline.start(config)
-            logger.info("✅ Femto Mega camera initialized successfully")
-            return True
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to initialize camera: {e}")
-            logger.info("   Falling back to SIMULATION mode")
-            self.simulation = True
-            return False
+
+        # Try K4A first for body tracking support
+        if K4A_AVAILABLE:
+            try:
+                logger.info("📷 Initializing Femto Mega in K4A mode...")
+                self.k4a = PyK4A(
+                    K4AConfig(
+                        color_resolution=ColorResolution.RES_720P,
+                        depth_mode=DepthMode.NFOV_UNBINNED,
+                        camera_fps=pyk4a.FPS.FPS_30,
+                        wired_sync_mode=WiredSyncMode.STANDALONE,
+                    )
+                )
+                self.k4a.start()
+
+                logger.info("✅ Camera started. Initializing Body Tracker...")
+                self.tracker = BodyTracker(self.k4a.calibration)
+                self.use_k4a = True
+                logger.info("✅ Azure Kinect Body Tracking initialized successfully")
+                return True
+            except Exception as e:
+                logger.error(f"❌ Failed to initialize K4A/Body Tracking: {e}")
+                logger.info("   Trying native Orbbec SDK...")
+                self.use_k4a = False
+
+        # Fallback to Orbbec SDK
+        if SDK_AVAILABLE:
+            try:
+                logger.info("📷 Initializing Femto Mega with Orbbec SDK...")
+                self.pipeline = Pipeline()
+
+                # Configure streams
+                config = Config()
+                config.enable_stream(OBSensorType.DEPTH_SENSOR, 640, 576, OBFormat.Y16, 30)
+                config.enable_stream(OBSensorType.COLOR_SENSOR, 1920, 1080, OBFormat.RGB, 30)
+
+                # Start pipeline
+                self.pipeline.start(config)
+                logger.info("✅ Femto Mega camera initialized successfully (No Body Tracking)")
+                return True
+
+            except Exception as e:
+                logger.error(f"❌ Failed to initialize Orbbec SDK: {e}")
+
+        logger.info("   Falling back to SIMULATION mode")
+        self.simulation = True
+        return False
     
     def generate_simulated_skeleton(self):
         """Generate simulated skeleton data for testing"""
@@ -123,17 +164,65 @@ class FemtoBridgeServer:
         if self.simulation:
             return self.generate_simulated_skeleton()
         
+        if self.use_k4a:
+            try:
+                capture = self.k4a.get_capture(timeout_ms=100)
+                body_frame = self.tracker.update(capture)
+
+                if body_frame.num_bodies == 0:
+                    return None
+
+                # Get the first body
+                body = body_frame.bodies[0]
+
+                # Map joints to expected format
+                joints = {}
+                joint_names = [
+                    'PELVIS', 'SPINE_NAVAL', 'SPINE_CHEST', 'NECK', 'CLAVICLE_LEFT',
+                    'SHOULDER_LEFT', 'ELBOW_LEFT', 'WRIST_LEFT', 'HAND_LEFT', 'HANDTIP_LEFT',
+                    'THUMB_LEFT', 'CLAVICLE_RIGHT', 'SHOULDER_RIGHT', 'ELBOW_RIGHT', 'WRIST_RIGHT',
+                    'HAND_RIGHT', 'HANDTIP_RIGHT', 'THUMB_RIGHT', 'HIP_LEFT', 'KNEE_LEFT',
+                    'ANKLE_LEFT', 'FOOT_LEFT', 'HIP_RIGHT', 'KNEE_RIGHT', 'ANKLE_RIGHT',
+                    'FOOT_RIGHT', 'HEAD', 'NOSE', 'EYE_LEFT', 'EAR_LEFT', 'EYE_RIGHT', 'EAR_RIGHT'
+                ]
+
+                for i, name in enumerate(joint_names):
+                    joint = body.joints[i]
+                    joints[name] = {
+                        'position': {
+                            'x': float(joint.position.x),
+                            'y': float(joint.position.y),
+                            'z': float(joint.position.z)
+                        },
+                        'orientation': {
+                            'w': float(joint.orientation.w),
+                            'x': float(joint.orientation.x),
+                            'y': float(joint.orientation.y),
+                            'z': float(joint.orientation.z)
+                        },
+                        'confidence': joint.confidence_level
+                    }
+
+                return {
+                    'timestamp': datetime.now().isoformat(),
+                    'body_id': int(body.id),
+                    'joints': joints,
+                    'simulation': False
+                }
+
+            except Exception as e:
+                logger.error(f"❌ Error capturing K4A frames: {e}")
+                return None
+
+        # Orbbec SDK fallback (no body tracking yet)
         try:
             # Get frames from camera
             frames = self.pipeline.wait_for_frames(timeout_ms=100)
             if frames is None:
                 return None
             
-            # TODO: Implement actual body tracking with Azure Kinect Body Tracking SDK
-            # This requires k4abt library integration
-            # For now, return None to indicate no body detected
-            
-            logger.warning("⚠️  Body tracking not yet implemented. Install Azure Kinect Body Tracking SDK.")
+            # Orbbec SDK doesn't support Azure Kinect Body Tracking natively without wrapper
+            # Return None to indicate no body detected
             return None
             
         except Exception as e:
