@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "imw-assesment",
-  "main": "dist/_worker.js",
+  "main": "dist/index.js",
   "compatibility_date": "2025-02-14",
   "compatibility_flags": [
     "nodejs_compat"
