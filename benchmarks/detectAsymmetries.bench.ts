@@ -88,6 +88,5 @@ console.log('Result:', JSON.stringify(result, null, 2));
 if (result['shoulder'] && result['hip'] && !result['elbow']) {
     console.log('Verification PASSED');
 } else {
-    console.error('Verification FAILED');
-    process.exit(1);
+    throw new Error('Verification FAILED');
 }
