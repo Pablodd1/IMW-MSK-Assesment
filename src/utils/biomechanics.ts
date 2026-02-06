@@ -240,7 +240,7 @@ export function calculateJointAngles(skeleton: SkeletonData): Record<string, Joi
   return jointAngles;
 }
 
-const JOINT_PAIRS = [
+const JOINT_ANGLE_PAIRS: Array<[string, string, string]> = [
   ['left_shoulder_flexion', 'right_shoulder_flexion', 'shoulder'],
   ['left_elbow_flexion', 'right_elbow_flexion', 'elbow'],
   ['left_hip_flexion', 'right_hip_flexion', 'hip'],
@@ -254,7 +254,7 @@ const JOINT_PAIRS = [
 export function detectAsymmetries(jointAngles: Record<string, JointAngle>): Record<string, number> {
   const asymmetries: Record<string, number> = {};
   
-  for (const [leftKey, rightKey, name] of JOINT_PAIRS) {
+  for (const [leftKey, rightKey, name] of JOINT_ANGLE_PAIRS) {
     const leftJoint = jointAngles[leftKey];
     const rightJoint = jointAngles[rightKey];
     
