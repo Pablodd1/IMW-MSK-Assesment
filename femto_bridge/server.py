@@ -118,14 +118,19 @@ class FemtoBridgeServer:
             'simulation': True
         }
     
-    def capture_skeleton(self):
+    def _wait_for_frames_blocking(self):
+        """Blocking call to wait for frames"""
+        return self.pipeline.wait_for_frames(timeout_ms=100)
+
+    async def capture_skeleton(self):
         """Capture skeleton data from Femto Mega"""
         if self.simulation:
             return self.generate_simulated_skeleton()
         
         try:
             # Get frames from camera
-            frames = self.pipeline.wait_for_frames(timeout_ms=100)
+            frames = await asyncio.to_thread(self._wait_for_frames_blocking)
+
             if frames is None:
                 return None
             
@@ -147,7 +152,7 @@ class FemtoBridgeServer:
         while self.is_streaming:
             try:
                 # Capture skeleton
-                skeleton = self.capture_skeleton()
+                skeleton = await self.capture_skeleton()
                 
                 if skeleton and self.clients:
                     # Broadcast to all connected clients
