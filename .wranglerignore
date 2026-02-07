@@ -1,0 +1,4 @@
+femto_bridge/
+node_modules/
+.git/
+.gitignore
