@@ -505,10 +505,102 @@ const TranscriptionService = {
   }
 };
 
+// ============================================================================
+// VOICE FEEDBACK & CONTROL
+// ============================================================================
+
+const VoiceFeedback = {
+  lastSpoken: 0,
+  speak: (text) => {
+    const now = Date.now();
+    if (now - VoiceFeedback.lastSpoken < 2500) return;
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.1;
+    window.speechSynthesis.speak(utterance);
+    VoiceFeedback.lastSpoken = now;
+  }
+};
+
+const VoiceControl = {
+  recognition: null,
+  isListening: false,
+
+  init: function() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return false;
+
+    this.recognition = new SpeechRecognition();
+    this.recognition.continuous = true;
+    this.recognition.interimResults = false;
+    this.recognition.lang = 'en-US';
+
+    this.recognition.onresult = (event) => {
+      const text = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
+      console.log("🎤 Global Voice Command:", text);
+      this.handleCommand(text);
+    };
+
+    this.recognition.onend = () => {
+      if (this.isListening) {
+        try {
+          this.recognition.start();
+        } catch (e) {}
+      }
+    };
+
+    return true;
+  },
+
+  start: function() {
+    if (!this.recognition && !this.init()) return;
+    this.isListening = true;
+    try {
+      this.recognition.start();
+      showNotification("Voice Control Active", "success");
+    } catch (e) {}
+  },
+
+  stop: function() {
+    this.isListening = false;
+    if (this.recognition) {
+      this.recognition.stop();
+    }
+    showNotification("Voice Control Disabled", "info");
+  },
+
+  handleCommand: function(text) {
+    // Navigation Commands
+    if (text.includes("go to home") || text.includes("dashboard")) {
+      window.location.href = "/";
+    } else if (text.includes("go to intake") || text.includes("new patient")) {
+      window.location.href = "/intake";
+    } else if (text.includes("go to patients") || text.includes("patient list")) {
+      window.location.href = "/patients";
+    } else if (text.includes("start assessment")) {
+      window.location.href = "/assessment";
+    } else if (text.includes("telehealth") || text.includes("video call")) {
+      if (typeof window.startTelehealth === 'function') {
+        window.startTelehealth();
+      }
+    }
+
+    // Context-aware commands (if on assessment page)
+    if (window.location.pathname.includes("assessment")) {
+      if (typeof window.handleVoiceCommand === 'function') {
+        window.handleVoiceCommand(text);
+      }
+    }
+  }
+};
+
 // Export for use in other scripts
 window.PhysioMotion = {
   API,
   APP_STATE,
+  VoiceFeedback,
+  VoiceControl,
   TranscriptionService,
   startCamera,
   stopCamera,

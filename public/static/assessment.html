@@ -20,6 +20,10 @@
                 <div class="flex items-center space-x-4">
                     <a href="/" class="text-gray-700 hover:text-blue-600"><i class="fas fa-home mr-2"></i>Home</a>
                     <a href="/assessment" class="text-blue-600 font-semibold"><i class="fas fa-video mr-2"></i>Assessment</a>
+                    <button id="globalVoiceBtn" onclick="toggleGlobalVoice()" class="ml-4 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm flex items-center transition-colors">
+                        <i class="fas fa-microphone mr-2 text-blue-600"></i>
+                        <span>Voice</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -239,7 +243,23 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
 
-    <!-- Main Application Script -->
+    <!-- Main Application Scripts -->
+    <script src="/static/app.js"></script>
     <script src="/static/assessment-workflow.js"></script>
+    <script>
+        function toggleGlobalVoice() {
+            const btn = document.getElementById('globalVoiceBtn');
+            const service = window.PhysioMotion.VoiceControl;
+            if (service.isListening) {
+                service.stop();
+                btn.classList.remove('bg-blue-100', 'ring-2', 'ring-blue-500');
+                btn.classList.add('bg-gray-100');
+            } else {
+                service.start();
+                btn.classList.remove('bg-gray-100');
+                btn.classList.add('bg-blue-100', 'ring-2', 'ring-blue-500');
+            }
+        }
+    </script>
 </body>
 </html>

@@ -734,10 +734,15 @@ app.get('/', (c) => {
                             <span class="text-xl font-bold text-slate-800">PhysioMotion</span>
                         </div>
                         <div class="flex items-center space-x-4">
-                            <a href="/dashboard" class="text-gray-700 hover:text-cyan-600 transition-colors"><i class="fas fa-home mr-2"></i>Dashboard</a>
+                            <a href="/" class="text-gray-700 hover:text-cyan-600 transition-colors"><i class="fas fa-home mr-2"></i>Dashboard</a>
                             <a href="/patients" class="text-gray-700 hover:text-cyan-600 transition-colors"><i class="fas fa-users mr-2"></i>Patients</a>
                             <a href="/assessments" class="text-gray-700 hover:text-cyan-600 transition-colors"><i class="fas fa-clipboard-check mr-2"></i>Assessments</a>
                             <a href="/monitoring" class="text-gray-700 hover:text-cyan-600 transition-colors"><i class="fas fa-chart-line mr-2"></i>Monitoring</a>
+                            <a href="#" onclick="startTelehealth()" class="text-rose-600 hover:text-rose-700 transition-colors"><i class="fas fa-video mr-2"></i>Telehealth</a>
+                            <button id="globalVoiceBtn" onclick="toggleGlobalVoice()" class="ml-4 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1 rounded-full text-sm flex items-center transition-colors">
+                                <i class="fas fa-microphone mr-2 text-cyan-600"></i>
+                                <span>Voice</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -840,6 +845,27 @@ app.get('/', (c) => {
         </div>
 
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script src="/static/app.js"></script>
+        <script>
+            function toggleGlobalVoice() {
+                const btn = document.getElementById('globalVoiceBtn');
+                const service = window.PhysioMotion.VoiceControl;
+                if (service.isListening) {
+                    service.stop();
+                    btn.classList.remove('bg-cyan-100', 'ring-2', 'ring-cyan-500');
+                    btn.classList.add('bg-slate-100');
+                } else {
+                    service.start();
+                    btn.classList.remove('bg-slate-100');
+                    btn.classList.add('bg-cyan-100', 'ring-2', 'ring-cyan-500');
+                }
+            }
+
+            function startTelehealth() {
+                alert("Initializing PhysioMotion Telehealth Secure Video Call...\n\nStatus: Waiting for Peer Connection.");
+                window.PhysioMotion.VoiceFeedback.speak("Initializing telehealth video call.");
+            }
+        </script>
     </body>
     </html>
   `)
