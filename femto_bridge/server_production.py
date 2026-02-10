@@ -26,7 +26,7 @@ BODY_TRACKING_AVAILABLE = False
 try:
     from pyorbbecsdk import (
         Pipeline, Config, OBSensorType, OBFormat,
-        OBAlignMode, VideoStreamProfile
+        OBAlignMode
     )
     SDK_AVAILABLE = True
     print("✅ OrbbecSDK imported successfully")
@@ -39,6 +39,18 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+JOINT_NAMES = [
+    'PELVIS', 'SPINE_NAVAL', 'SPINE_CHEST', 'NECK',
+    'CLAVICLE_LEFT', 'SHOULDER_LEFT', 'ELBOW_LEFT', 'WRIST_LEFT',
+    'HAND_LEFT', 'HANDTIP_LEFT', 'THUMB_LEFT',
+    'CLAVICLE_RIGHT', 'SHOULDER_RIGHT', 'ELBOW_RIGHT', 'WRIST_RIGHT',
+    'HAND_RIGHT', 'HANDTIP_RIGHT', 'THUMB_RIGHT',
+    'HIP_LEFT', 'KNEE_LEFT', 'ANKLE_LEFT', 'FOOT_LEFT',
+    'HIP_RIGHT', 'KNEE_RIGHT', 'ANKLE_RIGHT', 'FOOT_RIGHT',
+    'HEAD', 'NOSE', 'EYE_LEFT', 'EAR_LEFT', 'EYE_RIGHT', 'EAR_RIGHT'
+]
 
 
 class FemtoMegaBodyTracker:
@@ -402,18 +414,8 @@ class FemtoMegaBodyTracker:
         squat_phase = (math.sin(time * 0.5) + 1) / 2
         
         joints = {}
-        joint_names = [
-            'PELVIS', 'SPINE_NAVAL', 'SPINE_CHEST', 'NECK',
-            'CLAVICLE_LEFT', 'SHOULDER_LEFT', 'ELBOW_LEFT', 'WRIST_LEFT',
-            'HAND_LEFT', 'HANDTIP_LEFT', 'THUMB_LEFT',
-            'CLAVICLE_RIGHT', 'SHOULDER_RIGHT', 'ELBOW_RIGHT', 'WRIST_RIGHT',
-            'HAND_RIGHT', 'HANDTIP_RIGHT', 'THUMB_RIGHT',
-            'HIP_LEFT', 'KNEE_LEFT', 'ANKLE_LEFT', 'FOOT_LEFT',
-            'HIP_RIGHT', 'KNEE_RIGHT', 'ANKLE_RIGHT', 'FOOT_RIGHT',
-            'HEAD', 'NOSE', 'EYE_LEFT', 'EAR_LEFT', 'EYE_RIGHT', 'EAR_RIGHT'
-        ]
         
-        for i, name in enumerate(joint_names):
+        for i, name in enumerate(JOINT_NAMES):
             y_offset = 0
             if 'PELVIS' in name or 'HIP' in name or 'KNEE' in name:
                 y_offset = -squat_phase * 300
