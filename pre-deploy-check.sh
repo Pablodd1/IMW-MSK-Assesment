@@ -53,7 +53,7 @@ echo ""
 echo "[4/4] Testing Endpoints..."
 echo "Note: This step requires the server to be running locally on port 3000."
 if lsof -Pi :3000 -sTCP:LISTEN -t >/dev/null ; then
-    node scripts/test-endpoints.cjs
+    node scripts/verify-endpoints.cjs
 else
     echo "⚠️  Skipping endpoint tests: No server detected on port 3000."
     echo "    Run 'npm run dev' in another terminal to enable this check."
