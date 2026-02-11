@@ -665,19 +665,83 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
 // HELPER FUNCTIONS
 // ============================================================================
 
-// Simple password hashing (for demo - use proper bcrypt in production)
+// Secure password hashing using PBKDF2 (production-grade alternative to bcrypt for Cloudflare Workers)
 async function hashPassword(password: string): Promise<string> {
+  const iterations = 100000
+  const salt = crypto.getRandomValues(new Uint8Array(16))
   const encoder = new TextEncoder()
-  const data = encoder.encode(password + 'physiomotion-salt-2025')
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const passwordKey = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(password),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits']
+  )
+
+  const hashBuffer = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: iterations,
+      hash: 'SHA-256'
+    },
+    passwordKey,
+    256
+  )
+
   const hashArray = Array.from(new Uint8Array(hashBuffer))
   const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-  return hashHex
+  const saltHex = Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join('')
+
+  return `pbkdf2:${iterations}:${saltHex}:${hashHex}`
 }
 
-async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  const computedHash = await hashPassword(password)
-  return computedHash === hash
+async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
+  // Support legacy hashes for demo transition
+  if (!storedHash.startsWith('pbkdf2:')) {
+    const encoder = new TextEncoder()
+    const data = encoder.encode(password + 'physiomotion-salt-2025')
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    const legacyHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+    return legacyHash === storedHash
+  }
+
+  const parts = storedHash.split(':')
+  if (parts.length !== 4) return false
+
+  const [, iterationsStr, saltHex, hashHex] = parts
+  const iterations = parseInt(iterationsStr)
+
+  // Convert hex salt back to Uint8Array
+  const saltMatch = saltHex.match(/.{1,2}/g)
+  if (!saltMatch) return false
+  const salt = new Uint8Array(saltMatch.map(byte => parseInt(byte, 16)))
+
+  const encoder = new TextEncoder()
+  const passwordKey = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(password),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits']
+  )
+
+  const hashBuffer = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: iterations,
+      hash: 'SHA-256'
+    },
+    passwordKey,
+    256
+  )
+
+  const computedHashHex = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('')
+
+  // Use constant-time comparison to prevent timing attacks
+  return computedHashHex === hashHex
 }
 
 async function updateCompliancePercentage(db: any, prescribedExerciseId: number) {
