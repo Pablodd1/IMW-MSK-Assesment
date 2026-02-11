@@ -183,7 +183,7 @@ class FemtoBridgeServer:
 
                 # Update tracker (this might also block, but usually fast enough.
                 # Ideal would be to run update in executor too if it's slow)
-                body_frame = self.tracker.update(capture)
+                body_frame = await loop.run_in_executor(None, self.tracker.update, capture)
 
                 if body_frame.num_bodies == 0:
                     return None
