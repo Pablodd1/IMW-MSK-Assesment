@@ -263,15 +263,23 @@ class FemtoBridgeServer:
                     })
                     
                     # Send to all clients
-                    disconnected = set()
-                    for client in self.clients:
-                        try:
-                            await client.send(message)
-                        except websockets.exceptions.ConnectionClosed:
-                            disconnected.add(client)
-                    
-                    # Remove disconnected clients
-                    self.clients -= disconnected
+                    if self.clients:
+                        disconnected = set()
+                        active_clients = list(self.clients)
+                        results = await asyncio.gather(
+                            *[client.send(message) for client in active_clients],
+                            return_exceptions=True
+                        )
+
+                        for client, result in zip(active_clients, results):
+                            if isinstance(result, Exception):
+                                if isinstance(result, websockets.exceptions.ConnectionClosed):
+                                    disconnected.add(client)
+                                else:
+                                    logger.error(f"❌ Error sending to client: {result}")
+
+                        # Remove disconnected clients
+                        self.clients -= disconnected
                 
                 # 30 FPS = 33ms between frames
                 await asyncio.sleep(0.033)
@@ -280,7 +288,7 @@ class FemtoBridgeServer:
                 logger.error(f"❌ Error in streaming loop: {e}")
                 await asyncio.sleep(1)
     
-    async def handle_client(self, websocket, path):
+    async def handle_client(self, websocket):
         """Handle WebSocket client connections"""
         client_addr = websocket.remote_address
         logger.info(f"✅ Client connected from {client_addr}")
