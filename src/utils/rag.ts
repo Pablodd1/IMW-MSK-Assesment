@@ -24,21 +24,20 @@ export async function queryExerciseKnowledge(db: any, query: string): Promise<RA
   }
 
   // Search exercises table for keywords
-  let exercises: any[] = [];
+  let matches: any[] = [];
   try {
+    // Construct dynamic query with parameterized LIKE clauses
+    // Use LOWER() for case-insensitive matching to match original behavior
+    const conditions = keywords.map(() => `(LOWER(name) LIKE ? OR LOWER(description) LIKE ? OR LOWER(instructions) LIKE ?)`).join(' OR ');
+    const params = keywords.flatMap(k => [`%${k}%`, `%${k}%`, `%${k}%`]);
+
     const { results } = await db.prepare(`
-      SELECT * FROM exercises
-    `).all();
-    exercises = results;
+      SELECT * FROM exercises WHERE ${conditions} LIMIT 20
+    `).bind(...params).all();
+    matches = results;
   } catch (e) {
     console.error('RAG Database error:', e);
   }
-
-  const matches = exercises.filter(ex => {
-    // Check various fields for matches
-    const text = `${ex.name || ''} ${ex.description || ''} ${ex.instructions || ''}`.toLowerCase();
-    return keywords.some(k => text.includes(k));
-  });
 
   if (matches.length === 0) {
     return {
