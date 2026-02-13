@@ -174,7 +174,7 @@ class FemtoBridgeServer:
         if self.simulation:
             return self.generate_simulated_skeleton()
         
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         if self.use_k4a:
             try:
