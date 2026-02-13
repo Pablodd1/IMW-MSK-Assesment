@@ -727,23 +727,21 @@ function generateMedicalNote(assessment: any, tests: any[]) {
   let avgQualityScore = 0
   
   for (const test of tests) {
-    if (test.deficiencies) {
-      const defStr = String(test.deficiencies)
-      if (defStr !== '[]') {
-        try {
-          const deficiencies = JSON.parse(defStr)
+    if (typeof test.deficiencies === 'string' && test.deficiencies !== '[]') {
+      try {
+        const deficiencies = JSON.parse(test.deficiencies)
+        if (Array.isArray(deficiencies)) {
           allDeficiencies.push(...deficiencies)
-        } catch (e) {}
-      }
+        }
+      } catch (e) {}
     }
-    if (test.ai_recommendations) {
-      const recStr = String(test.ai_recommendations)
-      if (recStr !== '[]') {
-        try {
-          const recs = JSON.parse(recStr)
+    if (typeof test.ai_recommendations === 'string' && test.ai_recommendations !== '[]') {
+      try {
+        const recs = JSON.parse(test.ai_recommendations)
+        if (Array.isArray(recs)) {
           allRecommendations.push(...recs)
-        } catch (e) {}
-      }
+        }
+      } catch (e) {}
     }
     if (test.movement_quality_score) {
       avgQualityScore += test.movement_quality_score
