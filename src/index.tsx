@@ -668,17 +668,17 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
 // Secure password hashing using PBKDF2 (production-grade alternative to bcrypt for Cloudflare Workers)
 async function hashPassword(password: string): Promise<string> {
   const iterations = 100000
-  const salt = globalThis.crypto.getRandomValues(new Uint8Array(16))
+  const salt = crypto.getRandomValues(new Uint8Array(16))
   const encoder = new TextEncoder()
-  const passwordKey = await globalThis.crypto.subtle.importKey(
+  const passwordKey = await crypto.subtle.importKey(
     'raw',
     encoder.encode(password),
-    'PBKDF2',
+    { name: 'PBKDF2' },
     false,
     ['deriveBits']
   )
 
-  const hashBuffer = await globalThis.crypto.subtle.deriveBits(
+  const hashBuffer = await crypto.subtle.deriveBits(
     {
       name: 'PBKDF2',
       salt: salt,
@@ -701,7 +701,7 @@ async function verifyPassword(password: string, storedHash: string): Promise<boo
   if (!storedHash || !storedHash.startsWith('pbkdf2:')) {
     const encoder = new TextEncoder()
     const data = encoder.encode(password + 'physiomotion-salt-2025')
-    const hashBuffer = await globalThis.crypto.subtle.digest('SHA-256', data)
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data)
     const hashArray = Array.from(new Uint8Array(hashBuffer))
     const legacyHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
     return legacyHash === (storedHash || '')
@@ -720,15 +720,15 @@ async function verifyPassword(password: string, storedHash: string): Promise<boo
   const salt = new Uint8Array(saltMatch.map(byte => parseInt(byte, 16)))
 
   const encoder = new TextEncoder()
-  const passwordKey = await globalThis.crypto.subtle.importKey(
+  const passwordKey = await crypto.subtle.importKey(
     'raw',
     encoder.encode(password),
-    'PBKDF2',
+    { name: 'PBKDF2' },
     false,
     ['deriveBits']
   )
 
-  const hashBuffer = await globalThis.crypto.subtle.deriveBits(
+  const hashBuffer = await crypto.subtle.deriveBits(
     {
       name: 'PBKDF2',
       salt: salt,

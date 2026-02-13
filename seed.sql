@@ -58,7 +58,7 @@ INSERT INTO system_settings (setting_key, setting_value, setting_type, descripti
 
 -- Insert demo clinician (password: demo123)
 INSERT INTO clinicians (email, password_hash, first_name, last_name, title, license_number, license_state, npi_number, role, specialties) VALUES
-('demo@physioai.com', 'pbkdf2:100000:f977a28edc51f5fdcb2496074ddc02d5:3c2ed044c4f2ccba5a739211ab1f8dca5df3c1b7825553a871cd72cf491c61de', 'Demo', 'Clinician', 'DPT', 'PT12345', 'CA', '1234567890', 'admin', '["orthopedics", "sports medicine", "manual therapy"]');
+('demo@physiomotion.com', 'pbkdf2:100000:f977a28edc51f5fdcb2496074ddc02d5:3c2ed044c4f2ccba5a739211ab1f8dca5df3c1b7825553a871cd72cf491c61de', 'Demo', 'Clinician', 'DPT', 'PT12345', 'CA', '1234567890', 'admin', '["orthopedics", "sports medicine", "manual therapy"]');
 
 -- Insert demo patient
 INSERT INTO patients (first_name, last_name, date_of_birth, gender, email, phone, address_line1, city, state, zip_code, assessment_reason, chief_complaint, pain_scale, activity_level) VALUES
