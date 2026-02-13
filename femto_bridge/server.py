@@ -17,11 +17,18 @@ import logging
 from datetime import datetime
 import sys
 import os
-import numpy as np
-import mediapipe as mp
-from mediapipe.tasks import python
-from mediapipe.tasks.python import vision
 import urllib.request
+
+try:
+    import numpy as np
+    import cv2
+    import mediapipe as mp
+    from mediapipe.tasks import python
+    from mediapipe.tasks.python import vision
+    MEDIAPIPE_AVAILABLE = True
+except ImportError:
+    MEDIAPIPE_AVAILABLE = False
+    print("⚠️  WARNING: MediaPipe/Numpy/OpenCV not installed. Body tracking will be unavailable.")
 
 # Try to import Orbbec SDK
 try:
@@ -66,6 +73,9 @@ class FemtoBridgeServer:
 
     def _init_mediapipe(self):
         """Initialize MediaPipe Pose Landmarker"""
+        if not MEDIAPIPE_AVAILABLE:
+            return
+
         try:
             logger.info("🧠 Initializing MediaPipe Pose Landmarker...")
 
@@ -369,7 +379,8 @@ class FemtoBridgeServer:
                 logger.info("📷 Initializing Femto Mega with Orbbec SDK...")
 
                 # Initialize MediaPipe
-                self._init_mediapipe()
+                if MEDIAPIPE_AVAILABLE:
+                    self._init_mediapipe()
 
                 self.pipeline = Pipeline()
 
@@ -379,11 +390,17 @@ class FemtoBridgeServer:
                 config.enable_stream(OBSensorType.COLOR_SENSOR, 1920, 1080, OBFormat.RGB, 30)
 
                 # Enable alignment (align depth to color)
-                config.set_align_mode(OBAlignMode.ALIGN_D2C_SW_MODE)
+                if MEDIAPIPE_AVAILABLE:
+                    config.set_align_mode(OBAlignMode.ALIGN_D2C_SW_MODE)
 
                 # Start pipeline
                 self.pipeline.start(config)
-                logger.info("✅ Femto Mega camera initialized successfully (with MediaPipe Body Tracking)")
+
+                if MEDIAPIPE_AVAILABLE:
+                    logger.info("✅ Femto Mega camera initialized successfully (with MediaPipe Body Tracking)")
+                else:
+                    logger.info("✅ Femto Mega camera initialized successfully (No Body Tracking - MediaPipe missing)")
+
                 return True
 
             except Exception as e:
@@ -517,9 +534,12 @@ class FemtoBridgeServer:
             if frames is None:
                 return None
             
-            # Extract skeleton using MediaPipe (run in executor to avoid blocking event loop)
-            skeleton = await loop.run_in_executor(None, self._extract_skeleton_from_orbbec, frames)
-            return skeleton
+            if MEDIAPIPE_AVAILABLE:
+                # Extract skeleton using MediaPipe (run in executor to avoid blocking event loop)
+                skeleton = await loop.run_in_executor(None, self._extract_skeleton_from_orbbec, frames)
+                return skeleton
+
+            return None
             
         except Exception as e:
             logger.error(f"❌ Error capturing frames: {e}")
