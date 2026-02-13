@@ -692,7 +692,7 @@ async function updateCompliancePercentage(db: any, prescribedExerciseId: number)
     SELECT times_per_week, prescribed_at FROM prescribed_exercises WHERE id = ?
   `).bind(prescribedExerciseId).first()
 
-  const [result, prescription] = await Promise.all([resultPromise, prescriptionPromise])
+  const [result, prescription] = await Promise.all([resultPromise, prescriptionPromise]) as any[]
   
   if (result && prescription) {
     const prescribedDate = new Date(prescription.prescribed_at)
