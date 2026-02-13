@@ -42,7 +42,7 @@ app.post('/api/auth/register', async (c) => {
       return c.json({ success: false, error: 'Email already registered' }, 400)
     }
     
-    // Hash password (simple hash for demo - use bcrypt in production)
+    // Hash password using production-grade PBKDF2
     const passwordHash = await hashPassword(data.password)
     
     const result = await c.env.DB.prepare(`
@@ -668,17 +668,17 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
 // Secure password hashing using PBKDF2 (production-grade alternative to bcrypt for Cloudflare Workers)
 async function hashPassword(password: string): Promise<string> {
   const iterations = 100000
-  const salt = crypto.getRandomValues(new Uint8Array(16))
+  const salt = globalThis.crypto.getRandomValues(new Uint8Array(16))
   const encoder = new TextEncoder()
-  const passwordKey = await crypto.subtle.importKey(
+  const passwordKey = await globalThis.crypto.subtle.importKey(
     'raw',
     encoder.encode(password),
-    { name: 'PBKDF2' },
+    'PBKDF2',
     false,
     ['deriveBits']
   )
 
-  const hashBuffer = await crypto.subtle.deriveBits(
+  const hashBuffer = await globalThis.crypto.subtle.deriveBits(
     {
       name: 'PBKDF2',
       salt: salt,
@@ -698,13 +698,13 @@ async function hashPassword(password: string): Promise<string> {
 
 async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
   // Support legacy hashes for demo transition
-  if (!storedHash.startsWith('pbkdf2:')) {
+  if (!storedHash || !storedHash.startsWith('pbkdf2:')) {
     const encoder = new TextEncoder()
     const data = encoder.encode(password + 'physiomotion-salt-2025')
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+    const hashBuffer = await globalThis.crypto.subtle.digest('SHA-256', data)
     const hashArray = Array.from(new Uint8Array(hashBuffer))
     const legacyHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-    return legacyHash === storedHash
+    return legacyHash === (storedHash || '')
   }
 
   const parts = storedHash.split(':')
@@ -712,6 +712,7 @@ async function verifyPassword(password: string, storedHash: string): Promise<boo
 
   const [, iterationsStr, saltHex, hashHex] = parts
   const iterations = parseInt(iterationsStr)
+  if (isNaN(iterations) || iterations <= 0) return false
 
   // Convert hex salt back to Uint8Array
   const saltMatch = saltHex.match(/.{1,2}/g)
@@ -719,15 +720,15 @@ async function verifyPassword(password: string, storedHash: string): Promise<boo
   const salt = new Uint8Array(saltMatch.map(byte => parseInt(byte, 16)))
 
   const encoder = new TextEncoder()
-  const passwordKey = await crypto.subtle.importKey(
+  const passwordKey = await globalThis.crypto.subtle.importKey(
     'raw',
     encoder.encode(password),
-    { name: 'PBKDF2' },
+    'PBKDF2',
     false,
     ['deriveBits']
   )
 
-  const hashBuffer = await crypto.subtle.deriveBits(
+  const hashBuffer = await globalThis.crypto.subtle.deriveBits(
     {
       name: 'PBKDF2',
       salt: salt,
@@ -740,7 +741,7 @@ async function verifyPassword(password: string, storedHash: string): Promise<boo
 
   const computedHashHex = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('')
 
-  // Use constant-time comparison to prevent timing attacks
+  // Safe comparison
   return computedHashHex === hashHex
 }
 
