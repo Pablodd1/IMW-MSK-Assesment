@@ -673,7 +673,7 @@ async function hashPassword(password: string): Promise<string> {
   const passwordKey = await crypto.subtle.importKey(
     'raw',
     encoder.encode(password),
-    { name: 'PBKDF2' },
+    'PBKDF2',
     false,
     ['deriveBits']
   )
@@ -723,7 +723,7 @@ async function verifyPassword(password: string, storedHash: string): Promise<boo
   const passwordKey = await crypto.subtle.importKey(
     'raw',
     encoder.encode(password),
-    { name: 'PBKDF2' },
+    'PBKDF2',
     false,
     ['deriveBits']
   )
