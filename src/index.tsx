@@ -727,17 +727,17 @@ function generateMedicalNote(assessment: any, tests: any[]) {
   let avgQualityScore = 0
   
   for (const test of tests) {
-    if (typeof test.deficiencies === 'string' && test.deficiencies !== '[]') {
+    if (test.deficiencies && test.deficiencies !== '[]') {
       try {
-        const deficiencies = JSON.parse(test.deficiencies)
+        const deficiencies = JSON.parse(String(test.deficiencies))
         if (Array.isArray(deficiencies)) {
           allDeficiencies.push(...deficiencies)
         }
       } catch (e) {}
     }
-    if (typeof test.ai_recommendations === 'string' && test.ai_recommendations !== '[]') {
+    if (test.ai_recommendations && test.ai_recommendations !== '[]') {
       try {
-        const recs = JSON.parse(test.ai_recommendations)
+        const recs = JSON.parse(String(test.ai_recommendations))
         if (Array.isArray(recs)) {
           allRecommendations.push(...recs)
         }
