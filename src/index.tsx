@@ -644,7 +644,15 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
     let aiInsights = ""
     if (tests.length > 0 && tests[0].deficiencies) {
         try {
-            const defs = JSON.parse(tests[0].deficiencies as string)
+            let defs: any[] = [];
+            const rawDefs = tests[0].deficiencies;
+
+            if (typeof rawDefs === 'string') {
+                defs = JSON.parse(rawDefs);
+            } else if (Array.isArray(rawDefs)) {
+                defs = rawDefs;
+            }
+
             if (defs.length > 0) {
                 const ragResult = await queryExerciseKnowledge(c.env.DB, defs[0].area)
                 aiInsights = ragResult.answer
@@ -725,7 +733,10 @@ async function verifyPassword(password: string, storedHash: string): Promise<boo
 
   const [saltHex, hashHex] = parts;
 
-  const salt = new Uint8Array(saltHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+  const match = saltHex.match(/.{1,2}/g);
+  if (!match) return false;
+
+  const salt = new Uint8Array(match.map(byte => parseInt(byte, 16)));
   const enc = new TextEncoder();
 
   const keyMaterial = await crypto.subtle.importKey(
