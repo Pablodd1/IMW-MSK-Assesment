@@ -12,12 +12,18 @@ from datetime import datetime
 import sys
 import signal
 import os
-import numpy as np
-import cv2
-import mediapipe as mp
-from mediapipe.tasks import python
-from mediapipe.tasks.python import vision
 import urllib.request
+
+try:
+    import numpy as np
+    import cv2
+    import mediapipe as mp
+    from mediapipe.tasks import python
+    from mediapipe.tasks.python import vision
+    MEDIAPIPE_AVAILABLE = True
+except ImportError:
+    MEDIAPIPE_AVAILABLE = False
+    print("⚠️  WARNING: MediaPipe/Numpy/OpenCV not installed. Body tracking will be unavailable.")
 
 # SDK imports with fallback
 SDK_AVAILABLE = False
@@ -49,6 +55,9 @@ class FemtoMegaBodyTracker:
         self.config = None
         self.is_started = False
         self.landmarker = None
+
+        if not MEDIAPIPE_AVAILABLE:
+            return
 
         # Initialize MediaPipe Pose Landmarker
         try:
@@ -356,6 +365,9 @@ class FemtoMegaBodyTracker:
         Extract skeleton data using MediaPipe Pose + Depth Map
         """
         if frames is None or self.landmarker is None:
+            return None
+
+        if not MEDIAPIPE_AVAILABLE:
             return None
 
         try:
