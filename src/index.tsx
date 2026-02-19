@@ -70,9 +70,9 @@ app.post('/api/auth/login', async (c) => {
   try {
     const { email, password } = await c.req.json()
     
-    const clinician = await c.env.DB.prepare(`
+    const clinician = (await c.env.DB.prepare(`
       SELECT * FROM clinicians WHERE email = ? AND active = 1
-    `).bind(email).first() as any
+    `).bind(email).first()) as any
     
     if (!clinician) {
       return c.json({ success: false, error: 'Invalid email or password' }, 401)
@@ -615,9 +615,9 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
     const assessmentId = c.req.param('id')
     
     // Get assessment data
-    const assessment = await c.env.DB.prepare(`
+    const assessment = (await c.env.DB.prepare(`
       SELECT * FROM assessments WHERE id = ?
-    `).bind(assessmentId).first() as any
+    `).bind(assessmentId).first()) as any
     
     // Get all movement tests and analyses
     const { results: tests } = (await c.env.DB.prepare(`
@@ -749,15 +749,15 @@ async function verifyPassword(password: string, storedHash: string): Promise<boo
 
 async function updateCompliancePercentage(db: any, prescribedExerciseId: number) {
   // Get total sessions completed vs expected
-  const result = await db.prepare(`
+  const result = (await db.prepare(`
     SELECT COUNT(*) as completed_count
     FROM exercise_sessions
     WHERE prescribed_exercise_id = ? AND completed = 1
-  `).bind(prescribedExerciseId).first() as any
+  `).bind(prescribedExerciseId).first()) as any
   
-  const prescription = await db.prepare(`
+  const prescription = (await db.prepare(`
     SELECT times_per_week, prescribed_at FROM prescribed_exercises WHERE id = ?
-  `).bind(prescribedExerciseId).first() as any
+  `).bind(prescribedExerciseId).first()) as any
   
   if (result && prescription) {
     const prescribedDate = new Date(prescription.prescribed_at)
