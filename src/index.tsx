@@ -624,10 +624,10 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
     
     // Try to enhance with AI insights if deficiencies exist
     let aiInsights = ""
-    if (tests.length > 0 && tests[0].deficiencies) {
+    if (tests.length > 0 && tests[0].deficiencies && typeof tests[0].deficiencies === 'string') {
         try {
             const defs = JSON.parse(tests[0].deficiencies)
-            if (defs.length > 0) {
+            if (defs && Array.isArray(defs) && defs.length > 0) {
                 const ragResult = await queryExerciseKnowledge(c.env.DB, defs[0].area)
                 aiInsights = ragResult.answer
             }
@@ -727,16 +727,20 @@ function generateMedicalNote(assessment: any, tests: any[]) {
   let avgQualityScore = 0
   
   for (const test of tests) {
-    if (test.deficiencies) {
+    if (test.deficiencies && typeof test.deficiencies === 'string') {
       try {
         const deficiencies = JSON.parse(test.deficiencies)
-        allDeficiencies.push(...deficiencies)
+        if (Array.isArray(deficiencies)) {
+          allDeficiencies.push(...deficiencies)
+        }
       } catch (e) {}
     }
-    if (test.ai_recommendations) {
+    if (test.ai_recommendations && typeof test.ai_recommendations === 'string') {
       try {
         const recs = JSON.parse(test.ai_recommendations)
-        allRecommendations.push(...recs)
+        if (Array.isArray(recs)) {
+          allRecommendations.push(...recs)
+        }
       } catch (e) {}
     }
     if (test.movement_quality_score) {

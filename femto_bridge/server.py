@@ -174,7 +174,10 @@ class FemtoBridgeServer:
         if self.simulation:
             return self.generate_simulated_skeleton()
         
-        loop = asyncio.get_event_loop()
+        try:
+            loop = asyncio.get_running_loop()
+        except (AttributeError, RuntimeError):
+            loop = asyncio.get_event_loop()
 
         if self.use_k4a:
             try:
@@ -262,16 +265,19 @@ class FemtoBridgeServer:
                         'skeleton': skeleton
                     })
                     
-                    # Send to all clients
-                    disconnected = set()
-                    for client in self.clients:
-                        try:
-                            await client.send(message)
-                        except websockets.exceptions.ConnectionClosed:
-                            disconnected.add(client)
-                    
-                    # Remove disconnected clients
-                    self.clients -= disconnected
+                    # Send to all clients concurrently
+                    if self.clients:
+                        clients_list = list(self.clients)
+                        tasks = [client.send(message) for client in clients_list]
+                        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+                        # Handle results and disconnected clients
+                        for client, result in zip(clients_list, results):
+                            if isinstance(result, Exception):
+                                if isinstance(result, websockets.exceptions.ConnectionClosed):
+                                    self.clients.discard(client)
+                                else:
+                                    logger.error(f"❌ Error sending to client: {result}")
                 
                 # 30 FPS = 33ms between frames
                 await asyncio.sleep(0.033)
@@ -280,7 +286,7 @@ class FemtoBridgeServer:
                 logger.error(f"❌ Error in streaming loop: {e}")
                 await asyncio.sleep(1)
     
-    async def handle_client(self, websocket, path):
+    async def handle_client(self, websocket):
         """Handle WebSocket client connections"""
         client_addr = websocket.remote_address
         logger.info(f"✅ Client connected from {client_addr}")
