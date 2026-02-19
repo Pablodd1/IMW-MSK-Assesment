@@ -624,12 +624,16 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
     
     // Try to enhance with AI insights if deficiencies exist
     let aiInsights = ""
-    if (tests.length > 0 && tests[0].deficiencies) {
+    const testsArray = tests as any[];
+    if (testsArray.length > 0 && testsArray[0].deficiencies) {
         try {
-            const defs = JSON.parse(tests[0].deficiencies)
-            if (defs.length > 0) {
-                const ragResult = await queryExerciseKnowledge(c.env.DB, defs[0].area)
-                aiInsights = ragResult.answer
+            const val = testsArray[0].deficiencies;
+            if (typeof val === 'string') {
+                const defs = JSON.parse(val);
+                if (Array.isArray(defs) && defs.length > 0 && defs[0].area && typeof defs[0].area === 'string') {
+                    const ragResult = await queryExerciseKnowledge(c.env.DB, defs[0].area);
+                    aiInsights = ragResult.answer;
+                }
             }
         } catch (e) {}
     }
