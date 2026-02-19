@@ -503,7 +503,7 @@ app.post('/api/exercise-sessions', async (c) => {
     ).run()
     
     // Update compliance tracking
-    await updateCompliancePercentage(c.env.DB, session.prescribed_exercise_id)
+    c.executionCtx.waitUntil(updateCompliancePercentage(c.env.DB, session.prescribed_exercise_id))
     
     return c.json({ success: true, data: { id: result.meta.last_row_id } })
   } catch (error: any) {
