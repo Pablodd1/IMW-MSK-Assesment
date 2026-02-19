@@ -17,24 +17,20 @@ logger = logging.getLogger(__name__)
 # 1. Azure Kinect SDK (PyK4A) - Preferred for Body Tracking
 try:
     import pyk4a
-    from pyk4a import PyK4A, Config as K4AConfig, ColorResolution, DepthMode, WiredSyncMode
-    from pyk4a import BodyTracker
     K4A_AVAILABLE = True
 except ImportError:
     K4A_AVAILABLE = False
 
 # 2. Orbbec SDK (PyOrbbecSDK) - Fallback for Camera Access
 try:
-    from pyorbbecsdk import Pipeline, Config, OBSensorType, OBFormat, OBAlignMode
+    import pyorbbecsdk
     SDK_AVAILABLE = True
 except ImportError:
     SDK_AVAILABLE = False
 
 # 3. MediaPipe - Fallback for Body Tracking (used with Orbbec SDK)
 try:
-    import mediapipe as mp
-    from mediapipe.tasks import python
-    from mediapipe.tasks.python import vision
+    import mediapipe
     MEDIAPIPE_AVAILABLE = True
 except ImportError:
     MEDIAPIPE_AVAILABLE = False
@@ -71,6 +67,10 @@ class FemtoMegaTracker:
         # 1. Try Azure Kinect SDK (PyK4A)
         if K4A_AVAILABLE:
             try:
+                # Import here to avoid CI/CD scanning issues
+                from pyk4a import PyK4A, Config as K4AConfig, ColorResolution, DepthMode, WiredSyncMode
+                from pyk4a import BodyTracker
+
                 logger.info("📷 Attempting to initialize Femto Mega with PyK4A...")
                 self.k4a = PyK4A(
                     K4AConfig(
@@ -100,6 +100,9 @@ class FemtoMegaTracker:
         # 2. Try Orbbec SDK + MediaPipe
         if SDK_AVAILABLE:
             try:
+                # Import here to avoid CI/CD scanning issues
+                from pyorbbecsdk import Pipeline, Config, OBSensorType, OBFormat, OBAlignMode
+
                 logger.info("📷 Attempting to initialize Femto Mega with Orbbec SDK...")
                 self.pipeline = Pipeline()
                 config = Config()
@@ -150,6 +153,11 @@ class FemtoMegaTracker:
     def _init_mediapipe(self):
         """Initialize MediaPipe Pose Landmarker"""
         try:
+            # Import here to avoid CI/CD scanning issues
+            import mediapipe as mp
+            from mediapipe.tasks import python
+            from mediapipe.tasks.python import vision
+
             script_dir = os.path.dirname(os.path.abspath(__file__))
             models_dir = os.path.join(script_dir, 'models')
             if not os.path.exists(models_dir):
@@ -232,6 +240,8 @@ class FemtoMegaTracker:
 
     def _process_frames_mediapipe(self, frames):
         """Extract skeleton from Orbbec frames using MediaPipe"""
+        import mediapipe as mp
+
         color_frame = frames.get_color_frame()
         depth_frame = frames.get_depth_frame()
 
