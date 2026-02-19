@@ -60,7 +60,7 @@ export function calculateJointAngles(skeleton: SkeletonData): Record<string, Joi
   const jointAngles: Record<string, JointAngle> = {};
   
   // Shoulder Flexion/Extension (Left)
-  try {
+  if (landmarks.left_hip && landmarks.left_shoulder && landmarks.left_elbow) {
     const leftShoulderAngle = calculateAngle(
       landmarks.left_hip,
       landmarks.left_shoulder,
@@ -72,12 +72,10 @@ export function calculateJointAngles(skeleton: SkeletonData): Record<string, Joi
       normal_range: [0, 180],
       status: leftShoulderAngle >= 150 ? 'normal' : 'limited'
     };
-  } catch (e) {
-    console.error('Error calculating left shoulder angle:', e);
   }
   
   // Shoulder Flexion/Extension (Right)
-  try {
+  if (landmarks.right_hip && landmarks.right_shoulder && landmarks.right_elbow) {
     const rightShoulderAngle = calculateAngle(
       landmarks.right_hip,
       landmarks.right_shoulder,
@@ -89,12 +87,10 @@ export function calculateJointAngles(skeleton: SkeletonData): Record<string, Joi
       normal_range: [0, 180],
       status: rightShoulderAngle >= 150 ? 'normal' : 'limited'
     };
-  } catch (e) {
-    console.error('Error calculating right shoulder angle:', e);
   }
   
   // Elbow Flexion (Left)
-  try {
+  if (landmarks.left_shoulder && landmarks.left_elbow && landmarks.left_wrist) {
     const leftElbowAngle = calculateAngle(
       landmarks.left_shoulder,
       landmarks.left_elbow,
@@ -106,12 +102,10 @@ export function calculateJointAngles(skeleton: SkeletonData): Record<string, Joi
       normal_range: [0, 150],
       status: leftElbowAngle >= 130 ? 'normal' : 'limited'
     };
-  } catch (e) {
-    console.error('Error calculating left elbow angle:', e);
   }
   
   // Elbow Flexion (Right)
-  try {
+  if (landmarks.right_shoulder && landmarks.right_elbow && landmarks.right_wrist) {
     const rightElbowAngle = calculateAngle(
       landmarks.right_shoulder,
       landmarks.right_elbow,
@@ -123,12 +117,10 @@ export function calculateJointAngles(skeleton: SkeletonData): Record<string, Joi
       normal_range: [0, 150],
       status: rightElbowAngle >= 130 ? 'normal' : 'limited'
     };
-  } catch (e) {
-    console.error('Error calculating right elbow angle:', e);
   }
   
   // Hip Flexion (Left)
-  try {
+  if (landmarks.left_shoulder && landmarks.left_hip && landmarks.left_knee) {
     const leftHipAngle = calculateAngle(
       landmarks.left_shoulder,
       landmarks.left_hip,
@@ -140,12 +132,10 @@ export function calculateJointAngles(skeleton: SkeletonData): Record<string, Joi
       normal_range: [0, 120],
       status: leftHipAngle >= 90 ? 'normal' : 'limited'
     };
-  } catch (e) {
-    console.error('Error calculating left hip angle:', e);
   }
   
   // Hip Flexion (Right)
-  try {
+  if (landmarks.right_shoulder && landmarks.right_hip && landmarks.right_knee) {
     const rightHipAngle = calculateAngle(
       landmarks.right_shoulder,
       landmarks.right_hip,
@@ -157,12 +147,10 @@ export function calculateJointAngles(skeleton: SkeletonData): Record<string, Joi
       normal_range: [0, 120],
       status: rightHipAngle >= 90 ? 'normal' : 'limited'
     };
-  } catch (e) {
-    console.error('Error calculating right hip angle:', e);
   }
   
   // Knee Flexion (Left)
-  try {
+  if (landmarks.left_hip && landmarks.left_knee && landmarks.left_ankle) {
     const leftKneeAngle = calculateAngle(
       landmarks.left_hip,
       landmarks.left_knee,
@@ -174,12 +162,10 @@ export function calculateJointAngles(skeleton: SkeletonData): Record<string, Joi
       normal_range: [0, 135],
       status: leftKneeAngle >= 120 ? 'normal' : 'limited'
     };
-  } catch (e) {
-    console.error('Error calculating left knee angle:', e);
   }
   
   // Knee Flexion (Right)
-  try {
+  if (landmarks.right_hip && landmarks.right_knee && landmarks.right_ankle) {
     const rightKneeAngle = calculateAngle(
       landmarks.right_hip,
       landmarks.right_knee,
@@ -191,12 +177,10 @@ export function calculateJointAngles(skeleton: SkeletonData): Record<string, Joi
       normal_range: [0, 135],
       status: rightKneeAngle >= 120 ? 'normal' : 'limited'
     };
-  } catch (e) {
-    console.error('Error calculating right knee angle:', e);
   }
   
   // Ankle Dorsiflexion (Left)
-  try {
+  if (landmarks.left_knee && landmarks.left_ankle && landmarks.left_foot_index) {
     const leftAnkleAngle = calculateAngle(
       landmarks.left_knee,
       landmarks.left_ankle,
@@ -208,12 +192,10 @@ export function calculateJointAngles(skeleton: SkeletonData): Record<string, Joi
       normal_range: [70, 110],
       status: leftAnkleAngle >= 85 && leftAnkleAngle <= 105 ? 'normal' : 'limited'
     };
-  } catch (e) {
-    console.error('Error calculating left ankle angle:', e);
   }
   
   // Ankle Dorsiflexion (Right)
-  try {
+  if (landmarks.right_knee && landmarks.right_ankle && landmarks.right_foot_index) {
     const rightAnkleAngle = calculateAngle(
       landmarks.right_knee,
       landmarks.right_ankle,
@@ -225,8 +207,6 @@ export function calculateJointAngles(skeleton: SkeletonData): Record<string, Joi
       normal_range: [70, 110],
       status: rightAnkleAngle >= 85 && rightAnkleAngle <= 105 ? 'normal' : 'limited'
     };
-  } catch (e) {
-    console.error('Error calculating right ankle angle:', e);
   }
   
   // Calculate bilateral differences
@@ -278,21 +258,27 @@ export function detectCompensations(skeleton: SkeletonData, jointAngles: Record<
   const compensations: string[] = [];
   const { landmarks } = skeleton;
   
-  try {
-    // Check for knee valgus (knees caving in during squat)
+  // Check for knee valgus (knees caving in during squat)
+  // Left
+  if (landmarks.left_knee && landmarks.left_ankle) {
     const leftKneeX = landmarks.left_knee.x;
-    const rightKneeX = landmarks.right_knee.x;
     const leftAnkleX = landmarks.left_ankle.x;
-    const rightAnkleX = landmarks.right_ankle.x;
-    
     if (Math.abs(leftKneeX - leftAnkleX) < 0.05) {
       compensations.push('Left knee valgus detected - knee tracking inward');
     }
+  }
+
+  // Right
+  if (landmarks.right_knee && landmarks.right_ankle) {
+    const rightKneeX = landmarks.right_knee.x;
+    const rightAnkleX = landmarks.right_ankle.x;
     if (Math.abs(rightKneeX - rightAnkleX) < 0.05) {
       compensations.push('Right knee valgus detected - knee tracking inward');
     }
-    
-    // Check for excessive forward lean (torso angle)
+  }
+
+  // Check for excessive forward lean (torso angle)
+  if (landmarks.left_shoulder && landmarks.left_hip) {
     const hipToShoulder = {
       x: landmarks.left_shoulder.x - landmarks.left_hip.x,
       y: landmarks.left_shoulder.y - landmarks.left_hip.y
@@ -302,32 +288,39 @@ export function detectCompensations(skeleton: SkeletonData, jointAngles: Record<
     if (forwardLeanAngle > 30) {
       compensations.push('Excessive forward trunk lean - core weakness or hip mobility limitation');
     }
-    
-    // Check for heel lift during squat
+  }
+
+  // Check for heel lift during squat
+  // Left
+  if (landmarks.left_heel && landmarks.left_foot_index) {
     const leftHeelToToe = Math.abs(landmarks.left_heel.y - landmarks.left_foot_index.y);
-    const rightHeelToToe = Math.abs(landmarks.right_heel.y - landmarks.right_foot_index.y);
-    
     if (leftHeelToToe > 0.15) {
       compensations.push('Left heel lifting - ankle dorsiflexion limitation');
     }
+  }
+
+  // Right
+  if (landmarks.right_heel && landmarks.right_foot_index) {
+    const rightHeelToToe = Math.abs(landmarks.right_heel.y - landmarks.right_foot_index.y);
     if (rightHeelToToe > 0.15) {
       compensations.push('Right heel lifting - ankle dorsiflexion limitation');
     }
-    
-    // Check for uneven shoulder height
+  }
+
+  // Check for uneven shoulder height
+  if (landmarks.left_shoulder && landmarks.right_shoulder) {
     const shoulderHeightDiff = Math.abs(landmarks.left_shoulder.y - landmarks.right_shoulder.y);
     if (shoulderHeightDiff > 0.08) {
       compensations.push('Shoulder height asymmetry - possible lateral trunk lean or shoulder dysfunction');
     }
-    
-    // Check for hip asymmetry
+  }
+
+  // Check for hip asymmetry
+  if (landmarks.left_hip && landmarks.right_hip) {
     const hipHeightDiff = Math.abs(landmarks.left_hip.y - landmarks.right_hip.y);
     if (hipHeightDiff > 0.08) {
       compensations.push('Pelvic obliquity - one hip higher than the other');
     }
-    
-  } catch (e) {
-    console.error('Error detecting compensations:', e);
   }
   
   return compensations;
