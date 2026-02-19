@@ -527,7 +527,7 @@ class FemtoBridgeServer:
                 logger.error(f"❌ Error in streaming loop: {e}")
                 await asyncio.sleep(1)
     
-    async def handle_client(self, websocket, path):
+    async def handle_client(self, websocket):
         """Handle WebSocket client connections"""
         client_addr = websocket.remote_address
         logger.info(f"✅ Client connected from {client_addr}")
