@@ -835,6 +835,7 @@ app.get('/register', (c) => {
   return c.redirect('/static/register.html')
 })
 
+
 // Main dashboard
 app.get('/', (c) => {
   return c.html(`
