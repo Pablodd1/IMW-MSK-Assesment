@@ -734,13 +734,13 @@ function generateMedicalNote(assessment: any, tests: any[]) {
   for (const test of tests) {
     if (test.deficiencies) {
       try {
-        const deficiencies = JSON.parse(test.deficiencies)
+        const deficiencies = JSON.parse(String(test.deficiencies))
         allDeficiencies.push(...deficiencies)
       } catch (e) {}
     }
     if (test.ai_recommendations) {
       try {
-        const recs = JSON.parse(test.ai_recommendations)
+        const recs = JSON.parse(String(test.ai_recommendations))
         allRecommendations.push(...recs)
       } catch (e) {}
     }
