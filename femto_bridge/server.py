@@ -36,6 +36,14 @@ except ImportError:
     print("⚠️  WARNING: pyk4a not installed. Azure Kinect Body Tracking will be unavailable.")
     print("   Install with: pip install pyk4a")
 
+# Import tracker for fallback
+try:
+    from tracker import FemtoMegaBodyTracker
+    TRACKER_AVAILABLE = True
+except ImportError:
+    TRACKER_AVAILABLE = False
+    print("⚠️  WARNING: tracker module not found.")
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -91,24 +99,18 @@ class FemtoBridgeServer:
                 logger.info("   Trying native Orbbec SDK...")
                 self.use_k4a = False
 
-        # Fallback to Orbbec SDK
-        if SDK_AVAILABLE:
+        # Fallback to Orbbec SDK + MediaPipe (FemtoMegaBodyTracker)
+        if SDK_AVAILABLE and TRACKER_AVAILABLE:
             try:
-                logger.info("📷 Initializing Femto Mega with Orbbec SDK...")
-                self.pipeline = Pipeline()
-
-                # Configure streams
-                config = Config()
-                config.enable_stream(OBSensorType.DEPTH_SENSOR, 640, 576, OBFormat.Y16, 30)
-                config.enable_stream(OBSensorType.COLOR_SENSOR, 1920, 1080, OBFormat.RGB, 30)
-
-                # Start pipeline
-                self.pipeline.start(config)
-                logger.info("✅ Femto Mega camera initialized successfully (No Body Tracking)")
-                return True
-
+                logger.info("📷 Initializing Femto Mega with Orbbec SDK + MediaPipe...")
+                self.tracker = FemtoMegaBodyTracker()
+                if self.tracker.init_camera():
+                    logger.info("✅ Femto Mega camera initialized successfully (MediaPipe Tracking)")
+                    return True
+                else:
+                    logger.error("❌ Failed to initialize tracker camera")
             except Exception as e:
-                logger.error(f"❌ Failed to initialize Orbbec SDK: {e}")
+                logger.error(f"❌ Failed to initialize Orbbec SDK/Tracker: {e}")
 
         logger.info("   Falling back to SIMULATION mode")
         self.simulation = True
@@ -163,11 +165,10 @@ class FemtoBridgeServer:
         }
     
     def _wait_for_frames_blocking(self):
-        """Blocking call to wait for frames"""
-        if self.use_k4a:
+        """Blocking call to wait for frames (K4A only)"""
+        if self.use_k4a and self.k4a:
              return self.k4a.get_capture(timeout_ms=100)
-        else:
-            return self.pipeline.wait_for_frames(timeout_ms=100)
+        return None
 
     async def capture_skeleton(self):
         """Capture skeleton data from Femto Mega (Async)"""
@@ -180,6 +181,9 @@ class FemtoBridgeServer:
             try:
                 # Run blocking capture in executor
                 capture = await loop.run_in_executor(None, self._wait_for_frames_blocking)
+
+                if capture is None:
+                    return None
 
                 # Update tracker (this might also block, but usually fast enough.
                 # Ideal would be to run update in executor too if it's slow)
@@ -230,16 +234,17 @@ class FemtoBridgeServer:
                 logger.error(f"❌ Error capturing K4A frames: {e}")
                 return None
 
-        # Orbbec SDK fallback (no body tracking yet)
+        # Orbbec SDK fallback (MediaPipe)
         try:
-            # Get frames from camera (Async)
-            frames = await loop.run_in_executor(None, self._wait_for_frames_blocking)
+            # Get frames from tracker (Async)
+            frames = await loop.run_in_executor(None, self.tracker.get_frames)
 
-            if frames is None:
-                return None
+            if frames:
+                skeleton = await loop.run_in_executor(
+                    None, self.tracker.extract_skeleton_from_depth, frames
+                )
+                return skeleton
             
-            # Orbbec SDK doesn't support Azure Kinect Body Tracking natively without wrapper
-            # Return None to indicate no body detected
             return None
             
         except Exception as e:
