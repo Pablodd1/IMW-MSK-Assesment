@@ -27,11 +27,11 @@ export async function queryExerciseKnowledge(db: any, query: string): Promise<RA
   let matches: any[] = [];
   try {
     const searchPattern = `%${keywords[0]}%`;
-    const { results } = await db.prepare(`
+    const { results } = (await db.prepare(`
       SELECT * FROM exercises
       WHERE LOWER(name) LIKE ? OR LOWER(description) LIKE ? OR LOWER(instructions) LIKE ?
       LIMIT 20
-    `).bind(searchPattern, searchPattern, searchPattern).all() as { results: any[] };
+    `).bind(searchPattern, searchPattern, searchPattern).all()) as any;
 
     matches = results.filter(ex => {
       const text = `${ex.name || ''} ${ex.description || ''} ${ex.instructions || ''}`.toLowerCase();

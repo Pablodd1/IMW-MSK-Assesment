@@ -168,9 +168,9 @@ app.post('/api/patients', async (c) => {
 // Get all patients
 app.get('/api/patients', async (c) => {
   try {
-    const { results } = await c.env.DB.prepare(`
+    const { results } = (await c.env.DB.prepare(`
       SELECT * FROM patients ORDER BY created_at DESC
-    `).all() as { results: any[] }
+    `).all()) as any
     
     return c.json({ success: true, data: results })
   } catch (error: any) {
@@ -251,9 +251,9 @@ app.post('/api/assessments', async (c) => {
 app.get('/api/patients/:id/assessments', async (c) => {
   try {
     const patientId = c.req.param('id')
-    const { results } = await c.env.DB.prepare(`
+    const { results } = (await c.env.DB.prepare(`
       SELECT * FROM assessments WHERE patient_id = ? ORDER BY assessment_date DESC
-    `).bind(patientId).all() as { results: any[] }
+    `).bind(patientId).all()) as any
     
     return c.json({ success: true, data: results })
   } catch (error: any) {
@@ -264,12 +264,12 @@ app.get('/api/patients/:id/assessments', async (c) => {
 // Get all assessments
 app.get('/api/assessments', async (c) => {
   try {
-    const { results } = await c.env.DB.prepare(`
+    const { results } = (await c.env.DB.prepare(`
       SELECT a.*, p.first_name, p.last_name 
       FROM assessments a
       JOIN patients p ON a.patient_id = p.id
       ORDER BY a.assessment_date DESC
-    `).all() as { results: any[] }
+    `).all()) as any
     
     return c.json({ success: true, data: results })
   } catch (error: any) {
@@ -387,9 +387,9 @@ app.get('/api/tests/:id/results', async (c) => {
 app.get('/api/assessments/:id/tests', async (c) => {
   try {
     const assessmentId = c.req.param('id')
-    const { results } = await c.env.DB.prepare(`
+    const { results } = (await c.env.DB.prepare(`
       SELECT * FROM movement_tests WHERE assessment_id = ? ORDER BY test_order
-    `).bind(assessmentId).all() as { results: any[] }
+    `).bind(assessmentId).all()) as any
     
     return c.json({ success: true, data: results })
   } catch (error: any) {
@@ -422,7 +422,7 @@ app.get('/api/exercises', async (c) => {
     
     query += ' ORDER BY name'
     
-    const { results } = await c.env.DB.prepare(query).bind(...params).all() as { results: any[] }
+    const { results } = (await c.env.DB.prepare(query).bind(...params).all()) as any
     
     // Update cache if no filter
     if (!category) {
@@ -468,7 +468,7 @@ app.get('/api/patients/:id/prescriptions', async (c) => {
   try {
     const patientId = c.req.param('id')
     
-    const { results } = await c.env.DB.prepare(`
+    const { results } = (await c.env.DB.prepare(`
       SELECT 
         pe.*,
         e.name as exercise_name,
@@ -480,7 +480,7 @@ app.get('/api/patients/:id/prescriptions', async (c) => {
       JOIN exercises e ON pe.exercise_id = e.id
       WHERE pe.patient_id = ? AND pe.status = 'active'
       ORDER BY pe.created_at DESC
-    `).bind(patientId).all() as { results: any[] }
+    `).bind(patientId).all()) as any
     
     return c.json({ success: true, data: results })
   } catch (error: any) {
@@ -524,7 +524,7 @@ app.get('/api/patients/:id/sessions', async (c) => {
   try {
     const patientId = c.req.param('id')
     
-    const { results } = await c.env.DB.prepare(`
+    const { results } = (await c.env.DB.prepare(`
       SELECT
         es.*,
         e.name as exercise_name,
@@ -536,7 +536,7 @@ app.get('/api/patients/:id/sessions', async (c) => {
       WHERE es.patient_id = ?
       ORDER BY es.session_date DESC
       LIMIT 50
-    `).bind(patientId).all() as { results: any[] }
+    `).bind(patientId).all()) as any
     
     return c.json({ success: true, data: results })
   } catch (error: any) {
@@ -556,9 +556,9 @@ app.get('/api/billing/codes', async (c) => {
         return c.json({ success: true, data: billingCodesCache })
     }
 
-    const { results } = await c.env.DB.prepare(`
+    const { results } = (await c.env.DB.prepare(`
       SELECT * FROM billing_codes ORDER BY cpt_code
-    `).all() as { results: any[] }
+    `).all()) as any
     
     billingCodesCache = results
     lastBillingCacheTime = now
@@ -620,12 +620,12 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
     `).bind(assessmentId).first() as any
     
     // Get all movement tests and analyses
-    const { results: tests } = await c.env.DB.prepare(`
+    const { results: tests } = (await c.env.DB.prepare(`
       SELECT mt.*, ma.*
       FROM movement_tests mt
       LEFT JOIN movement_analysis ma ON mt.id = ma.test_id
       WHERE mt.assessment_id = ?
-    `).bind(assessmentId).all() as { results: any[] }
+    `).bind(assessmentId).all()) as any
     
     // Generate comprehensive medical note
     const medicalNote = generateMedicalNote(assessment, tests)
