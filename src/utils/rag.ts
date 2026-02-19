@@ -41,8 +41,11 @@ export async function queryExerciseKnowledge(db: any, query: string): Promise<RA
       params.push(pattern, pattern, pattern);
     });
 
-    const { results } = await db.prepare(sql).bind(...params).all();
-    exercises = results;
+    // Ensure we don't execute invalid SQL if logic changes
+    if (conditions.length > 0) {
+        const { results } = await db.prepare(sql).bind(...params).all();
+        exercises = results;
+    }
   } catch (e) {
     console.error('RAG Database error:', e);
   }
