@@ -43,6 +43,19 @@ logger = logging.getLogger(__name__)
 
 class FemtoMegaBodyTracker:
     """Body tracking implementation for Femto Mega using MediaPipe Tasks + Depth"""
+
+    # MediaPipe to K4ABT joint mapping
+    JOINT_MAPPING = {
+        'SHOULDER_LEFT': 11, 'SHOULDER_RIGHT': 12,
+        'ELBOW_LEFT': 13, 'ELBOW_RIGHT': 14,
+        'WRIST_LEFT': 15, 'WRIST_RIGHT': 16,
+        'HIP_LEFT': 23, 'HIP_RIGHT': 24,
+        'KNEE_LEFT': 25, 'KNEE_RIGHT': 26,
+        'ANKLE_LEFT': 27, 'ANKLE_RIGHT': 28,
+        'EYE_LEFT': 2, 'EYE_RIGHT': 5,
+        'EAR_LEFT': 7, 'EAR_RIGHT': 8,
+        'NOSE': 0
+    }
     
     def __init__(self):
         self.pipeline = None
@@ -212,20 +225,8 @@ class FemtoMegaBodyTracker:
         # 25: left_knee, 26: right_knee, 27: left_ankle, 28: right_ankle
 
         # Basic limb joints (direct mapping)
-        mapping = {
-            'SHOULDER_LEFT': 11, 'SHOULDER_RIGHT': 12,
-            'ELBOW_LEFT': 13, 'ELBOW_RIGHT': 14,
-            'WRIST_LEFT': 15, 'WRIST_RIGHT': 16,
-            'HIP_LEFT': 23, 'HIP_RIGHT': 24,
-            'KNEE_LEFT': 25, 'KNEE_RIGHT': 26,
-            'ANKLE_LEFT': 27, 'ANKLE_RIGHT': 28,
-            'EYE_LEFT': 2, 'EYE_RIGHT': 5,
-            'EAR_LEFT': 7, 'EAR_RIGHT': 8,
-            'NOSE': 0
-        }
-
         # Extract direct mappings
-        for name, idx in mapping.items():
+        for name, idx in self.JOINT_MAPPING.items():
             joints[name] = {
                 'position': get_joint_3d(idx),
                 'orientation': {'w': 1, 'x': 0, 'y': 0, 'z': 0}, # Identity for now
