@@ -16,6 +16,8 @@ import websockets
 import logging
 from datetime import datetime
 import sys
+import random
+import math
 
 # Try to import Orbbec SDK
 try:
@@ -41,6 +43,28 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Joint names for Azure Kinect Body Tracking SDK (32 joints)
+JOINT_NAMES = [
+    'PELVIS', 'SPINE_NAVAL', 'SPINE_CHEST', 'NECK', 'CLAVICLE_LEFT',
+    'SHOULDER_LEFT', 'ELBOW_LEFT', 'WRIST_LEFT', 'HAND_LEFT', 'HANDTIP_LEFT',
+    'THUMB_LEFT', 'CLAVICLE_RIGHT', 'SHOULDER_RIGHT', 'ELBOW_RIGHT', 'WRIST_RIGHT',
+    'HAND_RIGHT', 'HANDTIP_RIGHT', 'THUMB_RIGHT', 'HIP_LEFT', 'KNEE_LEFT',
+    'ANKLE_LEFT', 'FOOT_LEFT', 'HIP_RIGHT', 'KNEE_RIGHT', 'ANKLE_RIGHT',
+    'FOOT_RIGHT', 'HEAD', 'NOSE', 'EYE_LEFT', 'EAR_LEFT', 'EYE_RIGHT', 'EAR_RIGHT'
+]
+
+# Pre-calculate simulation metadata for performance
+# Format: (name, is_squat_affected, x_base_offset, y_base_offset)
+SIMULATION_METADATA = [
+    (
+        name,
+        ('PELVIS' in name or 'HIP' in name or 'KNEE' in name),
+        i * 10,
+        i * 20
+    )
+    for i, name in enumerate(JOINT_NAMES)
+]
 
 
 class FemtoBridgeServer:
@@ -116,8 +140,6 @@ class FemtoBridgeServer:
     
     def generate_simulated_skeleton(self):
         """Generate simulated skeleton data for testing"""
-        import random
-        import math
         
         # Simulate a person doing a squat movement
         time = datetime.now().timestamp()
@@ -125,25 +147,17 @@ class FemtoBridgeServer:
         
         # 32 joints from Azure Kinect Body Tracking SDK
         joints = {}
-        joint_names = [
-            'PELVIS', 'SPINE_NAVAL', 'SPINE_CHEST', 'NECK', 'CLAVICLE_LEFT',
-            'SHOULDER_LEFT', 'ELBOW_LEFT', 'WRIST_LEFT', 'HAND_LEFT', 'HANDTIP_LEFT',
-            'THUMB_LEFT', 'CLAVICLE_RIGHT', 'SHOULDER_RIGHT', 'ELBOW_RIGHT', 'WRIST_RIGHT',
-            'HAND_RIGHT', 'HANDTIP_RIGHT', 'THUMB_RIGHT', 'HIP_LEFT', 'KNEE_LEFT',
-            'ANKLE_LEFT', 'FOOT_LEFT', 'HIP_RIGHT', 'KNEE_RIGHT', 'ANKLE_RIGHT',
-            'FOOT_RIGHT', 'HEAD', 'NOSE', 'EYE_LEFT', 'EAR_LEFT', 'EYE_RIGHT', 'EAR_RIGHT'
-        ]
         
-        for i, name in enumerate(joint_names):
+        for name, is_squat, x_base, y_base in SIMULATION_METADATA:
             # Simulate squatting motion (pelvis and legs move down)
             y_offset = 0
-            if 'PELVIS' in name or 'HIP' in name or 'KNEE' in name:
+            if is_squat:
                 y_offset = -squat_phase * 300  # Squat down by 300mm
             
             joints[name] = {
                 'position': {
-                    'x': random.uniform(-200, 200) + (i * 10),
-                    'y': 500 + y_offset + (i * 20),
+                    'x': random.uniform(-200, 200) + x_base,
+                    'y': 500 + y_offset + y_base,
                     'z': 1500 + random.uniform(-50, 50)
                 },
                 'orientation': {
@@ -193,16 +207,8 @@ class FemtoBridgeServer:
 
                 # Map joints to expected format
                 joints = {}
-                joint_names = [
-                    'PELVIS', 'SPINE_NAVAL', 'SPINE_CHEST', 'NECK', 'CLAVICLE_LEFT',
-                    'SHOULDER_LEFT', 'ELBOW_LEFT', 'WRIST_LEFT', 'HAND_LEFT', 'HANDTIP_LEFT',
-                    'THUMB_LEFT', 'CLAVICLE_RIGHT', 'SHOULDER_RIGHT', 'ELBOW_RIGHT', 'WRIST_RIGHT',
-                    'HAND_RIGHT', 'HANDTIP_RIGHT', 'THUMB_RIGHT', 'HIP_LEFT', 'KNEE_LEFT',
-                    'ANKLE_LEFT', 'FOOT_LEFT', 'HIP_RIGHT', 'KNEE_RIGHT', 'ANKLE_RIGHT',
-                    'FOOT_RIGHT', 'HEAD', 'NOSE', 'EYE_LEFT', 'EAR_LEFT', 'EYE_RIGHT', 'EAR_RIGHT'
-                ]
 
-                for i, name in enumerate(joint_names):
+                for i, name in enumerate(JOINT_NAMES):
                     joint = body.joints[i]
                     joints[name] = {
                         'position': {
