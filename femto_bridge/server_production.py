@@ -471,7 +471,10 @@ class FemtoBridgeServer:
             return True
         
         # Run camera init in thread pool to avoid blocking
-        loop = asyncio.get_event_loop()
+        try:
+            loop = asyncio.get_running_loop()
+        except (AttributeError, RuntimeError):
+            loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self.tracker.init_camera)
     
     async def stream_skeleton_data(self):
@@ -481,17 +484,22 @@ class FemtoBridgeServer:
         frame_count = 0
         start_time = datetime.now()
         
+        try:
+            loop = asyncio.get_running_loop()
+        except (AttributeError, RuntimeError):
+            loop = asyncio.get_event_loop()
+
         while self.is_streaming:
             try:
                 # Get skeleton data
                 if self.simulation or not self.tracker.is_started:
                     skeleton = self.tracker.generate_simulated_skeleton()
                 else:
-                    frames = await asyncio.get_event_loop().run_in_executor(
+                    frames = await loop.run_in_executor(
                         None, self.tracker.get_frames
                     )
                     if frames:
-                        skeleton = await asyncio.get_event_loop().run_in_executor(
+                        skeleton = await loop.run_in_executor(
                             None, self.tracker.extract_skeleton_from_depth, frames
                         )
                     else:
@@ -531,7 +539,7 @@ class FemtoBridgeServer:
                 logger.error(f"❌ Error in streaming loop: {e}")
                 await asyncio.sleep(1)
     
-    async def handle_client(self, websocket, path):
+    async def handle_client(self, websocket):
         """Handle WebSocket client connections"""
         client_addr = websocket.remote_address
         logger.info(f"✅ Client connected from {client_addr}")
@@ -655,7 +663,11 @@ class FemtoBridgeServer:
                 pass
         
         # Stop camera
-        await asyncio.get_event_loop().run_in_executor(None, self.tracker.stop)
+        try:
+            loop = asyncio.get_running_loop()
+        except (AttributeError, RuntimeError):
+            loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self.tracker.stop)
         
         # Close all client connections
         if self.clients:
