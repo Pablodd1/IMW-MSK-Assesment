@@ -612,12 +612,13 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
     `).bind(assessmentId).first() as any
     
     // Get all movement tests and analyses
-    const { results: tests } = await c.env.DB.prepare(`
+    const { results } = await c.env.DB.prepare(`
       SELECT mt.*, ma.*
       FROM movement_tests mt
       LEFT JOIN movement_analysis ma ON mt.id = ma.test_id
       WHERE mt.assessment_id = ?
     `).bind(assessmentId).all()
+    const tests = results as any[]
     
     // Generate comprehensive medical note
     const medicalNote = generateMedicalNote(assessment, tests)
