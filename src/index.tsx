@@ -85,6 +85,14 @@ app.post('/api/auth/login', async (c) => {
       return c.json({ success: false, error: 'Invalid email or password' }, 401)
     }
     
+    // Automatic migration to PBKDF2 if using legacy hash
+    if (!clinician.password_hash.includes(':')) {
+      const newHash = await hashPassword(password);
+      await c.env.DB.prepare(`
+        UPDATE clinicians SET password_hash = ? WHERE id = ?
+      `).bind(newHash, clinician.id).run();
+    }
+
     // Update last login
     await c.env.DB.prepare(`
       UPDATE clinicians SET last_login = CURRENT_TIMESTAMP WHERE id = ?
@@ -162,7 +170,7 @@ app.get('/api/patients', async (c) => {
   try {
     const { results } = await c.env.DB.prepare(`
       SELECT * FROM patients ORDER BY created_at DESC
-    `).all()
+    `).all() as { results: any[] }
     
     return c.json({ success: true, data: results })
   } catch (error: any) {
@@ -245,7 +253,7 @@ app.get('/api/patients/:id/assessments', async (c) => {
     const patientId = c.req.param('id')
     const { results } = await c.env.DB.prepare(`
       SELECT * FROM assessments WHERE patient_id = ? ORDER BY assessment_date DESC
-    `).bind(patientId).all()
+    `).bind(patientId).all() as { results: any[] }
     
     return c.json({ success: true, data: results })
   } catch (error: any) {
@@ -261,7 +269,7 @@ app.get('/api/assessments', async (c) => {
       FROM assessments a
       JOIN patients p ON a.patient_id = p.id
       ORDER BY a.assessment_date DESC
-    `).all()
+    `).all() as { results: any[] }
     
     return c.json({ success: true, data: results })
   } catch (error: any) {
@@ -381,7 +389,7 @@ app.get('/api/assessments/:id/tests', async (c) => {
     const assessmentId = c.req.param('id')
     const { results } = await c.env.DB.prepare(`
       SELECT * FROM movement_tests WHERE assessment_id = ? ORDER BY test_order
-    `).bind(assessmentId).all()
+    `).bind(assessmentId).all() as { results: any[] }
     
     return c.json({ success: true, data: results })
   } catch (error: any) {
@@ -414,7 +422,7 @@ app.get('/api/exercises', async (c) => {
     
     query += ' ORDER BY name'
     
-    const { results } = await c.env.DB.prepare(query).bind(...params).all()
+    const { results } = await c.env.DB.prepare(query).bind(...params).all() as { results: any[] }
     
     // Update cache if no filter
     if (!category) {
@@ -472,7 +480,7 @@ app.get('/api/patients/:id/prescriptions', async (c) => {
       JOIN exercises e ON pe.exercise_id = e.id
       WHERE pe.patient_id = ? AND pe.status = 'active'
       ORDER BY pe.created_at DESC
-    `).bind(patientId).all()
+    `).bind(patientId).all() as { results: any[] }
     
     return c.json({ success: true, data: results })
   } catch (error: any) {
@@ -528,7 +536,7 @@ app.get('/api/patients/:id/sessions', async (c) => {
       WHERE es.patient_id = ?
       ORDER BY es.session_date DESC
       LIMIT 50
-    `).bind(patientId).all()
+    `).bind(patientId).all() as { results: any[] }
     
     return c.json({ success: true, data: results })
   } catch (error: any) {
@@ -550,7 +558,7 @@ app.get('/api/billing/codes', async (c) => {
 
     const { results } = await c.env.DB.prepare(`
       SELECT * FROM billing_codes ORDER BY cpt_code
-    `).all()
+    `).all() as { results: any[] }
     
     billingCodesCache = results
     lastBillingCacheTime = now
@@ -617,7 +625,7 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
       FROM movement_tests mt
       LEFT JOIN movement_analysis ma ON mt.id = ma.test_id
       WHERE mt.assessment_id = ?
-    `).bind(assessmentId).all()
+    `).bind(assessmentId).all() as { results: any[] }
     
     // Generate comprehensive medical note
     const medicalNote = generateMedicalNote(assessment, tests)
@@ -665,19 +673,78 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
 // HELPER FUNCTIONS
 // ============================================================================
 
-// Simple password hashing (for demo - use proper bcrypt in production)
+// Password hashing using PBKDF2 (HIPAA-compliant)
 async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(password + 'physiomotion-salt-2025')
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-  return hashHex
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const saltHex = Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join('');
+
+  const baseKey = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits', 'deriveKey']
+  );
+
+  const derivedKey = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: 100000,
+      hash: 'SHA-256'
+    },
+    baseKey,
+    256
+  );
+
+  const hashHex = Array.from(new Uint8Array(derivedKey))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  return `${saltHex}:${hashHex}`;
 }
 
-async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  const computedHash = await hashPassword(password)
-  return computedHash === hash
+async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
+  // Legacy SHA-256 check with migration support
+  if (!storedHash.includes(':')) {
+    const encoder = new TextEncoder()
+    const data = encoder.encode(password + 'physiomotion-salt-2025')
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+    return hashHex === storedHash;
+  }
+
+  const [saltHex, hashHex] = storedHash.split(':');
+  const match = saltHex.match(/.{1,2}/g);
+  if (!match) return false;
+
+  const salt = new Uint8Array(match.map(byte => parseInt(byte, 16)));
+
+  const baseKey = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits', 'deriveKey']
+  );
+
+  const derivedKey = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: 100000,
+      hash: 'SHA-256'
+    },
+    baseKey,
+    256
+  );
+
+  const computedHashHex = Array.from(new Uint8Array(derivedKey))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  return computedHashHex === hashHex;
 }
 
 async function updateCompliancePercentage(db: any, prescribedExerciseId: number) {

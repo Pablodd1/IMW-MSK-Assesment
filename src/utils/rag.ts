@@ -23,22 +23,23 @@ export async function queryExerciseKnowledge(db: any, query: string): Promise<RA
     };
   }
 
-  // Search exercises table for keywords
-  let exercises: any[] = [];
+  // Search exercises table using optimized SQL LIKE query
+  let matches: any[] = [];
   try {
+    const searchPattern = `%${keywords[0]}%`;
     const { results } = await db.prepare(`
       SELECT * FROM exercises
-    `).all();
-    exercises = results;
+      WHERE LOWER(name) LIKE ? OR LOWER(description) LIKE ? OR LOWER(instructions) LIKE ?
+      LIMIT 20
+    `).bind(searchPattern, searchPattern, searchPattern).all() as { results: any[] };
+
+    matches = results.filter(ex => {
+      const text = `${ex.name || ''} ${ex.description || ''} ${ex.instructions || ''}`.toLowerCase();
+      return keywords.some(k => text.includes(k));
+    });
   } catch (e) {
     console.error('RAG Database error:', e);
   }
-
-  const matches = exercises.filter(ex => {
-    // Check various fields for matches
-    const text = `${ex.name || ''} ${ex.description || ''} ${ex.instructions || ''}`.toLowerCase();
-    return keywords.some(k => text.includes(k));
-  });
 
   if (matches.length === 0) {
     return {
