@@ -502,12 +502,12 @@ app.post('/api/exercise-sessions', async (c) => {
       session.pain_level_during, session.difficulty_rating, session.completed
     ).run()
     
-    // Update compliance tracking
+    // Update compliance tracking (non-blocking)
+    const complianceUpdate = updateCompliancePercentage(c.env.DB, session.prescribed_exercise_id)
+      .catch(err => console.error('Failed to update compliance:', err))
+
     if (c.executionCtx) {
-      c.executionCtx.waitUntil(updateCompliancePercentage(c.env.DB, session.prescribed_exercise_id))
-    } else {
-      // Fallback for environments without executionCtx
-      updateCompliancePercentage(c.env.DB, session.prescribed_exercise_id).catch(console.error)
+      c.executionCtx.waitUntil(complianceUpdate)
     }
     
     return c.json({ success: true, data: { id: result.meta.last_row_id } })
