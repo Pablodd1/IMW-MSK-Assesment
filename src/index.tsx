@@ -631,7 +631,7 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
     let aiInsights = ""
     if (tests.length > 0 && tests[0].deficiencies) {
         try {
-            const defs = JSON.parse(tests[0].deficiencies)
+            const defs = JSON.parse(String(tests[0].deficiencies))
             if (defs.length > 0) {
                 const ragResult = await queryExerciseKnowledge(c.env.DB, defs[0].area)
                 aiInsights = ragResult.answer
