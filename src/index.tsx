@@ -502,8 +502,12 @@ app.post('/api/exercise-sessions', async (c) => {
       session.pain_level_during, session.difficulty_rating, session.completed
     ).run()
     
-    // Update compliance tracking
-    await updateCompliancePercentage(c.env.DB, session.prescribed_exercise_id)
+    // Update compliance tracking (non-blocking)
+    if (c.executionCtx?.waitUntil) {
+      c.executionCtx.waitUntil(updateCompliancePercentage(c.env.DB, session.prescribed_exercise_id))
+    } else {
+      updateCompliancePercentage(c.env.DB, session.prescribed_exercise_id).catch(console.error)
+    }
     
     return c.json({ success: true, data: { id: result.meta.last_row_id } })
   } catch (error: any) {
