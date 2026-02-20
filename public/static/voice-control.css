@@ -1,0 +1,226 @@
+/* Voice Control UI - Minimalistic Right Side Panel */
+
+.voice-control-panel {
+  position: fixed;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.voice-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  color: white;
+}
+
+.voice-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+.voice-btn:active {
+  transform: scale(0.95);
+}
+
+.voice-btn.listening {
+  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+  animation: pulse 1.5s infinite;
+  box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.voice-btn.supported {
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+}
+
+.voice-feedback {
+  position: fixed;
+  right: 80px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(15, 23, 42, 0.95);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  max-width: 280px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.voice-feedback.visible {
+  opacity: 1;
+}
+
+.voice-feedback::before {
+  content: '🎤';
+  margin-right: 8px;
+}
+
+.voice-status-indicator {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #6b7280;
+  border: 2px solid white;
+}
+
+.voice-status-indicator.listening {
+  background: #ef4444;
+  animation: blink 1s infinite;
+}
+
+.voice-status-indicator.supported {
+  background: #10b981;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.voice-commands-tooltip {
+  position: fixed;
+  right: 80px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(15, 23, 42, 0.95);
+  color: white;
+  padding: 16px;
+  border-radius: 12px;
+  max-width: 300px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.voice-commands-tooltip.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.voice-commands-tooltip h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.voice-commands-tooltip ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.voice-commands-tooltip li {
+  display: flex;
+  align-items: center;
+}
+
+.voice-commands-tooltip li::before {
+  content: '▸';
+  color: #6366f1;
+  margin-right: 8px;
+}
+
+.voice-panel-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.voice-mini-btn {
+  width: 36px;
+  height: 36px;
+  font-size: 14px;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .voice-control-panel {
+    right: 8px;
+    top: auto;
+    bottom: 80px;
+    transform: none;
+  }
+  
+  .voice-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+  }
+  
+  .voice-feedback,
+  .voice-commands-tooltip {
+    right: 60px;
+    max-width: 220px;
+    font-size: 12px;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .voice-btn {
+    background: linear-gradient(135deg, #1e293b 0%, #475569 100%);
+  }
+}
+
+/* Accessibility */
+.voice-btn:focus {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+.voice-btn[aria-label="Voice Commands"] {
+  position: relative;
+}
+
+.voice-btn[aria-label="Voice Commands"]::after {
+  content: 'Hold to speak';
+  position: absolute;
+  bottom: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.voice-btn:hover::after {
+  opacity: 1;
+}

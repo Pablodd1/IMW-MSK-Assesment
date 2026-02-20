@@ -1,5 +1,7 @@
 {
-  "name": "webapp",
+  "name": "physiomotion",
+  "version": "1.0.0",
+  "description": "Medical-Grade Movement Assessment Platform",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -18,10 +20,12 @@
     "db:reset": "rm -rf .wrangler/state/v3/d1 && npm run db:migrate:local && npm run db:seed",
     "db:console:local": "wrangler d1 execute webapp-production --local",
     "db:console:prod": "wrangler d1 execute webapp-production",
+    "db:migrate:security": "wrangler d1 execute webapp-production --local --file=./migrations/0006_security_hipaa_compliance.sql",
     "git:commit": "git add . && git commit -m"
   },
   "dependencies": {
-    "hono": "^4.10.1"
+    "hono": "^4.10.1",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250705.0",
@@ -31,4 +35,5 @@
     "vite": "^6.3.5",
     "wrangler": "^4.4.0"
   }
+}
 }

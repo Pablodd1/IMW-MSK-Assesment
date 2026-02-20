@@ -4,11 +4,39 @@ import { serveStatic } from 'hono/cloudflare-workers'
 import type { Bindings, Patient, Assessment, Exercise, PrescribedExercise, ExerciseSession, SkeletonData } from './types'
 import { performBiomechanicalAnalysis } from './utils/biomechanics'
 import { queryExerciseKnowledge } from './utils/rag'
+import { secureAuth, hashPassword, verifyPassword, generateToken } from './middleware/auth'
+import { validate, patientCreateSchema, assessmentCreateSchema, prescriptionSchema, clinicianRegisterSchema } from './middleware/validation'
+import { auditLog, phiAudit, securityHeaders, safeLog } from './middleware/hipaa'
+import { apiRateLimit, authRateLimit, writeRateLimit, analysisRateLimit } from './middleware/rateLimit'
 
 const app = new Hono<{ Bindings: Bindings }>()
 
-// Enable CORS for API routes
-app.use('/api/*', cors())
+// ============================================================================
+// SECURITY MIDDLEWARE
+// ============================================================================
+
+// Security headers for all responses
+app.use('*', securityHeaders)
+
+// Production CORS configuration
+const corsConfig = {
+  origin: (origin: string | undefined) => {
+    const allowedOrigins = [
+      'https://physiomotion.com',
+      'https://www.physiomotion.com', 
+      'https://app.physiomotion.com'
+    ]
+    // Allow no-origin requests (mobile apps, Postman, server-to-server)
+    if (!origin) return true
+    return allowedOrigins.includes(origin) || origin.startsWith('http://localhost')
+  },
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true,
+  maxAge: 86400
+}
+
+app.use('/api/*', cors(corsConfig))
 
 // Serve static files
 app.use('/static/*', serveStatic({ root: './public', manifest: {} }))
@@ -28,8 +56,8 @@ const BILLING_CACHE_TTL = 3600 * 1000 // 1 hour
 // AUTHENTICATION API
 // ============================================================================
 
-// Register new clinician
-app.post('/api/auth/register', async (c) => {
+// Register new clinician (rate limited)
+app.post('/api/auth/register', authRateLimit, async (c) => {
   try {
     const data = await c.req.json()
     
@@ -42,31 +70,36 @@ app.post('/api/auth/register', async (c) => {
       return c.json({ success: false, error: 'Email already registered' }, 400)
     }
     
-    // Hash password (simple hash for demo - use bcrypt in production)
-    const passwordHash = await hashPassword(data.password)
+    // Generate secure salt and hash password
+    const salt = crypto.randomUUID()
+    const passwordHash = await hashPassword(data.password, salt)
     
     const result = await c.env.DB.prepare(`
       INSERT INTO clinicians (
-        email, password_hash, first_name, last_name, title,
-        license_number, license_state, npi_number, phone, clinic_name
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        email, password_hash, salt, first_name, last_name, title,
+        license_number, license_state, npi_number, phone, clinic_name,
+        role, active
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'clinician', 1)
     `).bind(
-      data.email, passwordHash, data.first_name, data.last_name, data.title,
+      data.email, passwordHash, salt, data.first_name, data.last_name, data.title,
       data.license_number, data.license_state, data.npi_number,
       data.phone, data.clinic_name
     ).run()
+    
+    safeLog.info('New clinician registered', { clinicianId: result.meta.last_row_id, email: data.email })
     
     return c.json({
       success: true,
       data: { id: result.meta.last_row_id }
     })
   } catch (error: any) {
+    safeLog.error('Registration failed', error as Error)
     return c.json({ success: false, error: error.message }, 500)
   }
 })
 
-// Login
-app.post('/api/auth/login', async (c) => {
+// Login (rate limited)
+app.post('/api/auth/login', authRateLimit, async (c) => {
   try {
     const { email, password } = await c.req.json()
     
@@ -75,29 +108,44 @@ app.post('/api/auth/login', async (c) => {
     `).bind(email).first() as any
     
     if (!clinician) {
+      safeLog.warn('Login failed - user not found', { email })
       return c.json({ success: false, error: 'Invalid email or password' }, 401)
     }
     
-    // Verify password
-    const isValid = await verifyPassword(password, clinician.password_hash)
+    // Verify password with stored salt
+    const salt = clinician.salt || 'default-salt'
+    const isValid = await verifyPassword(password, salt, clinician.password_hash)
     
     if (!isValid) {
+      safeLog.warn('Login failed - invalid password', { clinicianId: clinician.id, email })
       return c.json({ success: false, error: 'Invalid email or password' }, 401)
     }
     
-    // Update last login
+    // Generate JWT token
+    const token = await generateToken(
+      { id: clinician.id, email: clinician.email, role: clinician.role },
+      c.env.JWT_SECRET || c.env.AUTH_SECRET || 'default-secret-change-me'
+    )
+    
+    // Update last login and activity
     await c.env.DB.prepare(`
-      UPDATE clinicians SET last_login = CURRENT_TIMESTAMP WHERE id = ?
+      UPDATE clinicians SET last_login = CURRENT_TIMESTAMP, last_activity = CURRENT_TIMESTAMP WHERE id = ?
     `).bind(clinician.id).run()
     
-    // Return user data (excluding password)
-    const { password_hash, ...userData } = clinician
+    safeLog.info('Login successful', { clinicianId: clinician.id, email })
+    
+    // Return user data (excluding password) and token
+    const { password_hash, salt: _, ...userData } = clinician
     
     return c.json({
       success: true,
-      data: userData
+      data: {
+        ...userData,
+        token
+      }
     })
   } catch (error: any) {
+    safeLog.error('Login error', error as Error)
     return c.json({ success: false, error: error.message }, 500)
   }
 })
@@ -125,60 +173,80 @@ app.get('/api/auth/profile/:id', async (c) => {
 })
 
 // ============================================================================
-// PATIENT MANAGEMENT API
+// PATIENT MANAGEMENT API (Secured with Auth, Validation, Audit)
 // ============================================================================
 
-// Create new patient
-app.post('/api/patients', async (c) => {
-  try {
-    const patient = await c.req.json<Patient>()
-    
-    const result = await c.env.DB.prepare(`
-      INSERT INTO patients (
-        first_name, last_name, date_of_birth, gender, email, phone,
-        emergency_contact_name, emergency_contact_phone,
-        address_line1, city, state, zip_code,
-        height_cm, weight_kg, insurance_provider
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(
-      patient.first_name, patient.last_name, patient.date_of_birth,
-      patient.gender, patient.email, patient.phone,
-      patient.emergency_contact_name, patient.emergency_contact_phone,
-      patient.address_line1, patient.city, patient.state, patient.zip_code,
-      patient.height_cm, patient.weight_kg, patient.insurance_provider
-    ).run()
-    
-    return c.json({
-      success: true,
-      data: { id: result.meta.last_row_id, ...patient }
-    })
-  } catch (error: any) {
-    return c.json({ success: false, error: error.message }, 500)
+// Create new patient (requires auth, validated, audited)
+app.post('/api/patients', 
+  secureAuth, 
+  validate(patientCreateSchema),
+  writeRateLimit,
+  auditLog('PATIENT_CREATE', 'patient'),
+  async (c) => {
+    try {
+      const validatedData = c.get('validatedData')
+      
+      const result = await c.env.DB.prepare(`
+        INSERT INTO patients (
+          first_name, last_name, date_of_birth, gender, email, phone,
+          emergency_contact_name, emergency_contact_phone,
+          address_line1, city, state, zip_code,
+          height_cm, weight_kg, insurance_provider
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        validatedData.first_name, validatedData.last_name, validatedData.date_of_birth,
+        validatedData.gender, validatedData.email, validatedData.phone,
+        validatedData.emergency_contact_name, validatedData.emergency_contact_phone,
+        validatedData.address_line1, validatedData.city, validatedData.state, validatedData.zip_code,
+        validatedData.height_cm, validatedData.weight_kg, validatedData.insurance_provider
+      ).run()
+      
+      safeLog.info('Patient created', { patientId: result.meta.last_row_id })
+      
+      return c.json({
+        success: true,
+        data: { id: result.meta.last_row_id, ...validatedData }
+      })
+    } catch (error: any) {
+      safeLog.error('Patient creation failed', error as Error)
+      return c.json({ success: false, error: error.message }, 500)
+    }
   }
-})
+)
 
-// Get all patients
-app.get('/api/patients', async (c) => {
-  try {
-    const { results } = await c.env.DB.prepare(`
-      SELECT * FROM patients ORDER BY created_at DESC
-    `).all()
-    
-    return c.json({ success: true, data: results })
-  } catch (error: any) {
-    return c.json({ success: false, error: error.message }, 500)
+// Get all patients (requires auth, audited)
+app.get('/api/patients', 
+  secureAuth, 
+  apiRateLimit,
+  auditLog('PATIENT_VIEW', 'patient'),
+  async (c) => {
+    try {
+      const { results } = await c.env.DB.prepare(`
+        SELECT id, first_name, last_name, date_of_birth, gender, email, phone,
+               city, state, created_at, patient_status
+        FROM patients ORDER BY created_at DESC
+      `).all()
+      
+      return c.json({ success: true, data: results })
+    } catch (error: any) {
+      return c.json({ success: false, error: error.message }, 500)
+    }
   }
-})
+)
 
-// Get patient by ID
-app.get('/api/patients/:id', async (c) => {
-  try {
-    const id = c.req.param('id')
-    const patient = await c.env.DB.prepare(`
-      SELECT * FROM patients WHERE id = ?
-    `).bind(id).first()
-    
-    if (!patient) {
+// Get patient by ID (requires auth, PHI audit)
+app.get('/api/patients/:id', 
+  secureAuth, 
+  apiRateLimit,
+  phiAudit('VIEW', 'patient'),
+  async (c) => {
+    try {
+      const id = c.req.param('id')
+      const patient = await c.env.DB.prepare(`
+        SELECT * FROM patients WHERE id = ?
+      `).bind(id).first()
+      
+      if (!patient) {
       return c.json({ success: false, error: 'Patient not found' }, 404)
     }
     
