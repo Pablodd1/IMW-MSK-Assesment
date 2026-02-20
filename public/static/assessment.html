@@ -242,17 +242,107 @@
         </div>
     </div>
 
+    <!-- Voice Control Panel (Right Side) -->
+    <div class="voice-control-panel" id="voicePanel">
+        <button id="voiceBtn" class="voice-btn" aria-label="Voice Commands" title="Click or say 'help' for commands">
+            <span id="voiceIcon">🎤</span>
+            <span class="voice-status-indicator" id="voiceStatus"></span>
+        </button>
+        <div class="voice-panel-mini">
+            <button class="voice-btn voice-mini-btn" onclick="window.VoiceCommand && window.VoiceCommand.start()" title="Start Listening">▶️</button>
+            <button class="voice-btn voice-mini-btn" onclick="window.VoiceCommand && window.VoiceCommand.stop()" title="Stop Listening">⏹️</button>
+            <button class="voice-btn voice-mini-btn" onclick="showVoiceHelp()" title="Show Commands">❓</button>
+        </div>
+    </div>
+
+    <!-- Voice Feedback Toast -->
+    <div class="voice-feedback" id="voiceFeedback">Listening...</div>
+
+    <!-- Voice Commands Tooltip -->
+    <div class="voice-commands-tooltip" id="voiceTooltip">
+        <h4>Voice Commands</h4>
+        <ul>
+            <li>Start/Stop recording</li>
+            <li>Analyze movement</li>
+            <li>Flip camera</li>
+            <li>Show patients</li>
+            <li>Generate notes</li>
+            <li>Save assessment</li>
+            <li>Next / Previous</li>
+            <li>Take screenshot</li>
+        </ul>
+    </div>
+
     <!-- MediaPipe Pose Detection -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
     
+    <!-- Voice Command System -->
+    <link rel="stylesheet" href="/static/voice-control.css">
+    <script src="/static/voice-command.js"></script>
+    
+    <!-- Femto Mega Client -->
+    <script src="/static/femto-client.js"></script>
+    
     <!-- Main Application Script -->
     <script src="/static/assessment-workflow.js"></script>
     <script>
         // Display clinician info on page load
         displayClinicianInfo();
+        
+        // Initialize voice command when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            const voiceBtn = document.getElementById('voiceBtn');
+            const voiceFeedback = document.getElementById('voiceFeedback');
+            const voiceStatus = document.getElementById('voiceStatus');
+            
+            if (window.VoiceCommand) {
+                const status = window.VoiceCommand.getStatus();
+                if (status.isSupported) {
+                    voiceBtn.classList.add('supported');
+                    voiceStatus.classList.add('supported');
+                }
+                window.VoiceCommand.setFeedbackElement(voiceFeedback);
+                window.VoiceCommand.setStatusElement(voiceStatus);
+            }
+            
+            // Voice button click handler
+            voiceBtn.addEventListener('click', () => {
+                if (window.VoiceCommand) {
+                    window.VoiceCommand.toggle();
+                    const status = window.VoiceCommand.getStatus();
+                    if (status.isListening) {
+                        voiceBtn.classList.add('listening');
+                        document.getElementById('voiceIcon').textContent = '🔊';
+                        voiceFeedback.textContent = 'Listening...';
+                        voiceFeedback.classList.add('visible');
+                    } else {
+                        voiceBtn.classList.remove('listening');
+                        document.getElementById('voiceIcon').textContent = '🎤';
+                        voiceFeedback.classList.remove('visible');
+                    }
+                }
+            });
+            
+            // Keyboard shortcut (V key)
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'v' && !e.ctrlKey && !e.metaKey) {
+                    const active = document.activeElement;
+                    if (active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA') {
+                        e.preventDefault();
+                        voiceBtn.click();
+                    }
+                }
+            });
+        });
+        
+        function showVoiceHelp() {
+            const tooltip = document.getElementById('voiceTooltip');
+            tooltip.classList.toggle('visible');
+            setTimeout(() => tooltip.classList.remove('visible'), 10000);
+        }
     </script>
 </body>
 </html>

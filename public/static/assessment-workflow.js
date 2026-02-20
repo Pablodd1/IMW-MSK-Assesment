@@ -1238,6 +1238,23 @@ async function initializeFemtoMega() {
     const bridgeUrl = localStorage.getItem('femto_bridge_url') || 'ws://localhost:8765';
     console.log(`📡 Connecting to Femto Mega bridge at: ${bridgeUrl}`);
     
+    const video = document.getElementById('videoElement');
+    const canvas = document.getElementById('canvasElement');
+    
+    // Try the new client with video streaming first
+    try {
+      const femtoClient = await initializeFemtoMegaWithVideo(video, canvas);
+      if (femtoClient) {
+        ASSESSMENT_STATE.femtoMegaClient = femtoClient;
+        showStatus('Femto Mega connected - Streaming', 'success');
+        showNotification('Professional camera ready with video', 'success');
+        return;
+      }
+    } catch (videoError) {
+      console.warn('Video streaming failed, trying basic mode:', videoError);
+    }
+    
+    // Fallback to basic client without video
     const femtoClient = new FemtoMegaClient(bridgeUrl);
     await femtoClient.connect();
     
@@ -1255,13 +1272,16 @@ async function initializeFemtoMega() {
       }
     };
     
+    // Start streaming without video
+    femtoClient.startStreaming(null, canvas);
+    
     showStatus('Femto Mega connected', 'success');
     showNotification('Professional camera ready', 'success');
     
   } catch (error) {
     console.error('Femto Mega connection error:', error);
     showStatus('Connection failed', 'error');
-    alert('Failed to connect to Femto Mega. Please ensure:\n1. Femto Mega camera is connected\n2. Bridge server is running\n3. Bridge server address is correct');
+    alert('Failed to connect to Femto Mega. Please ensure:\n1. Femto Mega camera is connected\n2. Bridge server is running\n3. Bridge server address is correct\n\nTo run bridge: python femto_bridge/server_production.py');
   }
 }
 
