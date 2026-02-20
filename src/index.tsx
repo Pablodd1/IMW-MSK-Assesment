@@ -624,7 +624,7 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
     
     // Try to enhance with AI insights if deficiencies exist
     let aiInsights = ""
-    if (tests.length > 0 && tests[0].deficiencies) {
+    if (tests.length > 0 && typeof tests[0].deficiencies === 'string') {
         try {
             const defs = JSON.parse(tests[0].deficiencies)
             if (defs.length > 0) {
