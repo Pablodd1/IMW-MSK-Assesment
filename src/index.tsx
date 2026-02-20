@@ -630,10 +630,13 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
     let aiInsights = ""
     if (tests.length > 0 && tests[0].deficiencies) {
         try {
-            const defs = JSON.parse(tests[0].deficiencies as string)
-            if (defs.length > 0) {
-                const ragResult = await queryExerciseKnowledge(c.env.DB, defs[0].area)
-                aiInsights = ragResult.answer
+            const raw = tests[0].deficiencies as unknown
+            if (typeof raw === 'string') {
+              const defs = JSON.parse(raw)
+              if (defs.length > 0) {
+                  const ragResult = await queryExerciseKnowledge(c.env.DB, defs[0].area)
+                  aiInsights = ragResult.answer
+              }
             }
         } catch (e) {}
     }
