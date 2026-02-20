@@ -503,8 +503,9 @@ app.post('/api/exercise-sessions', async (c) => {
     ).run()
     
     // Update compliance tracking (non-blocking)
-    if (c.executionCtx?.waitUntil) {
-      c.executionCtx.waitUntil(updateCompliancePercentage(c.env.DB, session.prescribed_exercise_id))
+    const executionCtx = c.executionCtx
+    if (executionCtx && executionCtx.waitUntil) {
+      executionCtx.waitUntil(updateCompliancePercentage(c.env.DB, session.prescribed_exercise_id))
     } else {
       updateCompliancePercentage(c.env.DB, session.prescribed_exercise_id).catch(console.error)
     }
@@ -616,13 +617,15 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
     `).bind(assessmentId).first() as any
     
     // Get all movement tests and analyses
-    const { results: tests } = await c.env.DB.prepare(`
+    const { results } = await c.env.DB.prepare(`
       SELECT mt.*, ma.*
       FROM movement_tests mt
       LEFT JOIN movement_analysis ma ON mt.id = ma.test_id
       WHERE mt.assessment_id = ?
     `).bind(assessmentId).all()
     
+    const tests = results as any[]
+
     // Generate comprehensive medical note
     const medicalNote = generateMedicalNote(assessment, tests)
     
