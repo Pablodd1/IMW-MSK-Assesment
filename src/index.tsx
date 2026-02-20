@@ -618,17 +618,17 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
       LEFT JOIN movement_analysis ma ON mt.id = ma.test_id
       WHERE mt.assessment_id = ?
     `).bind(assessmentId).all()
-    const tests = results as any[]
+    const tests = (results || []) as any[]
     
     // Generate comprehensive medical note
     const medicalNote = generateMedicalNote(assessment, tests)
     
     // Try to enhance with AI insights if deficiencies exist
     let aiInsights = ""
-    if (tests.length > 0 && tests[0].deficiencies) {
+    if (tests.length > 0 && tests[0].deficiencies && typeof tests[0].deficiencies === 'string') {
         try {
             const defs = JSON.parse(tests[0].deficiencies)
-            if (defs.length > 0) {
+            if (Array.isArray(defs) && defs.length > 0) {
                 const ragResult = await queryExerciseKnowledge(c.env.DB, defs[0].area)
                 aiInsights = ragResult.answer
             }
