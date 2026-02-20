@@ -1,4 +1,10 @@
 femto_bridge/
+femto_bridge/**/*
+femto_bridge/models/
+*.py
+*.pyc
+__pycache__/
 node_modules/
 .git/
 .gitignore
+.DS_Store
