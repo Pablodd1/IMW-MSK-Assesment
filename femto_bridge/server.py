@@ -336,7 +336,7 @@ class FemtoBridgeServer:
         except websockets.exceptions.ConnectionClosed:
             logger.info(f"🔌 Client disconnected: {client_addr}")
         finally:
-            self.clients.remove(websocket)
+            self.clients.discard(websocket)
     
     async def start(self):
         """Start the WebSocket server"""
