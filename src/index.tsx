@@ -4,10 +4,11 @@ import { serveStatic } from 'hono/cloudflare-workers'
 import type { Bindings, Patient, Assessment, Exercise, PrescribedExercise, ExerciseSession, SkeletonData } from './types'
 import { performBiomechanicalAnalysis } from './utils/biomechanics'
 import { queryExerciseKnowledge } from './utils/rag'
-import { secureAuth, hashPassword, verifyPassword, generateToken } from './middleware/auth'
+import { secureAuth, hashPassword, verifyPassword, generateToken, verifyToken } from './middleware/auth'
 import { validate, patientCreateSchema, assessmentCreateSchema, prescriptionSchema, clinicianRegisterSchema } from './middleware/validation'
 import { auditLog, phiAudit, securityHeaders, safeLog } from './middleware/hipaa'
 import { apiRateLimit, authRateLimit, writeRateLimit, analysisRateLimit } from './middleware/rateLimit'
+import { errorHandler } from './middleware/error'
 
 const app = new Hono<{ Bindings: Bindings }>()
 
@@ -17,6 +18,29 @@ const app = new Hono<{ Bindings: Bindings }>()
 
 // Security headers for all responses
 app.use('*', securityHeaders)
+
+// Global error handler (safety net for uncaught errors)
+if (typeof app.use === 'function') {
+  app.use(require('./middleware/error').errorHandler)
+}
+
+// Global error handler
+if (typeof app.onError === 'function') {
+  app.onError((err, c) => {
+    safeLog.error('Unhandled server error', err as Error, {
+      path: c.req.path,
+      method: c.req.method
+    })
+    return c.json({ success: false, error: 'Internal server error' }, 500)
+  })
+}
+
+// Not-found handler
+if (typeof (app as any).notFound === 'function') {
+  app.notFound((c) => {
+    return c.json({ success: false, error: 'Endpoint not found', code: 'NOT_FOUND' }, 404)
+  })
+}
 
 // Production CORS configuration
 const corsConfig = {
@@ -37,6 +61,57 @@ const corsConfig = {
 }
 
 app.use('/api/*', cors(corsConfig))
+app.use(errorHandler)
+
+// Health checks
+app.get('/api/healthz', async (c) => {
+  let dbAlive = true
+  try {
+    // Quick DB ping if available
+    if ((c.env as any).DB) {
+      await (c.env as any).DB.prepare('SELECT 1').first()
+    }
+  } catch {
+    dbAlive = false
+  }
+  return c.json({ status: 'ok', timestamp: new Date().toISOString(), db: dbAlive ? 'ok' : 'unavailable' })
+})
+
+app.get('/api/ready', async (c) => {
+  // Lightweight readiness: DB + basic services
+  let ready = true
+  try {
+    if ((c.env as any).DB) {
+      await (c.env as any).DB.prepare('SELECT 1').first()
+    }
+  } catch {
+    ready = false
+  }
+  return c.json({ ready })
+})
+
+// Token refresh endpoint (very small flow)
+app.post('/api/auth/refresh', async (c) => {
+  try {
+    const cookieHeader = c.req.header('Cookie') || ''
+    const match = cookieHeader.match(/refresh_token=([^;]+)/)
+    const refreshToken = match ? match[1] : null
+    const secret = c.env.JWT_SECRET || c.env.AUTH_SECRET
+    if (!refreshToken || !secret) {
+      return c.json({ success: false, error: 'Unauthorized' }, 401)
+    }
+    const payload = await verifyToken(refreshToken, secret)
+    if (!payload) {
+      return c.json({ success: false, error: 'Invalid token' }, 401)
+    }
+    const newToken = await generateToken({ id: payload.id, email: payload.email, role: payload.role }, secret)
+    // Return new token in body; optionally set as cookie
+    return c.json({ success: true, token: newToken })
+  } catch (e) {
+    safeLog.error('Refresh token failed', e as Error)
+    return c.json({ success: false, error: 'Unauthorized' }, 401)
+  }
+})
 
 // Serve static files
 app.use('/static/*', serveStatic({ root: './public', manifest: {} }))
