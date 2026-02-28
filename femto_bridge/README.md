@@ -12,7 +12,7 @@ Test the WebSocket integration without actual hardware:
 cd /home/user/webapp/femto_bridge
 
 # Install Python dependencies
-pip install -r requirements_manual.txt
+pip install -r requirements.txt
 
 # Run server in simulation mode
 python server.py --simulate

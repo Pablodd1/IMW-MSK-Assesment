@@ -11,7 +11,7 @@
     "deploy:prod": "npm run build && wrangler pages deploy dist --project-name physiomotion",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
     "clean-port": "fuser -k 3000/tcp 2>/dev/null || true",
-    "test": "echo \"No tests defined\"",
+    "test": "curl http://localhost:3000",
     "db:migrate:local": "wrangler d1 migrations apply webapp-production --local",
     "db:migrate:prod": "wrangler d1 migrations apply webapp-production",
     "db:seed": "wrangler d1 execute webapp-production --local --file=./seed.sql",
