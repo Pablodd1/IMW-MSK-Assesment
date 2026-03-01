@@ -110,22 +110,21 @@ PhysioMotion is a complete medical-grade platform that combines professional mot
 ## 📁 Project Structure
 
 ```
-webapp/
-├── src/
-│   ├── index.tsx               # Main Hono application & API routes
-│   ├── types.ts                # TypeScript type definitions
-│   └── utils/
-│       └── biomechanics.ts     # Biomechanical analysis algorithms
-├── public/
-│   └── static/
-│       └── app.js              # Frontend application logic
-├── migrations/
-│   └── 0001_initial_schema.sql # Complete database schema
-├── seed.sql                    # Exercise library & CPT codes seed data
-├── ecosystem.config.cjs        # PM2 process manager configuration
-├── wrangler.jsonc              # Cloudflare configuration
-├── package.json                # Dependencies and scripts
-└── README.md                   # This file
+IMW-MSK-Assesment/
+├── api/                # Vercel Serverless Entry Point (NEW)
+├── docs/               # System & Clinical Documentation (CLEANED)
+├── sql/                # Database Scripts & Seed Data (CLEANED)
+├── scripts/            # Build & Maintenance Utility Scripts (CLEANED)
+├── src/                # Main Hono Application Code
+│   ├── index.tsx       # API Routes & SSR Logic
+│   ├── types.ts        # TypeScript Type Definitions
+│   └── utils/          # AI & Biomechanical Utilities
+├── public/             # Static Assets & Metadata
+├── migrations/         # D1 Schema Migrations
+├── femto_bridge/       # Professional Camera Bridge Source
+├── vercel.json         # Vercel Deployment Configuration (NEW)
+├── package.json        # Project Manifest & Build Scripts
+└── README.md           # Primary Documentation
 ```
 
 ---

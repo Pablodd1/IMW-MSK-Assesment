@@ -1,0 +1,19 @@
+{
+    "version": 2,
+    "framework": "vite",
+    "buildCommand": "vite build",
+    "outputDirectory": "dist",
+    "rewrites": [
+        {
+            "source": "/api/(.*)",
+            "destination": "/api"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/api"
+        }
+    ],
+    "env": {
+        "NODE_VERSION": "20.x"
+    }
+}

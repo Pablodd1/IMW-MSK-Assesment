@@ -16,7 +16,7 @@
     "test": "echo \"No tests defined\"",
     "db:migrate:local": "wrangler d1 migrations apply webapp-production --local",
     "db:migrate:prod": "wrangler d1 migrations apply webapp-production",
-    "db:seed": "wrangler d1 execute webapp-production --local --file=./seed.sql",
+    "db:seed": "wrangler d1 execute webapp-production --local --file=./sql/seed.sql",
     "db:reset": "rm -rf .wrangler/state/v3/d1 && npm run db:migrate:local && npm run db:seed",
     "db:console:local": "wrangler d1 execute webapp-production --local",
     "db:console:prod": "wrangler d1 execute webapp-production",
@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "hono": "^4.10.1",
+    "@hono/vercel-edge": "^1.1.2",
     "zod": "^3.22.4"
   },
   "devDependencies": {
@@ -35,5 +36,4 @@
     "vite": "^6.3.5",
     "wrangler": "^4.4.0"
   }
-}
 }
