@@ -1,3 +1,5 @@
+import { validateEnv } from './env';
+import { db } from './db';
 import { Hono } from 'hono'
 import type { Context } from 'hono'
 import { cors } from 'hono/cors'
@@ -14,6 +16,9 @@ import { validate, patientCreateSchema, assessmentCreateSchema, prescriptionSche
 import { auditLog, phiAudit, securityHeaders, safeLog } from './middleware/hipaa'
 import { apiRateLimit, authRateLimit, writeRateLimit, analysisRateLimit } from './middleware/rateLimit'
 import { errorHandler } from './middleware/error'
+import { mockD1 } from './db'
+
+validateEnv();
 
 const app = new Hono<{ Bindings: Bindings, Variables: Variables }>()
 
@@ -25,7 +30,7 @@ export const authMiddleware = createMiddleware<{ Bindings: Bindings, Variables: 
   }
 
   const token = authHeader.split(' ')[1]
-  const secret = c.env.JWT_SECRET || c.env.AUTH_SECRET
+  const secret = process.env.JWT_SECRET || process.env.AUTH_SECRET
   if (!secret) {
     safeLog.error('JWT_SECRET or AUTH_SECRET not set')
     return c.json({ success: false, error: 'Server configuration error' }, 500)
@@ -100,22 +105,27 @@ app.use(errorHandler)
 app.get('/api/healthz', async (c: Context<{ Bindings: Bindings, Variables: Variables }>) => {
   let dbAlive = true
   try {
-    // Quick DB ping if available
-    if ((c.env as any).DB) {
-      await (c.env as any).DB.prepare('SELECT 1').first()
+    if (mockD1) {
+      await mockD1.prepare('SELECT 1').first()
     }
-  } catch {
+  } catch (e) {
     dbAlive = false
   }
-  return c.json({ status: 'ok', timestamp: new Date().toISOString(), db: dbAlive ? 'ok' : 'unavailable' })
+  return c.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    db: dbAlive ? 'connected' : 'unavailable',
+    environment: process.env.NODE_ENV || 'production',
+    version: '1.0.0'
+  })
 })
 
 app.get('/api/ready', async (c: Context<{ Bindings: Bindings, Variables: Variables }>) => {
   // Lightweight readiness: DB + basic services
   let ready = true
   try {
-    if ((c.env as any).DB) {
-      await (c.env as any).DB.prepare('SELECT 1').first()
+    if (mockD1) {
+      await mockD1.prepare('SELECT 1').first()
     }
   } catch {
     ready = false
@@ -129,7 +139,7 @@ app.post('/api/auth/refresh', async (c: Context<{ Bindings: Bindings, Variables:
     const cookieHeader = c.req.header('Cookie') || ''
     const match = cookieHeader.match(/refresh_token=([^;]+)/)
     const refreshToken = match ? match[1] : null
-    const secret = c.env.JWT_SECRET || c.env.AUTH_SECRET
+    const secret = process.env.JWT_SECRET || process.env.AUTH_SECRET
     if (!refreshToken || !secret) {
       return c.json({ success: false, error: 'Unauthorized' }, 401)
     }
@@ -170,7 +180,7 @@ app.post('/api/auth/register', authRateLimit, validate(clinicianRegisterSchema),
     const data = c.get('validatedData') as typeof clinicianRegisterSchema._type
 
     // Check if email already exists
-    const existing = await c.env.DB.prepare(`
+    const existing = await mockD1.prepare(`
       SELECT id FROM clinicians WHERE email = ?
   `).bind(data.email).first()
 
@@ -182,7 +192,7 @@ app.post('/api/auth/register', authRateLimit, validate(clinicianRegisterSchema),
     const salt = crypto.randomUUID()
     const passwordHash = await hashPassword(data.password, salt)
 
-    const result = await c.env.DB.prepare(`
+    const result = await mockD1.prepare(`
       INSERT INTO clinicians(
     email, password_hash, salt, first_name, last_name, title,
     license_number, license_state, npi_number, phone, clinic_name,
@@ -211,8 +221,8 @@ app.post('/api/auth/login', authRateLimit, async (c) => {
   try {
     const { email, password } = await c.req.json()
 
-    const clinician = await c.env.DB.prepare(`
-SELECT * FROM clinicians WHERE email = ? AND active = 1
+    const clinician = await mockD1.prepare(`
+SELECT * FROM clinicians WHERE email = ? AND active = true
   `).bind(email).first() as any
 
     if (!clinician) {
@@ -232,11 +242,11 @@ SELECT * FROM clinicians WHERE email = ? AND active = 1
     // Generate JWT token
     const token = await generateToken(
       { id: clinician.id, email: clinician.email, role: clinician.role },
-      c.env.JWT_SECRET || c.env.AUTH_SECRET || 'default-secret-change-me'
+      process.env.JWT_SECRET || process.env.AUTH_SECRET || 'default-secret-change-me'
     )
 
     // Update last login and activity
-    await c.env.DB.prepare(`
+    await mockD1.prepare(`
       UPDATE clinicians SET last_login = CURRENT_TIMESTAMP, last_activity = CURRENT_TIMESTAMP WHERE id = ?
   `).bind(clinician.id).run()
 
@@ -268,7 +278,7 @@ app.get('/api/auth/profile/:id', authMiddleware, async (c) => {
       return c.json({ success: false, error: 'Unauthorized access to profile' }, 403)
     }
 
-    const clinician = await c.env.DB.prepare(`
+    const clinician = await mockD1.prepare(`
       SELECT id, email, first_name, last_name, title, license_number,
   license_state, npi_number, phone, clinic_name, role, active,
   created_at, last_login
@@ -300,7 +310,7 @@ app.post('/api/patients',
       const validatedData = c.get('validatedData') as typeof patientCreateSchema._type
       const clinician = c.get('clinician')
 
-      const result = await c.env.DB.prepare(`
+      const result = await mockD1.prepare(`
         INSERT INTO patients(
     first_name, last_name, date_of_birth, gender, email, phone,
     emergency_contact_name, emergency_contact_phone,
@@ -337,7 +347,7 @@ app.get('/api/patients',
   async (c) => {
     try {
       const clinician = c.get('clinician')
-      const { results } = await c.env.DB.prepare(`
+      const { results } = await mockD1.prepare(`
         SELECT id, first_name, last_name, date_of_birth, gender, email, phone,
   city, state, created_at, patient_status
         FROM patients WHERE created_by_clinician_id = ? ORDER BY created_at DESC
@@ -359,7 +369,7 @@ app.get('/api/patients/:id',
     try {
       const id = c.req.param('id')
       const clinician = c.get('clinician')
-      const patient = await c.env.DB.prepare(`
+      const patient = await mockD1.prepare(`
 SELECT * FROM patients WHERE id = ? AND created_by_clinician_id = ?
   `).bind(id, clinician.id).first()
 
@@ -384,14 +394,14 @@ app.post('/api/patients/:id/medical-history', authMiddleware, async (c) => {
     const clinician = c.get('clinician')
 
     // Verify patient belongs to clinician
-    const patientCheck = await c.env.DB.prepare(`
+    const patientCheck = await mockD1.prepare(`
       SELECT id FROM patients WHERE id = ? AND created_by_clinician_id = ?
   `).bind(patientId, clinician.id).first()
     if (!patientCheck) {
       return c.json({ success: false, error: 'Patient not found or unauthorized' }, 404)
     }
 
-    const result = await c.env.DB.prepare(`
+    const result = await mockD1.prepare(`
       INSERT INTO medical_history(
     patient_id, surgery_type, surgery_date, conditions, medications, allergies,
     current_pain_level, pain_location, activity_level, treatment_goals
@@ -420,14 +430,14 @@ app.post('/api/assessments', authMiddleware, validate(assessmentCreateSchema), a
     const clinician = c.get('clinician')
 
     // Verify patient belongs to clinician
-    const patientCheck = await c.env.DB.prepare(`
+    const patientCheck = await mockD1.prepare(`
       SELECT id FROM patients WHERE id = ? AND created_by_clinician_id = ?
   `).bind(assessment.patient_id, clinician.id).first()
     if (!patientCheck) {
       return c.json({ success: false, error: 'Patient not found or unauthorized' }, 404)
     }
 
-    const result = await c.env.DB.prepare(`
+    const result = await mockD1.prepare(`
       INSERT INTO assessments(
     patient_id, clinician_id, assessment_type, status
   ) VALUES(?, ?, ?, ?)
@@ -449,14 +459,14 @@ app.get('/api/patients/:id/assessments', authMiddleware, async (c) => {
     const clinician = c.get('clinician')
 
     // Verify patient belongs to clinician
-    const patientCheck = await c.env.DB.prepare(`
+    const patientCheck = await mockD1.prepare(`
       SELECT id FROM patients WHERE id = ? AND created_by_clinician_id = ?
   `).bind(patientId, clinician.id).first()
     if (!patientCheck) {
       return c.json({ success: false, error: 'Patient not found or unauthorized' }, 404)
     }
 
-    const { results } = await c.env.DB.prepare(`
+    const { results } = await mockD1.prepare(`
       SELECT * FROM assessments WHERE patient_id = ? AND clinician_id = ? ORDER BY assessment_date DESC
   `).bind(patientId, clinician.id).all()
 
@@ -470,7 +480,7 @@ app.get('/api/patients/:id/assessments', authMiddleware, async (c) => {
 app.get('/api/assessments', authMiddleware, async (c) => {
   try {
     const clinician = c.get('clinician')
-    const { results } = await c.env.DB.prepare(`
+    const { results } = await mockD1.prepare(`
       SELECT a.*, p.first_name, p.last_name
       FROM assessments a
       JOIN patients p ON a.patient_id = p.id
@@ -489,7 +499,7 @@ app.get('/api/assessments/:id', authMiddleware, async (c) => {
   try {
     const id = c.req.param('id')
     const clinician = c.get('clinician')
-    const assessment = await c.env.DB.prepare(`
+    const assessment = await mockD1.prepare(`
       SELECT a.*, p.first_name, p.last_name, p.date_of_birth
       FROM assessments a
       JOIN patients p ON a.patient_id = p.id
@@ -518,7 +528,7 @@ app.post('/api/assessments/:id/tests', authMiddleware, async (c) => {
     const clinician = c.get('clinician')
 
     // Verify assessment belongs to clinician
-    const assessmentCheck = await c.env.DB.prepare(`
+    const assessmentCheck = await mockD1.prepare(`
       SELECT a.id FROM assessments a JOIN patients p ON a.patient_id = p.id
       WHERE a.id = ? AND a.clinician_id = ? AND p.created_by_clinician_id = ?
   `).bind(assessmentId, clinician.id, clinician.id).first()
@@ -526,7 +536,7 @@ app.post('/api/assessments/:id/tests', authMiddleware, async (c) => {
       return c.json({ success: false, error: 'Assessment not found or unauthorized' }, 404)
     }
 
-    const result = await c.env.DB.prepare(`
+    const result = await mockD1.prepare(`
       INSERT INTO movement_tests(
     assessment_id, test_name, test_category, test_order, instructions, status
   ) VALUES(?, ?, ?, ?, ?, ?)
@@ -549,7 +559,7 @@ app.post('/api/tests/:id/analyze', authMiddleware, analysisRateLimit, async (c) 
     const clinician = c.get('clinician')
 
     // Verify test belongs to clinician
-    const testCheck = await c.env.DB.prepare(`
+    const testCheck = await mockD1.prepare(`
       SELECT mt.id FROM movement_tests mt JOIN assessments a ON mt.assessment_id = a.id
       JOIN patients p ON a.patient_id = p.id
       WHERE mt.id = ? AND a.clinician_id = ? AND p.created_by_clinician_id = ?
@@ -562,7 +572,7 @@ app.post('/api/tests/:id/analyze', authMiddleware, analysisRateLimit, async (c) 
     const analysis = performBiomechanicalAnalysis(skeleton_data)
 
     // Update movement test with skeleton data and analysis results
-    await c.env.DB.prepare(`
+    await mockD1.prepare(`
       UPDATE movement_tests
       SET skeleton_data = ?,
   movement_quality_score = ?,
@@ -600,7 +610,7 @@ app.get('/api/tests/:id/results', authMiddleware, async (c) => {
     const clinician = c.get('clinician')
 
     // Verify test belongs to clinician
-    const test = await c.env.DB.prepare(`
+    const test = await mockD1.prepare(`
       SELECT mt.* FROM movement_tests mt JOIN assessments a ON mt.assessment_id = a.id
       JOIN patients p ON a.patient_id = p.id
       WHERE mt.id = ? AND a.clinician_id = ? AND p.created_by_clinician_id = ?
@@ -623,7 +633,7 @@ app.get('/api/assessments/:id/tests', authMiddleware, async (c) => {
     const clinician = c.get('clinician')
 
     // Verify assessment belongs to clinician
-    const assessmentCheck = await c.env.DB.prepare(`
+    const assessmentCheck = await mockD1.prepare(`
       SELECT a.id FROM assessments a JOIN patients p ON a.patient_id = p.id
       WHERE a.id = ? AND a.clinician_id = ? AND p.created_by_clinician_id = ?
   `).bind(assessmentId, clinician.id, clinician.id).first()
@@ -631,7 +641,7 @@ app.get('/api/assessments/:id/tests', authMiddleware, async (c) => {
       return c.json({ success: false, error: 'Assessment not found or unauthorized' }, 404)
     }
 
-    const { results } = await c.env.DB.prepare(`
+    const { results } = await mockD1.prepare(`
       SELECT * FROM movement_tests WHERE assessment_id = ? ORDER BY test_order
   `).bind(assessmentId).all()
 
@@ -666,7 +676,7 @@ app.get('/api/exercises', authMiddleware, async (c) => {
 
     query += ' ORDER BY name'
 
-    const { results } = await c.env.DB.prepare(query).bind(...params).all()
+    const { results } = await mockD1.prepare(query).bind(...params).all()
 
     // Update cache if no filter
     if (!category) {
@@ -691,7 +701,7 @@ app.post('/api/prescriptions', authMiddleware, validate(prescriptionSchema), asy
     const clinician = c.get('clinician')
 
     // Verify patient and assessment belong to clinician
-    const patientAssessmentCheck = await c.env.DB.prepare(`
+    const patientAssessmentCheck = await mockD1.prepare(`
       SELECT a.id FROM assessments a JOIN patients p ON a.patient_id = p.id
       WHERE a.id = ? AND a.patient_id = ? AND a.clinician_id = ? AND p.created_by_clinician_id = ?
   `).bind(prescription.assessment_id, prescription.patient_id, clinician.id, clinician.id).first()
@@ -699,7 +709,7 @@ app.post('/api/prescriptions', authMiddleware, validate(prescriptionSchema), asy
       return c.json({ success: false, error: 'Patient or Assessment not found or unauthorized' }, 404)
     }
 
-    const result = await c.env.DB.prepare(`
+    const result = await mockD1.prepare(`
       INSERT INTO prescribed_exercises(
     patient_id, assessment_id, exercise_id, sets, repetitions,
     times_per_week, clinical_reason, target_deficiency, prescribed_by
@@ -724,14 +734,14 @@ app.get('/api/patients/:id/prescriptions', authMiddleware, async (c) => {
     const clinician = c.get('clinician')
 
     // Verify patient belongs to clinician
-    const patientCheck = await c.env.DB.prepare(`
+    const patientCheck = await mockD1.prepare(`
       SELECT id FROM patients WHERE id = ? AND created_by_clinician_id = ?
   `).bind(patientId, clinician.id).first()
     if (!patientCheck) {
       return c.json({ success: false, error: 'Patient not found or unauthorized' }, 404)
     }
 
-    const { results } = await c.env.DB.prepare(`
+    const { results } = await mockD1.prepare(`
       SELECT
 pe.*,
   e.name as exercise_name,
@@ -762,7 +772,7 @@ app.post('/api/exercise-sessions', authMiddleware, async (c) => {
     const clinician = c.get('clinician')
 
     // Verify prescribed exercise belongs to clinician's patient
-    const prescribedExerciseCheck = await c.env.DB.prepare(`
+    const prescribedExerciseCheck = await mockD1.prepare(`
       SELECT pe.id FROM prescribed_exercises pe JOIN patients p ON pe.patient_id = p.id
       WHERE pe.id = ? AND pe.patient_id = ? AND p.created_by_clinician_id = ?
   `).bind(session.prescribed_exercise_id, session.patient_id, clinician.id).first()
@@ -770,7 +780,7 @@ app.post('/api/exercise-sessions', authMiddleware, async (c) => {
       return c.json({ success: false, error: 'Prescribed exercise not found or unauthorized' }, 404)
     }
 
-    const result = await c.env.DB.prepare(`
+    const result = await mockD1.prepare(`
       INSERT INTO exercise_sessions(
     patient_id, prescribed_exercise_id, sets_completed, reps_completed,
     duration_seconds, form_quality_score, pose_accuracy_data,
@@ -785,10 +795,10 @@ app.post('/api/exercise-sessions', authMiddleware, async (c) => {
 
     // Update compliance tracking
     if (c.executionCtx) {
-      c.executionCtx.waitUntil(updateCompliancePercentage(c.env.DB, session.prescribed_exercise_id))
+      c.executionCtx.waitUntil(updateCompliancePercentage(mockD1, session.prescribed_exercise_id))
     } else {
       // Fallback for environments without executionCtx
-      updateCompliancePercentage(c.env.DB, session.prescribed_exercise_id).catch(console.error)
+      updateCompliancePercentage(mockD1, session.prescribed_exercise_id).catch(console.error)
     }
 
     return c.json({ success: true, data: { id: result.meta.last_row_id } })
@@ -804,14 +814,14 @@ app.get('/api/patients/:id/sessions', authMiddleware, async (c) => {
     const clinician = c.get('clinician')
 
     // Verify patient belongs to clinician
-    const patientCheck = await c.env.DB.prepare(`
+    const patientCheck = await mockD1.prepare(`
       SELECT id FROM patients WHERE id = ? AND created_by_clinician_id = ?
   `).bind(patientId, clinician.id).first()
     if (!patientCheck) {
       return c.json({ success: false, error: 'Patient not found or unauthorized' }, 404)
     }
 
-    const { results } = await c.env.DB.prepare(`
+    const { results } = await mockD1.prepare(`
       SELECT
 es.*,
   e.name as exercise_name,
@@ -843,7 +853,7 @@ app.get('/api/billing/codes', authMiddleware, async (c) => {
       return c.json({ success: true, data: billingCodesCache })
     }
 
-    const { results } = await c.env.DB.prepare(`
+    const { results } = await mockD1.prepare(`
 SELECT * FROM billing_codes ORDER BY cpt_code
   `).all()
 
@@ -864,7 +874,7 @@ app.post('/api/billing/events', authMiddleware, async (c) => {
 
     // Basic check: ensure patient belongs to clinician if patient_id is provided
     if (event.patient_id) {
-      const patientCheck = await c.env.DB.prepare(`
+      const patientCheck = await mockD1.prepare(`
         SELECT id FROM patients WHERE id = ? AND created_by_clinician_id = ?
   `).bind(event.patient_id, clinician.id).first()
       if (!patientCheck) {
@@ -872,7 +882,7 @@ app.post('/api/billing/events', authMiddleware, async (c) => {
       }
     }
 
-    const result = await c.env.DB.prepare(`
+    const result = await mockD1.prepare(`
       INSERT INTO billable_events(
     patient_id, assessment_id, exercise_session_id,
     cpt_code_id, service_date, duration_minutes,
@@ -897,7 +907,7 @@ app.post('/api/billing/events', authMiddleware, async (c) => {
 app.post('/api/rag/query', authMiddleware, async (c) => {
   try {
     const { query } = await c.req.json<{ query: string }>()
-    const result = await queryExerciseKnowledge(c.env.DB, query)
+    const result = await queryExerciseKnowledge(mockD1, query)
     return c.json({ success: true, data: result })
   } catch (error: any) {
     return c.json({ success: false, error: error.message }, 500)
@@ -914,7 +924,7 @@ app.post('/api/assessments/:id/generate-note', authMiddleware, async (c) => {
     const clinician = c.get('clinician')
 
     // Get assessment data
-    const assessment = await c.env.DB.prepare(`
+    const assessment = await mockD1.prepare(`
       SELECT a.* FROM assessments a JOIN patients p ON a.patient_id = p.id
       WHERE a.id = ? AND a.clinician_id = ? AND p.created_by_clinician_id = ?
   `).bind(assessmentId, clinician.id, clinician.id).first() as any
@@ -924,7 +934,7 @@ app.post('/api/assessments/:id/generate-note', authMiddleware, async (c) => {
     }
 
     // Get all movement tests and analyses
-    const { results: tests } = await c.env.DB.prepare(`
+    const { results: tests } = await mockD1.prepare(`
       SELECT mt.*, ma.*
   FROM movement_tests mt
       LEFT JOIN movement_analysis ma ON mt.id = ma.test_id
@@ -940,7 +950,7 @@ app.post('/api/assessments/:id/generate-note', authMiddleware, async (c) => {
       try {
         const defs = JSON.parse(tests[0].deficiencies)
         if (defs && Array.isArray(defs) && defs.length > 0) {
-          const ragResult = await queryExerciseKnowledge(c.env.DB, defs[0].area)
+          const ragResult = await queryExerciseKnowledge(mockD1, defs[0].area)
           aiInsights = ragResult.answer
         }
       } catch (e) { }
@@ -951,7 +961,7 @@ app.post('/api/assessments/:id/generate-note', authMiddleware, async (c) => {
     }
 
     // Update assessment with generated notes
-    await c.env.DB.prepare(`
+    await mockD1.prepare(`
       UPDATE assessments
       SET subjective_findings = ?,
   objective_findings = ?,
@@ -985,7 +995,7 @@ async function updateCompliancePercentage(db: any, prescribedExerciseId: number)
   const result = await db.prepare(`
     SELECT COUNT(*) as completed_count
     FROM exercise_sessions
-    WHERE prescribed_exercise_id = ? AND completed = 1
+    WHERE prescribed_exercise_id = ? AND completed = true
   `).bind(prescribedExerciseId).first() as any
 
   const prescription = await db.prepare(`
@@ -1318,3 +1328,4 @@ app.get('/', (c) => {
 })
 
 export default app
+validateEnv();

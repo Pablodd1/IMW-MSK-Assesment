@@ -1,3 +1,4 @@
+import { mockD1 } from '../db';
 // Security Middleware - Authentication & Authorization
 // Medical-Grade Implementation
 
@@ -126,7 +127,7 @@ export const authMiddleware = createMiddleware<{ Bindings: Bindings, Variables: 
     }, 401)
   }
 
-  const secret = c.env.JWT_SECRET || c.env.AUTH_SECRET
+  const secret = process.env.JWT_SECRET || process.env.AUTH_SECRET
   if (!secret) {
     console.error('JWT_SECRET not configured')
     return c.json({
@@ -183,7 +184,7 @@ export const sessionActivity = createMiddleware<{ Bindings: Bindings, Variables:
 
   if (clinician?.id) {
     try {
-      await c.env.DB.prepare(`
+      await mockD1.prepare(`
         UPDATE clinicians 
         SET last_activity = CURRENT_TIMESTAMP,
             last_login = COALESCE(last_login, CURRENT_TIMESTAMP)
@@ -210,7 +211,7 @@ export const secureAuth = createMiddleware<{ Bindings: Bindings, Variables: Vari
     }, 401)
   }
 
-  const secret = c.env.JWT_SECRET || c.env.AUTH_SECRET
+  const secret = process.env.JWT_SECRET || process.env.AUTH_SECRET
   if (!secret) {
     console.error('JWT_SECRET not configured')
     return c.json({
@@ -235,7 +236,7 @@ export const secureAuth = createMiddleware<{ Bindings: Bindings, Variables: Vari
 
   // Update last activity
   if (payload.id) {
-    c.env.DB.prepare(`
+    mockD1.prepare(`
       UPDATE clinicians SET last_activity = CURRENT_TIMESTAMP WHERE id = ?
     `).bind(payload.id).run().catch(() => { })
   }

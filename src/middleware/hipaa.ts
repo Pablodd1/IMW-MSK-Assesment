@@ -1,3 +1,4 @@
+import { mockD1 } from '../db';
 // HIPAA Compliance Middleware
 // Audit Logging & Security
 
@@ -127,7 +128,7 @@ export const auditLog = (action: AuditAction, resourceType: ResourceType) =>
 
     // Log to database
     try {
-      await c.env.DB.prepare(`
+      await mockD1.prepare(`
         INSERT INTO audit_logs (
           clinician_id, 
           action, 
@@ -216,7 +217,7 @@ export const sessionTimeout = createMiddleware<{ Bindings: Bindings, Variables: 
 
   if (clinician?.id) {
     // Check last activity
-    const lastActivity = await c.env.DB.prepare(`
+    const lastActivity = await mockD1.prepare(`
       SELECT last_activity FROM clinicians WHERE id = ?
     `).bind(clinician.id).first<{ last_activity: string }>()
 
