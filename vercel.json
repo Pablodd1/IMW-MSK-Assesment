@@ -3,6 +3,10 @@
     "outputDirectory": "public",
     "rewrites": [
         {
+            "source": "/static/(.*)",
+            "destination": "/public/static/$1"
+        },
+        {
             "source": "/api/(.*)",
             "destination": "/api"
         },
