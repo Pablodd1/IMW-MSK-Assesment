@@ -685,7 +685,8 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
       FROM movement_tests mt
       LEFT JOIN movement_analysis ma ON mt.id = ma.test_id
       WHERE mt.assessment_id = ?
-    `).bind(assessmentId).all()) as any
+    `).bind(assessmentId).all()
+    const tests = (results || []) as any[]
     
     const tests = results as any[]
 
@@ -694,24 +695,12 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
     
     // Try to enhance with AI insights if deficiencies exist
     let aiInsights = ""
-    const testsArray = tests as any[];
-    if (testsArray && testsArray.length > 0) {
-        const firstTest = testsArray[0];
-        if (firstTest && typeof firstTest.deficiencies === 'string') {
-            try {
-                const defs = JSON.parse(firstTest.deficiencies);
-                if (Array.isArray(defs) && defs.length > 0) {
-                    const firstDeficiency = defs[0];
-                    if (firstDeficiency && typeof firstDeficiency === 'object' && 'area' in firstDeficiency) {
-                        const area = firstDeficiency.area;
-                        if (typeof area === 'string') {
-                            const ragResult = await queryExerciseKnowledge(c.env.DB, area);
-                            aiInsights = ragResult.answer;
-                        }
-                    }
-                }
-            } catch (e) {
-                // Ignore JSON parse errors or other issues
+    if (tests.length > 0 && tests[0].deficiencies && typeof tests[0].deficiencies === 'string') {
+        try {
+            const defs = JSON.parse(tests[0].deficiencies)
+            if (Array.isArray(defs) && defs.length > 0) {
+                const ragResult = await queryExerciseKnowledge(c.env.DB, defs[0].area)
+                aiInsights = ragResult.answer
             }
         }
     }
