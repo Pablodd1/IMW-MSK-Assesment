@@ -16,19 +16,26 @@ import asyncio
 import json
 import websockets
 import logging
-import base64
-import numpy as np
-import sys
 from datetime import datetime
-from typing import Optional, Dict, Any
+import sys
+import signal
+import os
+import urllib.request
 
-# Try to import required packages
 try:
+    import numpy as np
     import cv2
-    CV2_AVAILABLE = True
+    import mediapipe as mp
+    from mediapipe.tasks import python
+    from mediapipe.tasks.python import vision
+    MEDIAPIPE_AVAILABLE = True
 except ImportError:
-    CV2_AVAILABLE = False
-    print("⚠️  WARNING: opencv-python not installed. Video streaming will be limited.")
+    MEDIAPIPE_AVAILABLE = False
+    print("⚠️  WARNING: MediaPipe/Numpy/OpenCV not installed. Body tracking will be unavailable.")
+
+# SDK imports with fallback
+SDK_AVAILABLE = False
+BODY_TRACKING_AVAILABLE = False
 
 try:
     from pyorbbecsdk import Pipeline, Config, OBSensorType, OBFormat, OBAlignMode
@@ -83,23 +90,11 @@ class FemtoMegaServer:
         self.is_streaming: bool = False
         self.stream_task: Optional[asyncio.Task] = None
         self.landmarker = None
-        
-        # Camera settings
-        self.camera_settings = {
-            'auto_exposure': True,
-            'exposure': 100,
-            'white_balance': 'auto',
-            'gain': 50,
-            'laser': True,
-            'mirror': False
-        }
-        
-        # Initialize MediaPipe if available
-        if MP_AVAILABLE and not self.simulation:
-            self.init_mediapipe()
-    
-    def init_mediapipe(self):
-        """Initialize MediaPipe Pose Landmarker"""
+
+        if not MEDIAPIPE_AVAILABLE:
+            return
+
+        # Initialize MediaPipe Pose Landmarker
         try:
             from mediapipe.tasks import python
             from mediapipe.tasks.python import vision
@@ -203,7 +198,10 @@ class FemtoMegaServer:
         """Process frame and return skeleton data"""
         if not frames:
             return None
-            
+
+        if not MEDIAPIPE_AVAILABLE:
+            return None
+
         try:
             # Get color and depth frames
             color_frame = frames.get_color_frame()
