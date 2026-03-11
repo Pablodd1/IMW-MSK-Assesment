@@ -50,6 +50,61 @@ class FemtoBridgeServer:
         """Initialize Femto Mega camera"""
         return self.tracker.init_camera(simulation=self.simulation)
     
+    def generate_simulated_skeleton(self):
+        """Generate simulated skeleton data for testing"""
+        import random
+        import math
+
+        # Simulate a person doing a squat movement
+        time = datetime.now().timestamp()
+        squat_phase = (math.sin(time * 0.5) + 1) / 2  # 0 to 1
+        
+        # 32 joints from Azure Kinect Body Tracking SDK
+        joints = {}
+        joint_names = [
+            'PELVIS', 'SPINE_NAVAL', 'SPINE_CHEST', 'NECK', 'CLAVICLE_LEFT',
+            'SHOULDER_LEFT', 'ELBOW_LEFT', 'WRIST_LEFT', 'HAND_LEFT', 'HANDTIP_LEFT',
+            'THUMB_LEFT', 'CLAVICLE_RIGHT', 'SHOULDER_RIGHT', 'ELBOW_RIGHT', 'WRIST_RIGHT',
+            'HAND_RIGHT', 'HANDTIP_RIGHT', 'THUMB_RIGHT', 'HIP_LEFT', 'KNEE_LEFT',
+            'ANKLE_LEFT', 'FOOT_LEFT', 'HIP_RIGHT', 'KNEE_RIGHT', 'ANKLE_RIGHT',
+            'FOOT_RIGHT', 'HEAD', 'NOSE', 'EYE_LEFT', 'EAR_LEFT', 'EYE_RIGHT', 'EAR_RIGHT'
+        ]
+        
+        for i, name in enumerate(joint_names):
+            # Simulate squatting motion (pelvis and legs move down)
+            y_offset = 0
+            if 'PELVIS' in name or 'HIP' in name or 'KNEE' in name:
+                y_offset = -squat_phase * 300  # Squat down by 300mm
+            
+            joints[name] = {
+                'position': {
+                    'x': random.uniform(-200, 200) + (i * 10),
+                    'y': 500 + y_offset + (i * 20),
+                    'z': 1500 + random.uniform(-50, 50)
+                },
+                'orientation': {
+                    'w': 1.0,
+                    'x': 0.0,
+                    'y': 0.0,
+                    'z': 0.0
+                },
+                'confidence': 'HIGH' if random.random() > 0.1 else 'MEDIUM'
+            }
+        
+        return {
+            'timestamp': datetime.now().isoformat(),
+            'body_id': 0,
+            'joints': joints,
+            'simulation': True
+        }
+    
+    def _wait_for_frames_blocking(self):
+        """Blocking call to wait for frames"""
+        if self.use_k4a:
+             return self.k4a.get_capture(timeout_ms=100)
+        else:
+            return self.pipeline.wait_for_frames(timeout_ms=100)
+
     async def capture_skeleton(self):
         """Capture skeleton data from Femto Mega (Async)"""
         loop = asyncio.get_event_loop()

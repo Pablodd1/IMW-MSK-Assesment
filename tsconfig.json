@@ -12,4 +12,9 @@
     "jsx": "react-jsx",
     "jsxImportSource": "hono/jsx"
   },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "femto_bridge"
+  ]
 }
