@@ -401,22 +401,29 @@ app.get('/api/assessments/:id/tests', async (c) => {
 // EXERCISE LIBRARY API
 // ============================================================================
 
+// Cache for exercises
+let exercisesCache: any[] | null = null
+let lastCacheTime = 0
+const CACHE_TTL = 3600 * 1000 // 1 hour
+
 // Get all exercises
 app.get('/api/exercises', async (c) => {
   try {
     const category = c.req.query('category')
-
-    let query = 'SELECT * FROM exercises'
-    const params: any[] = []
-
-    if (category) {
-      query += ' WHERE category = ?'
-      params.push(category)
-    }
-
-    query += ' ORDER BY name'
     
-    const { results } = (await c.env.DB.prepare(query).bind(...params).all()) as any
+    // Check cache
+    const now = Date.now()
+    if (!exercisesCache || (now - lastCacheTime > CACHE_TTL)) {
+      const { results } = await c.env.DB.prepare('SELECT * FROM exercises ORDER BY name').all()
+      exercisesCache = results
+      lastCacheTime = now
+    }
+    
+    let results = exercisesCache || []
+    
+    if (category) {
+      results = results.filter(ex => ex.category === category)
+    }
     
     // Update cache if no filter
     if (!category) {
