@@ -114,14 +114,19 @@ class FemtoBridgeServer:
         if self.simulation:
             return self.generate_simulated_skeleton()
         
-        loop = asyncio.get_event_loop()
+        try:
+            loop = asyncio.get_running_loop()
+        except AttributeError:
+            # Fallback for Python < 3.7
+            loop = asyncio.get_event_loop()
 
         if self.use_k4a:
             try:
                 # Run blocking capture in executor
                 capture = await loop.run_in_executor(None, self._wait_for_frames_blocking)
 
-                # Update tracker (run in executor to avoid blocking)
+                # Update tracker (this might also block, but usually fast enough.
+                # Ideal would be to run update in executor too if it's slow)
                 body_frame = await loop.run_in_executor(None, self.tracker.update, capture)
 
                 if body_frame.num_bodies == 0:
