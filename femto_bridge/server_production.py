@@ -511,20 +511,21 @@ class FemtoBridgeServer:
                     })
                     
                     if self.clients:
-                        # Broadcast concurrently to all clients
-                        clients_list = list(self.clients)
-                        tasks = [client.send(message) for client in clients_list]
-                        results = await asyncio.gather(*tasks, return_exceptions=True)
-
                         disconnected = set()
-                        for client, result in zip(clients_list, results):
-                            if isinstance(result, websockets.exceptions.ConnectionClosed):
-                                disconnected.add(client)
-                            elif isinstance(result, Exception):
-                                logger.error(f"❌ Error sending to client: {result}")
+                        active_clients = list(self.clients)
+                        results = await asyncio.gather(
+                            *[client.send(message) for client in active_clients],
+                            return_exceptions=True
+                        )
 
-                        if disconnected:
-                            self.clients -= disconnected
+                        for client, result in zip(active_clients, results):
+                            if isinstance(result, Exception):
+                                if isinstance(result, websockets.exceptions.ConnectionClosed):
+                                    disconnected.add(client)
+                                else:
+                                    logger.error(f"❌ Error sending to client: {result}")
+
+                        self.clients -= disconnected
                     
                     frame_count += 1
                     if frame_count % 30 == 0:  # Log every second
@@ -538,8 +539,8 @@ class FemtoBridgeServer:
             except Exception as e:
                 logger.error(f"❌ Error in streaming loop: {e}")
                 await asyncio.sleep(1)
-
-    async def handle_client(self, websocket, path):
+    
+    async def handle_client(self, websocket):
         """Handle WebSocket client connections"""
         client_addr = websocket.remote_address
         logger.info(f"✅ Client connected from {client_addr}")
