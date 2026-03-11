@@ -509,16 +509,23 @@ class FemtoBridgeServer:
                         'type': 'skeleton',
                         'skeleton': skeleton
                     })
+                    
+                    if self.clients:
+                        # Broadcast concurrently to all clients
+                        clients_list = list(self.clients)
+                        tasks = [client.send(message) for client in clients_list]
+                        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                    disconnected = set()
-                    for client in self.clients:
-                        try:
-                            await client.send(message)
-                        except websockets.exceptions.ConnectionClosed:
-                            disconnected.add(client)
+                        disconnected = set()
+                        for client, result in zip(clients_list, results):
+                            if isinstance(result, websockets.exceptions.ConnectionClosed):
+                                disconnected.add(client)
+                            elif isinstance(result, Exception):
+                                logger.error(f"❌ Error sending to client: {result}")
 
-                    self.clients -= disconnected
-
+                        if disconnected:
+                            self.clients -= disconnected
+                    
                     frame_count += 1
                     if frame_count % 30 == 0:  # Log every second
                         elapsed = (datetime.now() - start_time).total_seconds()
