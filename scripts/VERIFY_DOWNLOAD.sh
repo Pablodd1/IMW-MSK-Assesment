@@ -39,7 +39,7 @@ echo "2️⃣  Bridge Server Files:"
 check_file "femto_bridge/install_femto_mega.sh"
 check_file "femto_bridge/server_production.py"
 check_file "femto_bridge/server.py"
-check_file "femto_bridge/requirements.txt"
+check_file "femto_bridge/python_requirements.txt"
 check_file "femto_bridge/README.md"
 echo ""
 
