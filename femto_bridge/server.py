@@ -16,8 +16,6 @@ import logging
 import sys
 import random
 import math
-from datetime import datetime
-import websockets
 
 # Import unified tracker
 from body_tracker import FemtoMegaTracker

@@ -11,13 +11,8 @@ import logging
 from datetime import datetime
 import sys
 import signal
-import os
-import numpy as np
-import cv2
-import mediapipe as mp
-from mediapipe.tasks import python
-from mediapipe.tasks.python import vision
-import urllib.request
+import random
+import math
 
 # Import tracker
 try:
@@ -141,9 +136,6 @@ class FemtoMegaBodyTracker:
 
     def generate_simulated_skeleton(self):
         """Generate simulated skeleton for testing"""
-        import random
-        import math
-
         time = datetime.now().timestamp()
         squat_phase = (math.sin(time * 0.5) + 1) / 2
 
