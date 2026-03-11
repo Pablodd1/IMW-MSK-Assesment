@@ -100,17 +100,28 @@ class FemtoBridgeServer:
     
     def _wait_for_frames_blocking(self):
         """Blocking call to wait for frames"""
-        if self.use_k4a:
-             return self.k4a.get_capture(timeout_ms=100)
-        else:
-            return self.pipeline.wait_for_frames(timeout_ms=100)
+        return self.pipeline.wait_for_frames(timeout_ms=100)
 
     async def capture_skeleton(self):
-        """Capture skeleton data from Femto Mega (Async)"""
-        loop = asyncio.get_event_loop()
+        """Capture skeleton data from Femto Mega"""
+        if self.simulation:
+            return self.generate_simulated_skeleton()
+        
         try:
-            # Run blocking tracker call in executor
-            return await loop.run_in_executor(None, self.tracker.get_skeleton)
+            # Get frames from camera
+            loop = asyncio.get_event_loop()
+            frames = await loop.run_in_executor(None, self._wait_for_frames_blocking)
+
+            if frames is None:
+                return None
+            
+            # TODO: Implement actual body tracking with Azure Kinect Body Tracking SDK
+            # This requires k4abt library integration
+            # For now, return None to indicate no body detected
+            
+            logger.warning("⚠️  Body tracking not yet implemented. Install Azure Kinect Body Tracking SDK.")
+            return None
+            
         except Exception as e:
             logger.error(f"❌ Error capturing skeleton: {e}")
             return None
@@ -122,8 +133,8 @@ class FemtoBridgeServer:
         while self.is_streaming:
             try:
                 # Capture skeleton
-                skeleton = self.capture_skeleton()
-
+                skeleton = await self.capture_skeleton()
+                
                 if skeleton and self.clients:
                     # Broadcast to all connected clients
                     message = json.dumps({
