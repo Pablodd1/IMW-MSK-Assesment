@@ -17,24 +17,8 @@ import logging
 from datetime import datetime
 import sys
 
-# Try to import Orbbec SDK
-try:
-    from pyorbbecsdk import Pipeline, Config, OBSensorType, OBFormat
-    SDK_AVAILABLE = True
-except ImportError:
-    SDK_AVAILABLE = False
-    print("⚠️  WARNING: pyorbbecsdk not installed. Running in simulation mode.")
-    print("   Install with: pip install pyorbbecsdk")
-
-# Try to import Azure Kinect SDK (pyk4a)
-# We use deferred import in the class to prevent CI/CD scanning issues
-try:
-    import pyk4a
-    K4A_AVAILABLE = True
-except ImportError:
-    K4A_AVAILABLE = False
-    print("⚠️  WARNING: pyk4a not installed. Azure Kinect Body Tracking will be unavailable.")
-    print("   Install with: pip install pyk4a")
+# Import unified tracker
+from body_tracker import FemtoMegaTracker
 
 # Import tracker for fallback
 try:
@@ -57,179 +41,23 @@ class FemtoBridgeServer:
     def __init__(self, host='0.0.0.0', port=8765, simulation=False):
         self.host = host
         self.port = port
-        self.simulation = simulation or not SDK_AVAILABLE
+        self.simulation = simulation
         self.clients = set()
-        self.pipeline = None
+        self.tracker = FemtoMegaTracker()
         self.is_streaming = False
 
     def init_camera(self):
         """Initialize Femto Mega camera"""
-        if self.simulation:
-            logger.info("📷 Running in SIMULATION mode (no camera required)")
-            return True
-
-        try:
-            logger.info("📷 Initializing Femto Mega camera...")
-            self.pipeline = Pipeline()
-
-            # Configure streams
-            config = Config()
-            config.enable_stream(OBSensorType.DEPTH_SENSOR, 640, 576, OBFormat.Y16, 30)
-            config.enable_stream(OBSensorType.COLOR_SENSOR, 1920, 1080, OBFormat.RGB, 30)
-
-            # Start pipeline
-            self.pipeline.start(config)
-            logger.info("✅ Femto Mega camera initialized successfully")
-            return True
-
-        # Fallback to Orbbec SDK + MediaPipe (FemtoMegaBodyTracker)
-        if SDK_AVAILABLE and TRACKER_AVAILABLE:
-            try:
-                logger.info("📷 Initializing Femto Mega with Orbbec SDK + MediaPipe...")
-                self.tracker = FemtoMegaBodyTracker()
-                if self.tracker.init_camera():
-                    logger.info("✅ Femto Mega camera initialized successfully (MediaPipe Tracking)")
-                    return True
-                else:
-                    logger.error("❌ Failed to initialize tracker camera")
-            except Exception as e:
-                logger.error(f"❌ Failed to initialize Orbbec SDK/Tracker: {e}")
-
-        logger.info("   Falling back to SIMULATION mode")
-        self.simulation = True
-        return False
+        return self.tracker.init_camera(simulation=self.simulation)
     
-    def generate_simulated_skeleton(self):
-        """Generate simulated skeleton data for testing"""
-        import random
-        import math
-
-        # Simulate a person doing a squat movement
-        time = datetime.now().timestamp()
-        squat_phase = (math.sin(time * 0.5) + 1) / 2  # 0 to 1
-
-        # 32 joints from Azure Kinect Body Tracking SDK
-        joints = {}
-        joint_names = [
-            'PELVIS', 'SPINE_NAVAL', 'SPINE_CHEST', 'NECK', 'CLAVICLE_LEFT',
-            'SHOULDER_LEFT', 'ELBOW_LEFT', 'WRIST_LEFT', 'HAND_LEFT', 'HANDTIP_LEFT',
-            'THUMB_LEFT', 'CLAVICLE_RIGHT', 'SHOULDER_RIGHT', 'ELBOW_RIGHT', 'WRIST_RIGHT',
-            'HAND_RIGHT', 'HANDTIP_RIGHT', 'THUMB_RIGHT', 'HIP_LEFT', 'KNEE_LEFT',
-            'ANKLE_LEFT', 'FOOT_LEFT', 'HIP_RIGHT', 'KNEE_RIGHT', 'ANKLE_RIGHT',
-            'FOOT_RIGHT', 'HEAD', 'NOSE', 'EYE_LEFT', 'EAR_LEFT', 'EYE_RIGHT', 'EAR_RIGHT'
-        ]
-
-        for i, name in enumerate(joint_names):
-            # Simulate squatting motion (pelvis and legs move down)
-            y_offset = 0
-            if 'PELVIS' in name or 'HIP' in name or 'KNEE' in name:
-                y_offset = -squat_phase * 300  # Squat down by 300mm
-
-            joints[name] = {
-                'position': {
-                    'x': random.uniform(-200, 200) + (i * 10),
-                    'y': 500 + y_offset + (i * 20),
-                    'z': 1500 + random.uniform(-50, 50)
-                },
-                'orientation': {
-                    'w': 1.0,
-                    'x': 0.0,
-                    'y': 0.0,
-                    'z': 0.0
-                },
-                'confidence': 'HIGH' if random.random() > 0.1 else 'MEDIUM'
-            }
-
-        return {
-            'timestamp': datetime.now().isoformat(),
-            'body_id': 0,
-            'joints': joints,
-            'simulation': True
-        }
-    
-    def _wait_for_frames_blocking(self):
-        """Blocking call to wait for frames (K4A only)"""
-        if self.use_k4a and self.k4a:
-             return self.k4a.get_capture(timeout_ms=100)
-        return None
-
-    def capture_skeleton(self):
-        """Capture skeleton data from Femto Mega"""
-        if self.simulation:
-            return self.generate_simulated_skeleton()
-
-        if self.use_k4a:
-            try:
-                # Run blocking capture in executor
-                capture = await loop.run_in_executor(None, self._wait_for_frames_blocking)
-
-                if capture is None:
-                    return None
-
-                # Update tracker (this might also block, but usually fast enough.
-                # Ideal would be to run update in executor too if it's slow)
-                body_frame = self.tracker.update(capture)
-
-                if body_frame.num_bodies == 0:
-                    return None
-
-                # Get the first body
-                body = body_frame.bodies[0]
-
-                # Map joints to expected format
-                joints = {}
-                joint_names = [
-                    'PELVIS', 'SPINE_NAVAL', 'SPINE_CHEST', 'NECK', 'CLAVICLE_LEFT',
-                    'SHOULDER_LEFT', 'ELBOW_LEFT', 'WRIST_LEFT', 'HAND_LEFT', 'HANDTIP_LEFT',
-                    'THUMB_LEFT', 'CLAVICLE_RIGHT', 'SHOULDER_RIGHT', 'ELBOW_RIGHT', 'WRIST_RIGHT',
-                    'HAND_RIGHT', 'HANDTIP_RIGHT', 'THUMB_RIGHT', 'HIP_LEFT', 'KNEE_LEFT',
-                    'ANKLE_LEFT', 'FOOT_LEFT', 'HIP_RIGHT', 'KNEE_RIGHT', 'ANKLE_RIGHT',
-                    'FOOT_RIGHT', 'HEAD', 'NOSE', 'EYE_LEFT', 'EAR_LEFT', 'EYE_RIGHT', 'EAR_RIGHT'
-                ]
-
-                for i, name in enumerate(joint_names):
-                    joint = body.joints[i]
-                    joints[name] = {
-                        'position': {
-                            'x': float(joint.position.x),
-                            'y': float(joint.position.y),
-                            'z': float(joint.position.z)
-                        },
-                        'orientation': {
-                            'w': float(joint.orientation.w),
-                            'x': float(joint.orientation.x),
-                            'y': float(joint.orientation.y),
-                            'z': float(joint.orientation.z)
-                        },
-                        'confidence': joint.confidence_level
-                    }
-
-                return {
-                    'timestamp': datetime.now().isoformat(),
-                    'body_id': int(body.id),
-                    'joints': joints,
-                    'simulation': False
-                }
-
-            except Exception as e:
-                logger.error(f"❌ Error capturing K4A frames: {e}")
-                return None
-
-        # Orbbec SDK fallback (MediaPipe)
+    async def capture_skeleton(self):
+        """Capture skeleton data from Femto Mega (Async)"""
+        loop = asyncio.get_event_loop()
         try:
-            # Get frames from tracker (Async)
-            frames = await loop.run_in_executor(None, self.tracker.get_frames)
-
-            if frames:
-                skeleton = await loop.run_in_executor(
-                    None, self.tracker.extract_skeleton_from_depth, frames
-                )
-                return skeleton
-            
-            return None
-
+            # Run blocking tracker call in executor
+            return await loop.run_in_executor(None, self.tracker.get_skeleton)
         except Exception as e:
-            logger.error(f"❌ Error capturing frames: {e}")
+            logger.error(f"❌ Error capturing skeleton: {e}")
             return None
 
     async def stream_skeleton_data(self):
@@ -277,7 +105,8 @@ class FemtoBridgeServer:
             await websocket.send(json.dumps({
                 'type': 'connected',
                 'message': 'Femto Mega bridge server connected',
-                'simulation': self.simulation,
+                'simulation': self.tracker.mode == 'simulation',
+                'mode': self.tracker.mode,
                 'timestamp': datetime.now().isoformat()
             }))
 
@@ -296,7 +125,7 @@ class FemtoBridgeServer:
                             asyncio.create_task(self.stream_skeleton_data())
                         await websocket.send(json.dumps({
                             'type': 'streaming_started',
-                            'simulation': self.simulation
+                            'simulation': self.tracker.mode == 'simulation'
                         }))
 
                     elif command == 'stop_streaming':
@@ -316,8 +145,8 @@ class FemtoBridgeServer:
         except websockets.exceptions.ConnectionClosed:
             logger.info(f"🔌 Client disconnected: {client_addr}")
         finally:
-            self.clients.remove(websocket)
-
+            self.clients.discard(websocket)
+    
     async def start(self):
         """Start the WebSocket server"""
         logger.info("=" * 60)
@@ -334,15 +163,11 @@ class FemtoBridgeServer:
             logger.info(f"✅ Server ready at ws://{self.host}:{self.port}")
             logger.info("👉 Open PhysioMotion web app and select 'Femto Mega' camera")
             logger.info("=" * 60)
-
-            if self.simulation:
+            
+            if self.tracker.mode == 'simulation':
                 logger.info("📊 SIMULATION MODE ACTIVE")
-                logger.info("   - Generating simulated skeleton data")
-                logger.info("   - To use real camera:")
-                logger.info("     1. Connect Femto Mega via USB 3.0")
-                logger.info("     2. Install: pip install pyorbbecsdk")
-                logger.info("     3. Restart server")
-                logger.info("=" * 60)
+            else:
+                logger.info(f"📷 CAMERA MODE: {self.tracker.mode}")
 
             # Start streaming automatically
             self.is_streaming = True
@@ -351,6 +176,11 @@ class FemtoBridgeServer:
             # Run forever
             await asyncio.Future()
 
+    def shutdown(self):
+        """Shutdown server"""
+        self.is_streaming = False
+        if self.tracker:
+            self.tracker.stop()
 
 def main():
     """Main entry point"""
@@ -370,6 +200,7 @@ def main():
         asyncio.run(server.start())
     except KeyboardInterrupt:
         logger.info("\n👋 Shutting down bridge server...")
+        server.shutdown()
         sys.exit(0)
     except Exception as e:
         logger.error(f"❌ Fatal error: {e}")
