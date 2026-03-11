@@ -637,6 +637,9 @@ app.get('/api/billing/codes', async (c) => {
       SELECT * FROM billing_codes ORDER BY cpt_code
     `).all()
 
+    // Cache for 24 hours (86400 seconds)
+    c.header('Cache-Control', 'public, max-age=86400')
+
     return c.json({ success: true, data: results })
   } catch (error: any) {
     return c.json({ success: false, error: error.message }, 500)
