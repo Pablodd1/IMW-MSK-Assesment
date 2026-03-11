@@ -14,6 +14,125 @@ app.use('/api/*', cors())
 app.use('/static/*', serveStatic({ root: './public', manifest: {} }))
 
 // ============================================================================
+// CACHING
+// ============================================================================
+let exercisesCache: any[] | null = null
+let lastExerciseCacheTime = 0
+const EXERCISE_CACHE_TTL = 3600 * 1000 // 1 hour
+
+let billingCodesCache: any[] | null = null
+let lastBillingCacheTime = 0
+const BILLING_CACHE_TTL = 3600 * 1000 // 1 hour
+
+// ============================================================================
+// AUTHENTICATION API
+// ============================================================================
+
+// Register new clinician
+app.post('/api/auth/register', async (c) => {
+  try {
+    const data = await c.req.json()
+    
+    // Check if email already exists
+    const existing = await c.env.DB.prepare(`
+      SELECT id FROM clinicians WHERE email = ?
+    `).bind(data.email).first()
+    
+    if (existing) {
+      return c.json({ success: false, error: 'Email already registered' }, 400)
+    }
+    
+    // Hash password (simple hash for demo - use bcrypt in production)
+    const passwordHash = await hashPassword(data.password)
+    
+    const result = await c.env.DB.prepare(`
+      INSERT INTO clinicians (
+        email, password_hash, first_name, last_name, title,
+        license_number, license_state, npi_number, phone, clinic_name
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      data.email, passwordHash, data.first_name, data.last_name, data.title,
+      data.license_number, data.license_state, data.npi_number,
+      data.phone, data.clinic_name
+    ).run()
+    
+    return c.json({
+      success: true,
+      data: { id: result.meta.last_row_id }
+    })
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
+// Login
+app.post('/api/auth/login', async (c) => {
+  try {
+    const { email, password } = await c.req.json()
+    
+    const clinician = (await c.env.DB.prepare(`
+      SELECT * FROM clinicians WHERE email = ? AND active = 1
+    `).bind(email).first()) as any
+    
+    if (!clinician) {
+      return c.json({ success: false, error: 'Invalid email or password' }, 401)
+    }
+    
+    // Verify password
+    const isValid = await verifyPassword(password, clinician.password_hash)
+    
+    if (!isValid) {
+      return c.json({ success: false, error: 'Invalid email or password' }, 401)
+    }
+    
+    // Automatic migration to PBKDF2 if using legacy hash
+    if (!clinician.password_hash.includes(':')) {
+      const newHash = await hashPassword(password);
+      await c.env.DB.prepare(`
+        UPDATE clinicians SET password_hash = ? WHERE id = ?
+      `).bind(newHash, clinician.id).run();
+    }
+
+    // Update last login
+    await c.env.DB.prepare(`
+      UPDATE clinicians SET last_login = CURRENT_TIMESTAMP WHERE id = ?
+    `).bind(clinician.id).run()
+    
+    // Return user data (excluding password)
+    const { password_hash, ...userData } = clinician
+    
+    return c.json({
+      success: true,
+      data: userData
+    })
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
+// Get current clinician profile
+app.get('/api/auth/profile/:id', async (c) => {
+  try {
+    const id = c.req.param('id')
+    
+    const clinician = await c.env.DB.prepare(`
+      SELECT id, email, first_name, last_name, title, license_number,
+             license_state, npi_number, phone, clinic_name, role, active,
+             created_at, last_login
+      FROM clinicians WHERE id = ?
+    `).bind(id).first()
+    
+    if (!clinician) {
+      return c.json({ success: false, error: 'Clinician not found' }, 404)
+    }
+    
+    return c.json({ success: true, data: clinician })
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
+// ============================================================================
 // PATIENT MANAGEMENT API
 // ============================================================================
 
@@ -49,10 +168,10 @@ app.post('/api/patients', async (c) => {
 // Get all patients
 app.get('/api/patients', async (c) => {
   try {
-    const { results } = await c.env.DB.prepare(`
+    const { results } = (await c.env.DB.prepare(`
       SELECT * FROM patients ORDER BY created_at DESC
-    `).all()
-
+    `).all()) as any
+    
     return c.json({ success: true, data: results })
   } catch (error: any) {
     return c.json({ success: false, error: error.message }, 500)
@@ -132,10 +251,10 @@ app.post('/api/assessments', async (c) => {
 app.get('/api/patients/:id/assessments', async (c) => {
   try {
     const patientId = c.req.param('id')
-    const { results } = await c.env.DB.prepare(`
+    const { results } = (await c.env.DB.prepare(`
       SELECT * FROM assessments WHERE patient_id = ? ORDER BY assessment_date DESC
-    `).bind(patientId).all()
-
+    `).bind(patientId).all()) as any
+    
     return c.json({ success: true, data: results })
   } catch (error: any) {
     return c.json({ success: false, error: error.message }, 500)
@@ -145,13 +264,13 @@ app.get('/api/patients/:id/assessments', async (c) => {
 // Get all assessments
 app.get('/api/assessments', async (c) => {
   try {
-    const { results } = await c.env.DB.prepare(`
-      SELECT a.*, p.first_name, p.last_name
+    const { results } = (await c.env.DB.prepare(`
+      SELECT a.*, p.first_name, p.last_name 
       FROM assessments a
       JOIN patients p ON a.patient_id = p.id
       ORDER BY a.assessment_date DESC
-    `).all()
-
+    `).all()) as any
+    
     return c.json({ success: true, data: results })
   } catch (error: any) {
     return c.json({ success: false, error: error.message }, 500)
@@ -268,10 +387,10 @@ app.get('/api/tests/:id/results', async (c) => {
 app.get('/api/assessments/:id/tests', async (c) => {
   try {
     const assessmentId = c.req.param('id')
-    const { results } = await c.env.DB.prepare(`
+    const { results } = (await c.env.DB.prepare(`
       SELECT * FROM movement_tests WHERE assessment_id = ? ORDER BY test_order
-    `).bind(assessmentId).all()
-
+    `).bind(assessmentId).all()) as any
+    
     return c.json({ success: true, data: results })
   } catch (error: any) {
     return c.json({ success: false, error: error.message }, 500)
@@ -296,8 +415,14 @@ app.get('/api/exercises', async (c) => {
     }
 
     query += ' ORDER BY name'
-
-    const { results } = await c.env.DB.prepare(query).bind(...params).all()
+    
+    const { results } = (await c.env.DB.prepare(query).bind(...params).all()) as any
+    
+    // Update cache if no filter
+    if (!category) {
+        exercisesCache = results
+        lastExerciseCacheTime = now
+    }
 
     return c.json({ success: true, data: results })
   } catch (error: any) {
@@ -336,9 +461,9 @@ app.post('/api/prescriptions', async (c) => {
 app.get('/api/patients/:id/prescriptions', async (c) => {
   try {
     const patientId = c.req.param('id')
-
-    const { results } = await c.env.DB.prepare(`
-      SELECT
+    
+    const { results } = (await c.env.DB.prepare(`
+      SELECT 
         pe.*,
         e.name as exercise_name,
         e.description,
@@ -349,8 +474,8 @@ app.get('/api/patients/:id/prescriptions', async (c) => {
       JOIN exercises e ON pe.exercise_id = e.id
       WHERE pe.patient_id = ? AND pe.status = 'active'
       ORDER BY pe.created_at DESC
-    `).bind(patientId).all()
-
+    `).bind(patientId).all()) as any
+    
     return c.json({ success: true, data: results })
   } catch (error: any) {
     return c.json({ success: false, error: error.message }, 500)
@@ -378,10 +503,10 @@ app.post('/api/exercise-sessions', async (c) => {
       session.form_quality_score, session.pose_accuracy_data,
       session.pain_level_during, session.difficulty_rating, session.completed
     ).run()
-
-    // Update compliance tracking
-    await updateCompliancePercentage(c.env.DB, session.prescribed_exercise_id)
-
+    
+    // Update compliance tracking (non-blocking)
+    c.executionCtx.waitUntil(updateCompliancePercentage(c.env.DB, session.prescribed_exercise_id))
+    
     return c.json({ success: true, data: { id: result.meta.last_row_id } })
   } catch (error: any) {
     return c.json({ success: false, error: error.message }, 500)
@@ -392,8 +517,8 @@ app.post('/api/exercise-sessions', async (c) => {
 app.get('/api/patients/:id/sessions', async (c) => {
   try {
     const patientId = c.req.param('id')
-
-    const { results } = await c.env.DB.prepare(`
+    
+    const { results } = (await c.env.DB.prepare(`
       SELECT
         es.*,
         e.name as exercise_name,
@@ -405,7 +530,32 @@ app.get('/api/patients/:id/sessions', async (c) => {
       WHERE es.patient_id = ?
       ORDER BY es.session_date DESC
       LIMIT 50
-    `).bind(patientId).all()
+    `).bind(patientId).all()) as any
+    
+    return c.json({ success: true, data: results })
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
+// ============================================================================
+// BILLING API
+// ============================================================================
+
+// Get CPT codes (with caching)
+app.get('/api/billing/codes', async (c) => {
+  try {
+    const now = Date.now()
+    if (billingCodesCache && (now - lastBillingCacheTime < BILLING_CACHE_TTL)) {
+        return c.json({ success: true, data: billingCodesCache })
+    }
+
+    const { results } = (await c.env.DB.prepare(`
+      SELECT * FROM billing_codes ORDER BY cpt_code
+    `).all()) as any
+    
+    billingCodesCache = results
+    lastBillingCacheTime = now
 
     return c.json({ success: true, data: results })
   } catch (error: any) {
@@ -520,19 +670,22 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
     const assessmentId = c.req.param('id')
 
     // Get assessment data
-    const assessment = await c.env.DB.prepare(`
+    const assessment = (await c.env.DB.prepare(`
       SELECT * FROM assessments WHERE id = ?
-    `).bind(assessmentId).first() as any
-
+    `).bind(assessmentId).first()) as any
+    
     // Get all movement tests and analyses
-    const { results: tests } = await c.env.DB.prepare(`
+    const { results: tests } = (await c.env.DB.prepare(`
       SELECT mt.*, ma.*
       FROM movement_tests mt
       LEFT JOIN movement_analysis ma ON mt.id = ma.test_id
       WHERE mt.assessment_id = ?
-    `).bind(assessmentId).all()
-
-    // Enhanced clinical reasoning via RAG (prototype)
+    `).bind(assessmentId).all()) as any
+    
+    // Generate comprehensive medical note
+    const medicalNote = generateMedicalNote(assessment, tests)
+    
+    // Try to enhance with AI insights if deficiencies exist
     let aiInsights = ""
     if (tests.length > 0 && tests[0].deficiencies) {
       try {
@@ -577,25 +730,111 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
 // HELPER FUNCTIONS
 // ============================================================================
 
+// Password hashing using PBKDF2 (HIPAA-compliant)
+async function hashPassword(password: string): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const saltHex = Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join('');
+
+  const baseKey = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits', 'deriveKey']
+  );
+
+  const derivedKey = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: 100000,
+      hash: 'SHA-256'
+    },
+    baseKey,
+    256
+  );
+
+  const hashHex = Array.from(new Uint8Array(derivedKey))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  return `${saltHex}:${hashHex}`;
+}
+
+async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
+  // Legacy SHA-256 check with migration support
+  if (!storedHash.includes(':')) {
+    const encoder = new TextEncoder()
+    const data = encoder.encode(password + 'physiomotion-salt-2025')
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+    return hashHex === storedHash;
+  }
+
+  const [saltHex, hashHex] = storedHash.split(':');
+  const match = saltHex.match(/.{1,2}/g);
+  if (!match) return false;
+
+  const salt = new Uint8Array(match.map(byte => parseInt(byte, 16)));
+
+  const baseKey = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits', 'deriveKey']
+  );
+
+  const derivedKey = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: 100000,
+      hash: 'SHA-256'
+    },
+    baseKey,
+    256
+  );
+
+  const computedHashHex = Array.from(new Uint8Array(derivedKey))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  return computedHashHex === hashHex;
+}
+
 async function updateCompliancePercentage(db: any, prescribedExerciseId: number) {
   // Get total sessions completed vs expected
-  const result = await db.prepare(`
+  const result = (await db.prepare(`
     SELECT COUNT(*) as completed_count
     FROM exercise_sessions
     WHERE prescribed_exercise_id = ? AND completed = 1
-  `).bind(prescribedExerciseId).first() as any
-
-  const prescription = await db.prepare(`
+  `).bind(prescribedExerciseId).first()) as any
+  
+  const prescription = (await db.prepare(`
     SELECT times_per_week, prescribed_at FROM prescribed_exercises WHERE id = ?
-  `).bind(prescribedExerciseId).first() as any
-
-  if (result && prescription) {
-    const weeksSincePrescribed = Math.floor(
-      (Date.now() - new Date(prescription.prescribed_at).getTime()) / (7 * 24 * 60 * 60 * 1000)
-    )
-    const expectedSessions = Math.max(1, prescription.times_per_week * weeksSincePrescribed)
-    const compliance = Math.min(100, (result.completed_count / expectedSessions) * 100)
-
+  `).bind(prescribedExerciseId).first()) as any
+  
+  if (result && prescription && prescription.prescribed_at) {
+    const prescribedDate = new Date(prescription.prescribed_at)
+    const now = new Date()
+    
+    // Don't calculate compliance for future dates
+    if (prescribedDate > now) {
+      return
+    }
+    
+    // Calculate weeks since prescribed (minimum 1 week to avoid division by zero)
+    const weeksSincePrescribed = Math.max(1, Math.floor(
+      (now.getTime() - prescribedDate.getTime()) / (7 * 24 * 60 * 60 * 1000)
+    ))
+    
+    const expectedSessions = prescription.times_per_week * weeksSincePrescribed
+    
+    // Calculate compliance percentage, capped at 100%
+    const compliance = Math.min(100, Math.round((result.completed_count / expectedSessions) * 100))
+    
     await db.prepare(`
       UPDATE prescribed_exercises
       SET compliance_percentage = ?,
