@@ -694,17 +694,26 @@ app.post('/api/assessments/:id/generate-note', async (c) => {
     
     // Try to enhance with AI insights if deficiencies exist
     let aiInsights = ""
-    if (tests.length > 0 && typeof tests[0].deficiencies === 'string') {
-        try {
-            const raw = tests[0].deficiencies as unknown
-            if (typeof raw === 'string') {
-              const defs = JSON.parse(raw)
-              if (defs.length > 0) {
-                  const ragResult = await queryExerciseKnowledge(c.env.DB, defs[0].area)
-                  aiInsights = ragResult.answer
-              }
+    const testsArray = tests as any[];
+    if (testsArray && testsArray.length > 0) {
+        const firstTest = testsArray[0];
+        if (firstTest && typeof firstTest.deficiencies === 'string') {
+            try {
+                const defs = JSON.parse(firstTest.deficiencies);
+                if (Array.isArray(defs) && defs.length > 0) {
+                    const firstDeficiency = defs[0];
+                    if (firstDeficiency && typeof firstDeficiency === 'object' && 'area' in firstDeficiency) {
+                        const area = firstDeficiency.area;
+                        if (typeof area === 'string') {
+                            const ragResult = await queryExerciseKnowledge(c.env.DB, area);
+                            aiInsights = ragResult.answer;
+                        }
+                    }
+                }
+            } catch (e) {
+                // Ignore JSON parse errors or other issues
             }
-        } catch (e) {}
+        }
     }
 
     // Generate comprehensive medical note
@@ -965,6 +974,16 @@ app.get('/intake', (c) => {
 app.get('/patients', (c) => {
   return c.redirect('/static/patients')
 })
+
+// Login redirect
+app.get('/login', (c) => {
+  return c.redirect('/static/login.html')
+})
+
+app.get('/register', (c) => {
+  return c.redirect('/static/register.html')
+})
+
 
 // Main dashboard
 app.get('/', (c) => {
