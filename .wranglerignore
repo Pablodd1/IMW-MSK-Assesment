@@ -1,6 +1,8 @@
-# Dependencies
+femto_bridge
+femto_bridge/
+femto_bridge/**/*
 node_modules/
 .git/
 .gitignore
 *.py
-requirements.txt
+*.pyc

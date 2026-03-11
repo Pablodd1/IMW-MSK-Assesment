@@ -11,21 +11,28 @@ import logging
 from datetime import datetime
 import sys
 import signal
+import os
 
-# SDK imports with fallback
-SDK_AVAILABLE = False
-BODY_TRACKING_AVAILABLE = False
-
+# Import tracker
 try:
-    from pyorbbecsdk import (
-        Pipeline, Config, OBSensorType, OBFormat,
-        OBAlignMode, VideoStreamProfile
-    )
-    SDK_AVAILABLE = True
-    print("✅ OrbbecSDK imported successfully")
+    from tracker import FemtoMegaBodyTracker, SDK_AVAILABLE
 except ImportError:
-    print("⚠️  pyorbbecsdk not available. Install with: pip install pyorbbecsdk")
+    # Handle case where tracker module is missing or fails to import
+    print("⚠️  Failed to import tracker module.")
     SDK_AVAILABLE = False
+    class FemtoMegaBodyTracker:
+        def __init__(self): pass
+        def init_camera(self): return False
+        def get_frames(self): return None
+        def extract_skeleton_from_depth(self, f): return None
+        def generate_simulated_skeleton(self): return None
+        def stop(self): pass
+        is_started = False
+
+if SDK_AVAILABLE:
+    print("✅ OrbbecSDK imported successfully")
+else:
+    print("⚠️  pyorbbecsdk not available. Install with: pip install pyorbbecsdk")
 
 # Try to import body tracking (optional - for skeleton detection)
 try:
@@ -40,139 +47,6 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
-
-class FemtoMegaBodyTracker:
-    """Body tracking implementation for Femto Mega"""
-
-    def __init__(self):
-        self.pipeline = None
-        self.config = None
-        self.is_started = False
-
-    def init_camera(self):
-        """Initialize Femto Mega camera with depth and color streams"""
-        try:
-            logger.info("📷 Initializing Femto Mega camera...")
-
-            self.pipeline = Pipeline()
-            self.config = Config()
-
-            # Enable depth stream
-            self.config.enable_stream(
-                OBSensorType.DEPTH_SENSOR,
-                640, 576,  # Resolution
-                OBFormat.Y16,
-                30  # FPS
-            )
-
-            # Enable color stream
-            self.config.enable_stream(
-                OBSensorType.COLOR_SENSOR,
-                1920, 1080,
-                OBFormat.RGB,
-                30
-            )
-
-            # Enable alignment (align depth to color)
-            self.config.set_align_mode(OBAlignMode.ALIGN_D2C_SW_MODE)
-
-            # Start pipeline
-            self.pipeline.start(self.config)
-            self.is_started = True
-
-            logger.info("✅ Femto Mega initialized successfully")
-            logger.info("   - Depth: 640x576 @ 30fps")
-            logger.info("   - Color: 1920x1080 @ 30fps")
-            logger.info("   - Alignment: Depth-to-Color")
-
-            return True
-
-        except Exception as e:
-            logger.error(f"❌ Failed to initialize camera: {e}")
-            return False
-
-    def get_frames(self):
-        """Get synchronized depth and color frames"""
-        if not self.is_started:
-            return None
-
-        try:
-            frames = self.pipeline.wait_for_frames(timeout_ms=100)
-            return frames
-        except Exception as e:
-            logger.error(f"❌ Error getting frames: {e}")
-            return None
-
-    def extract_skeleton_from_depth(self, frames):
-        """
-        Extract skeleton data from depth frames
-        This is a simplified implementation - for production, integrate:
-        - Azure Kinect Body Tracking SDK
-        - OpenPose
-        - MediaPipe (but runs in browser, not here)
-        """
-        # TODO: Implement actual body tracking
-        # For now, return simulated skeleton
-        return self.generate_simulated_skeleton()
-
-    def generate_simulated_skeleton(self):
-        """Generate simulated skeleton for testing"""
-        import random
-        import math
-
-        time = datetime.now().timestamp()
-        squat_phase = (math.sin(time * 0.5) + 1) / 2
-
-        joints = {}
-        joint_names = [
-            'PELVIS', 'SPINE_NAVAL', 'SPINE_CHEST', 'NECK',
-            'CLAVICLE_LEFT', 'SHOULDER_LEFT', 'ELBOW_LEFT', 'WRIST_LEFT',
-            'HAND_LEFT', 'HANDTIP_LEFT', 'THUMB_LEFT',
-            'CLAVICLE_RIGHT', 'SHOULDER_RIGHT', 'ELBOW_RIGHT', 'WRIST_RIGHT',
-            'HAND_RIGHT', 'HANDTIP_RIGHT', 'THUMB_RIGHT',
-            'HIP_LEFT', 'KNEE_LEFT', 'ANKLE_LEFT', 'FOOT_LEFT',
-            'HIP_RIGHT', 'KNEE_RIGHT', 'ANKLE_RIGHT', 'FOOT_RIGHT',
-            'HEAD', 'NOSE', 'EYE_LEFT', 'EAR_LEFT', 'EYE_RIGHT', 'EAR_RIGHT'
-        ]
-
-        for i, name in enumerate(joint_names):
-            y_offset = 0
-            if 'PELVIS' in name or 'HIP' in name or 'KNEE' in name:
-                y_offset = -squat_phase * 300
-
-            joints[name] = {
-                'position': {
-                    'x': random.uniform(-200, 200) + (i * 10),
-                    'y': 500 + y_offset + (i * 20),
-                    'z': 1500 + random.uniform(-50, 50)
-                },
-                'orientation': {
-                    'w': 1.0,
-                    'x': 0.0,
-                    'y': 0.0,
-                    'z': 0.0
-                },
-                'confidence': 'HIGH' if random.random() > 0.1 else 'MEDIUM'
-            }
-
-        return {
-            'timestamp': datetime.now().isoformat(),
-            'body_id': 0,
-            'joints': joints,
-            'simulation': not SDK_AVAILABLE,
-            'has_real_depth': SDK_AVAILABLE and self.is_started
-        }
-
-    def stop(self):
-        """Stop camera pipeline"""
-        if self.is_started and self.pipeline:
-            try:
-                self.pipeline.stop()
-                logger.info("🔌 Camera pipeline stopped")
-            except Exception as e:
-                logger.error(f"Error stopping pipeline: {e}")
-        self.is_started = False
 
 
 class FemtoBridgeServer:
