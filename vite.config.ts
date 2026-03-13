@@ -10,5 +10,25 @@ export default defineConfig({
       adapter,
       entry: 'src/index.tsx'
     })
-  ]
+  ],
+  build: {
+    target: 'esnext',
+    minify: 'terser',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'three': ['three'],
+          'tensorflow': ['@tensorflow/tfjs'],
+          'mediapipe': ['@mediapipe/pose']
+        }
+      }
+    }
+  },
+  optimizeDeps: {
+    include: ['three', 'zod', 'bcryptjs']
+  },
+  server: {
+    port: 3000,
+    host: true
+  }
 })

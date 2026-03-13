@@ -4,29 +4,18 @@ import { mockD1 } from '../db';
 
 import { createMiddleware } from 'hono/factory'
 import type { Bindings, Variables } from '../types'
+import bcrypt from 'bcryptjs'
 
-// JWT Configuration
-const JWT_CONFIG = {
-  algorithm: 'HS256',
-  expiresIn: '24h',
-  refreshExpiresIn: '7d'
+const SALT_ROUNDS = 12
+
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, SALT_ROUNDS)
 }
 
-// Password hashing (using Web Crypto API - available in Cloudflare Workers)
-export async function hashPassword(password: string, salt: string): Promise<string> {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(password + salt)
-  const hashBuffer = await crypto.subtle.digest('SHA-384', data)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+export async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  return bcrypt.compare(password, hash)
 }
 
-export async function verifyPassword(password: string, salt: string, hash: string): Promise<boolean> {
-  const computedHash = await hashPassword(password, salt)
-  return computedHash === hash
-}
-
-// Generate JWT Token
 export async function generateToken(payload: {
   id: number;
   email: string;
@@ -37,7 +26,7 @@ export async function generateToken(payload: {
   const payloadB64 = btoa(JSON.stringify({
     ...payload,
     iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + 86400 // 24 hours
+    exp: Math.floor(Date.now() / 1000) + 86400
   }))
 
   const encoder = new TextEncoder()
@@ -59,7 +48,6 @@ export async function generateToken(payload: {
   return `${header}.${payloadB64}.${signatureB64}`
 }
 
-// Verify JWT Token
 export async function verifyToken(token: string, secret: string): Promise<{
   id: number;
   email: string;
@@ -81,7 +69,6 @@ export async function verifyToken(token: string, secret: string): Promise<{
       ['verify']
     )
 
-    // Decode base64url or base64 signature safely
     const binarySignature = atob(signature.replace(/-/g, '+').replace(/_/g, '/'))
     const signatureBytes = new Uint8Array(binarySignature.length)
     for (let i = 0; i < binarySignature.length; i++) {
@@ -99,7 +86,6 @@ export async function verifyToken(token: string, secret: string): Promise<{
 
     const payload = JSON.parse(atob(payloadB64))
 
-    // Check expiration
     if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
       return null
     }
@@ -115,7 +101,6 @@ export async function verifyToken(token: string, secret: string): Promise<{
   }
 }
 
-// Auth Middleware - Protects routes
 export const authMiddleware = createMiddleware<{ Bindings: Bindings, Variables: Variables }>(async (c, next) => {
   const token = c.req.header('Authorization')?.replace('Bearer ', '')
 
@@ -147,14 +132,12 @@ export const authMiddleware = createMiddleware<{ Bindings: Bindings, Variables: 
     }, 401)
   }
 
-  // Attach user to context
   c.set('clinician', payload)
   c.set('clinicianId', payload.id)
 
   await next()
 })
 
-// Role-based Access Control
 export const requireRole = (...allowedRoles: string[]) =>
   createMiddleware<{ Bindings: Bindings, Variables: Variables }>(async (c, next) => {
     const clinician = c.get('clinician')
@@ -178,7 +161,6 @@ export const requireRole = (...allowedRoles: string[]) =>
     await next()
   })
 
-// Session Activity Update Middleware
 export const sessionActivity = createMiddleware<{ Bindings: Bindings, Variables: Variables }>(async (c, next) => {
   const clinician = c.get('clinician')
 
@@ -191,16 +173,13 @@ export const sessionActivity = createMiddleware<{ Bindings: Bindings, Variables:
         WHERE id = ?
       `).bind(clinician.id).run()
     } catch (e) {
-      // Non-critical - don't block request
     }
   }
 
   await next()
 })
 
-// Combined auth middleware with activity tracking
 export const secureAuth = createMiddleware<{ Bindings: Bindings, Variables: Variables }>(async (c, next) => {
-  // First check auth
   const token = c.req.header('Authorization')?.replace('Bearer ', '')
 
   if (!token) {
@@ -234,7 +213,6 @@ export const secureAuth = createMiddleware<{ Bindings: Bindings, Variables: Vari
   c.set('clinician', payload)
   c.set('clinicianId', payload.id)
 
-  // Update last activity
   if (payload.id) {
     mockD1.prepare(`
       UPDATE clinicians SET last_activity = CURRENT_TIMESTAMP WHERE id = ?

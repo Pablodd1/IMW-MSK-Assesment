@@ -59,141 +59,42 @@ export function calculateJointAngles(skeleton: SkeletonData): Record<string, Joi
 
   const jointAngles: Record<string, JointAngle> = {};
 
-  // Shoulder Flexion/Extension (Left)
-  try {
-    const leftShoulderAngle = calculateAngle(
-      landmarks.left_hip,
-      landmarks.left_shoulder,
-      landmarks.left_elbow
-    );
-    jointAngles.left_shoulder_flexion = {
-      joint_name: 'Left Shoulder Flexion',
-      left_angle: leftShoulderAngle,
-      normal_range: [0, 180],
-      status: leftShoulderAngle >= 150 ? 'normal' : 'limited'
-    };
-  } catch (e) {
-    console.error('Error calculating left shoulder angle:', e);
+/**
+ * Calculate all joint angles from skeleton data - Optimized with pre-computed mappings
+ */
+export function calculateJointAngles(skeleton: SkeletonData): Record<string, JointAngle> {
+  const { landmarks } = skeleton;
+  const jointAngles: Record<string, JointAngle> = {};
+
+  // Define joint configurations to loop through
+  const configs = [
+    { key: 'left_shoulder_flexion', name: 'Left Shoulder Flexion', p1: landmarks.left_hip, p2: landmarks.left_shoulder, p3: landmarks.left_elbow, range: [0, 180], threshold: 150 },
+    { key: 'right_shoulder_flexion', name: 'Right Shoulder Flexion', p1: landmarks.right_hip, p2: landmarks.right_shoulder, p3: landmarks.right_elbow, range: [0, 180], threshold: 150 },
+    { key: 'left_elbow_flexion', name: 'Left Elbow Flexion', p1: landmarks.left_shoulder, p2: landmarks.left_elbow, p3: landmarks.left_wrist, range: [0, 150], threshold: 130 },
+    { key: 'right_elbow_flexion', name: 'Right Elbow Flexion', p1: landmarks.right_shoulder, p2: landmarks.right_elbow, p3: landmarks.right_wrist, range: [0, 150], threshold: 130 },
+    { key: 'left_hip_flexion', name: 'Left Hip Flexion', p1: landmarks.left_shoulder, p2: landmarks.left_hip, p3: landmarks.left_knee, range: [0, 120], threshold: 90 },
+    { key: 'right_hip_flexion', name: 'Right Hip Flexion', p1: landmarks.right_shoulder, p2: landmarks.right_hip, p3: landmarks.right_knee, range: [0, 120], threshold: 90 },
+    { key: 'left_knee_flexion', name: 'Left Knee Flexion', p1: landmarks.left_hip, p2: landmarks.left_knee, p3: landmarks.left_ankle, range: [0, 135], threshold: 120 },
+    { key: 'right_knee_flexion', name: 'Right Knee Flexion', p1: landmarks.right_hip, p2: landmarks.right_knee, p3: landmarks.right_ankle, range: [0, 135], threshold: 120 },
+  ];
+
+  for (const config of configs) {
+    try {
+      const angle = calculateAngle(config.p1, config.p2, config.p3);
+      jointAngles[config.key] = {
+        joint_name: config.name,
+        left_angle: config.key.startsWith('left') ? angle : undefined,
+        right_angle: config.key.startsWith('right') ? angle : undefined,
+        normal_range: config.range as [number, number],
+        status: angle >= config.threshold ? 'normal' : 'limited'
+      };
+    } catch (e) {
+      console.error(`Error calculating ${config.name}:`, e);
+    }
   }
 
-  // Shoulder Flexion/Extension (Right)
-  try {
-    const rightShoulderAngle = calculateAngle(
-      landmarks.right_hip,
-      landmarks.right_shoulder,
-      landmarks.right_elbow
-    );
-    jointAngles.right_shoulder_flexion = {
-      joint_name: 'Right Shoulder Flexion',
-      right_angle: rightShoulderAngle,
-      normal_range: [0, 180],
-      status: rightShoulderAngle >= 150 ? 'normal' : 'limited'
-    };
-  } catch (e) {
-    console.error('Error calculating right shoulder angle:', e);
-  }
+  // ... (Keep existing bilateral difference logic)
 
-  // Elbow Flexion (Left)
-  try {
-    const leftElbowAngle = calculateAngle(
-      landmarks.left_shoulder,
-      landmarks.left_elbow,
-      landmarks.left_wrist
-    );
-    jointAngles.left_elbow_flexion = {
-      joint_name: 'Left Elbow Flexion',
-      left_angle: leftElbowAngle,
-      normal_range: [0, 150],
-      status: leftElbowAngle >= 130 ? 'normal' : 'limited'
-    };
-  } catch (e) {
-    console.error('Error calculating left elbow angle:', e);
-  }
-
-  // Elbow Flexion (Right)
-  try {
-    const rightElbowAngle = calculateAngle(
-      landmarks.right_shoulder,
-      landmarks.right_elbow,
-      landmarks.right_wrist
-    );
-    jointAngles.right_elbow_flexion = {
-      joint_name: 'Right Elbow Flexion',
-      right_angle: rightElbowAngle,
-      normal_range: [0, 150],
-      status: rightElbowAngle >= 130 ? 'normal' : 'limited'
-    };
-  } catch (e) {
-    console.error('Error calculating right elbow angle:', e);
-  }
-
-  // Hip Flexion (Left)
-  try {
-    const leftHipAngle = calculateAngle(
-      landmarks.left_shoulder,
-      landmarks.left_hip,
-      landmarks.left_knee
-    );
-    jointAngles.left_hip_flexion = {
-      joint_name: 'Left Hip Flexion',
-      left_angle: leftHipAngle,
-      normal_range: [0, 120],
-      status: leftHipAngle >= 90 ? 'normal' : 'limited'
-    };
-  } catch (e) {
-    console.error('Error calculating left hip angle:', e);
-  }
-
-  // Hip Flexion (Right)
-  try {
-    const rightHipAngle = calculateAngle(
-      landmarks.right_shoulder,
-      landmarks.right_hip,
-      landmarks.right_knee
-    );
-    jointAngles.right_hip_flexion = {
-      joint_name: 'Right Hip Flexion',
-      right_angle: rightHipAngle,
-      normal_range: [0, 120],
-      status: rightHipAngle >= 90 ? 'normal' : 'limited'
-    };
-  } catch (e) {
-    console.error('Error calculating right hip angle:', e);
-  }
-
-  // Knee Flexion (Left)
-  try {
-    const leftKneeAngle = calculateAngle(
-      landmarks.left_hip,
-      landmarks.left_knee,
-      landmarks.left_ankle
-    );
-    jointAngles.left_knee_flexion = {
-      joint_name: 'Left Knee Flexion',
-      left_angle: leftKneeAngle,
-      normal_range: [0, 135],
-      status: leftKneeAngle >= 120 ? 'normal' : 'limited'
-    };
-  } catch (e) {
-    console.error('Error calculating left knee angle:', e);
-  }
-
-  // Knee Flexion (Right)
-  try {
-    const rightKneeAngle = calculateAngle(
-      landmarks.right_hip,
-      landmarks.right_knee,
-      landmarks.right_ankle
-    );
-    jointAngles.right_knee_flexion = {
-      joint_name: 'Right Knee Flexion',
-      right_angle: rightKneeAngle,
-      normal_range: [0, 135],
-      status: rightKneeAngle >= 120 ? 'normal' : 'limited'
-    };
-  } catch (e) {
-    console.error('Error calculating right knee angle:', e);
-  }
 
   // Ankle Dorsiflexion (Left)
   try {

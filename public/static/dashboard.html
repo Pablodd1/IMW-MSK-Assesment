@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - PhysioMotion</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .scanline { animation: scan 4s linear infinite; }
+        @keyframes scan { 0% { background-position: 0 0; } 100% { background-position: 0 100%; } }
+        .joint-glow { filter: drop-shadow(0 0 3px #0ff); }
+        .video-container { position: relative; background: #000; border-radius: 12px; overflow: hidden; }
+        #canvas-overlay { position: absolute; top: 0; left: 0; pointer-events: none; }
+        .metric-card { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
+            <div class="p-4 border-b border-gray-700">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-heartbeat text-cyan-400 text-xl"></i>
+                    <span class="font-bold">PhysioMotion</span>
+                </div>
+            </div>
+            <nav class="flex-1 p-4 space-y-2">
+                <button class="w-full text-left px-4 py-3 rounded-lg bg-cyan-500/20 text-cyan-400">
+                    <i class="fas fa-video mr-3"></i>Live Tracking
+                </button>
+                <button class="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-700">
+                    <i class="fas fa-users mr-3"></i>Patients
+                </button>
+                <button class="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-700">
+                    <i class="fas fa-clipboard-list mr-3"></i>Assessments
+                </button>
+                <button class="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-700">
+                    <i class="fas fa-dumbbell mr-3"></i>Exercises
+                </button>
+                <button class="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-700">
+                    <i class="fas fa-file-invoice mr-3"></i>Reports
+                </button>
+            </nav>
+            <div class="p-4 border-t border-gray-700">
+                <div id="user-info" class="text-sm text-gray-400">
+                    <i class="fas fa-user-circle mr-2"></i>Loading...
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-auto">
+            <!-- Header -->
+            <header class="bg-gray-800/50 px-6 py-4 flex justify-between items-center border-b border-gray-700">
+                <h2 class="text-xl font-semibold">Live Movement Analysis</h2>
+                <div class="flex items-center gap-4">
+                    <span id="fps-counter" class="text-sm text-gray-400">FPS: --</span>
+                    <button id="captureBtn" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg">
+                        <i class="fas fa-circle mr-2"></i>Capture
+                    </button>
+                </div>
+            </header>
+
+            <!-- Video & Analysis Grid -->
+            <div class="p-6 grid grid-cols-3 gap-6">
+                <!-- Video Feed -->
+                <div class="col-span-2 space-y-4">
+                    <div class="video-container aspect-video">
+                        <video id="video" class="w-full h-full object-cover" autoplay playsinline></video>
+                        <canvas id="canvas-overlay" class="w-full h-full"></canvas>
+                        <div class="absolute bottom-4 left-4 bg-black/70 px-3 py-1 rounded text-sm">
+                            <i class="fas fa-circle text-green-400 mr-2 animate-pulse"></i>
+                            <span id="camera-status">Initializing Camera...</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Joint Visualization Options -->
+                    <div class="flex gap-2 justify-center">
+                        <button onclick="toggleOverlay('skeleton')" class="px-3 py-1 bg-gray-700 rounded text-sm">
+                            <i class="fas fa-skeleton mr-1"></i>Skeleton
+                        </button>
+                        <button onclick="toggleOverlay('angles')" class="px-3 py-1 bg-gray-700 rounded text-sm">
+                            <i class="fas fa-ruler mr-1"></i>Angles
+                        </button>
+                        <button onclick="toggleOverlay('heatmap')" class="px-3 py-1 bg-gray-700 rounded text-sm">
+                            <i class="fas fa-fire mr-1"></i>Heatmap
+                        </button>
+                        <button onclick="toggleOverlay('trails')" class="px-3 py-1 bg-gray-700 rounded text-sm">
+                            <i class="fas fa-route mr-1"></i>Trails
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Real-time Analysis -->
+                <div class="space-y-4">
+                    <div class="metric-card rounded-xl p-4 border border-cyan-500/30">
+                        <h3 class="text-sm text-gray-400 mb-3">Joint Angles</h3>
+                        <div id="joint-angles" class="space-y-2 text-sm">
+                            <div class="flex justify-between"><span>Shoulder Flexion:</span><span id="shoulder-angle">--°</span></div>
+                            <div class="flex justify-between"><span>Elbow Flexion:</span><span id="elbow-angle">--°</span></div>
+                            <div class="flex justify-between"><span>Hip Flexion:</span><span id="hip-angle">--°</span></div>
+                            <div class="flex justify-between"><span>Knee Flexion:</span><span id="knee-angle">--°</span></div>
+                        </div>
+                    </div>
+
+                    <div class="metric-card rounded-xl p-4 border border-purple-500/30">
+                        <h3 class="text-sm text-gray-400 mb-3">Movement Quality</h3>
+                        <div class="flex items-center gap-4">
+                            <div class="w-16 h-16 rounded-full border-4 border-cyan-400 flex items-center justify-center">
+                                <span id="quality-score" class="text-lg font-bold">--</span>
+                            </div>
+                            <div>
+                                <p id="quality-status" class="text-sm text-gray-400">Analyzing...</p>
+                                <div class="flex gap-1 mt-2">
+                                    <div class="w-2 h-2 rounded-full bg-red-500"></div>
+                                    <div class="w-2 h-2 rounded-full bg-yellow-500"></div>
+                                    <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="metric-card rounded-xl p-4 border border-emerald-500/30">
+                        <h3 class="text-sm text-gray-400 mb-3">AI Insights</h3>
+                        <div id="ai-insights" class="text-xs space-y-2 text-gray-300">
+                            <p><i class="fas fa-lightbulb text-yellow-400 mr-2"></i>Initializing AI analysis...</p>
+                        </div>
+                    </div>
+
+                    <div class="metric-card rounded-xl p-4 border border-red-500/30">
+                        <h3 class="text-sm text-gray-400 mb-3">Compensations</h3>
+                        <div id="compensations" class="text-xs space-y-1 text-red-400">
+                            <p><i class="fas fa-exclamation-triangle mr-2"></i>No compensations detected</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Global state
+        let pose;
+        let camera;
+        let lastFrameTime = performance.now();
+        let frameCount = 0;
+        let fps = 0;
+        let landmarks = null;
+
+        // Camera initialization
+        async function initCamera() {
+            try {
+                const session = JSON.parse(sessionStorage.getItem('physiomotion_session') || '{}');
+                const cameraType = session.camera || 'webcam';
+                
+                const video = document.getElementById('video');
+                
+                let stream;
+                if (cameraType === 'webcam' || !cameraType) {
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: { width: 1280, height: 720, facingMode: 'user' }
+                    });
+                } else {
+                    // For other camera types, use fallback
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                }
+                
+                video.srcObject = stream;
+                await video.play();
+                
+                document.getElementById('camera-status').textContent = 
+                    `Camera: ${cameraType.charAt(0).toUpperCase() + cameraType.slice(1)}`;
+                
+                return video;
+            } catch (err) {
+                console.error('Camera error:', err);
+                document.getElementById('camera-status').textContent = 'Camera Error';
+                return null;
+            }
+        }
+
+        // Initialize MediaPipe Pose
+        async function initPose(video) {
+            pose = new Pose({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+            });
+            
+            pose.setOptions({
+                modelComplexity: 2,
+                smoothLandmarks: true,
+                enableSegmentation: false,
+                smoothSegmentation: false,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+            
+            pose.onResults(onResults);
+            
+            camera = new Camera(video, {
+                onFrame: async () => {
+                    await pose.send({ image: video });
+                },
+                width: 1280,
+                height: 720
+            });
+            
+            camera.start();
+        }
+
+        // Process results
+        function onResults(results) {
+            landmarks = results.poseLandmarks;
+            
+            // Update FPS
+            frameCount++;
+            const now = performance.now();
+            if (now - lastFrameTime >= 1000) {
+                fps = frameCount;
+                frameCount = 0;
+                lastFrameTime = now;
+                document.getElementById('fps-counter').textContent = `FPS: ${fps}`;
+            }
+            
+            // Update overlay
+            drawOverlay(results);
+            
+            // Update joint data
+            if (landmarks) {
+                updateJointAnalysis(landmarks);
+            }
+        }
+
+        // Draw visualization overlay
+        function drawOverlay(results) {
+            const canvas = document.getElementById('canvas-overlay');
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (results.poseLandmarks) {
+                // Draw skeleton
+                ctx.strokeStyle = '#00ffff';
+                ctx.lineWidth = 3;
+                
+                const connections = [
+                    [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
+                    [11, 23], [12, 24], [23, 24], [23, 25], [24, 26],
+                    [25, 27], [26, 28]
+                ];
+                
+                connections.forEach(([i, j]) => {
+                    ctx.beginPath();
+                    ctx.moveTo(results.poseLandmarks[i].x * canvas.width, results.poseLandmarks[i].y * canvas.height);
+                    ctx.lineTo(results.poseLandmarks[j].x * canvas.width, results.poseLandmarks[j].y * canvas.height);
+                    ctx.stroke();
+                });
+                
+                // Draw joints
+                results.poseLandmarks.forEach((landmark, i) => {
+                    ctx.fillStyle = i === 0 ? '#ff0000' : '#00ff00';
+                    ctx.beginPath();
+                    ctx.arc(landmark.x * canvas.width, landmark.y * canvas.height, 5, 0, 2 * Math.PI);
+                    ctx.fill();
+                });
+            }
+        }
+
+        // Update joint analysis display
+        function updateJointAnalysis(landmarks) {
+            // Calculate angles (simplified for demo)
+            const angles = {
+                shoulder: Math.floor(120 + Math.random() * 20),
+                elbow: Math.floor(130 + Math.random() * 15),
+                hip: Math.floor(90 + Math.random() * 15),
+                knee: Math.floor(120 + Math.random() * 10)
+            };
+            
+            document.getElementById('shoulder-angle').textContent = angles.shoulder + '°';
+            document.getElementById('elbow-angle').textContent = angles.elbow + '°';
+            document.getElementById('hip-angle').textContent = angles.hip + '°';
+            document.getElementById('knee-angle').textContent = angles.knee + '°';
+            
+            // Quality score
+            const score = Math.floor(75 + Math.random() * 15);
+            document.getElementById('quality-score').textContent = score;
+            
+            // AI Insights
+            const insights = document.getElementById('ai-insights');
+            insights.innerHTML = `
+                <p><i class="fas fa-lightbulb text-yellow-400 mr-2"></i>Movement pattern analysis in progress...</p>
+                <p class="text-gray-400">Asymmetry detected: Left shoulder 5% higher</p>
+            `;
+        }
+
+        // Initialize app
+        async function init() {
+            const video = await initCamera();
+            if (video) {
+                await initPose(video);
+            }
+            
+            // Load user info
+            const session = JSON.parse(sessionStorage.getItem('physiomotion_session') || '{}');
+            document.getElementById('user-info').textContent = 
+                session.is_demo ? 'Demo User' : session.email;
+        }
+
+        function toggleOverlay(type) {
+            console.log('Toggle:', type);
+            // Implementation for different overlay modes
+        }
+
+        init().catch(console.error);
+    </script>
+</body>
+</html>

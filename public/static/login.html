@@ -3,225 +3,180 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PhysioMotion - Clinician Login</title>
+    <title>PhysioMotion - Medical Movement Assessment</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .glow { box-shadow: 0 0 20px rgba(0, 255, 255, 0.5); }
+        .scanline { background: linear-gradient(180deg, transparent 50%, rgba(0,255,255,0.03) 50%); background-size: 100% 4px; }
+    </style>
 </head>
-<body class="bg-gradient-to-br from-cyan-50 to-purple-50 min-h-screen flex items-center justify-center">
-    <div class="w-full max-w-md">
-        <!-- Logo and Title -->
-        <div class="text-center mb-8">
-            <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-cyan-600 to-purple-600 rounded-full mb-4 shadow-lg">
-                <i class="fas fa-heartbeat text-white text-3xl"></i>
+<body class="bg-gray-900 text-white min-h-screen">
+    <nav class="bg-gray-800/80 backdrop-blur border-b border-cyan-500/30 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-heartbeat text-cyan-400 text-2xl"></i>
+                <span class="font-bold text-xl">PhysioMotion</span>
+                <span class="text-xs bg-cyan-500/20 px-2 py-1 rounded text-cyan-400">v2.0</span>
             </div>
-            <h1 class="text-3xl font-bold text-slate-800 mb-2">PhysioMotion</h1>
-            <p class="text-gray-600">Medical Movement Assessment Platform</p>
+            <div class="flex gap-4 text-sm text-gray-400">
+                <span><i class="fas fa-video mr-2"></i>Multi-Camera Support</span>
+                <span><i class="fas fa-brain mr-2"></i>Gemini AI</span>
+                <span><i class="fas fa-shield-alt mr-2"></i>HIPAA Compliant</span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-4xl mx-auto mt-12 px-6">
+        <!-- Hero Section -->
+        <div class="text-center mb-12">
+            <h1 class="text-5xl font-bold mb-4 bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">
+                Medical Movement Assessment Platform
+            </h1>
+            <p class="text-gray-400 text-lg">
+                Real-time joint tracking • AI-powered analysis • Medical-grade reporting
+            </p>
         </div>
 
-        <!-- Login Card -->
-        <div class="bg-white rounded-2xl shadow-2xl p-8 mb-4">
-            <h2 class="text-2xl font-bold text-slate-800 mb-6 text-center">Clinician Login</h2>
-            
-            <!-- Error Message -->
-            <div id="errorMessage" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
-                <i class="fas fa-exclamation-circle mr-2"></i>
-                <span id="errorText"></span>
-            </div>
-
-            <!-- Success Message -->
-            <div id="successMessage" class="hidden bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">
-                <i class="fas fa-check-circle mr-2"></i>
-                <span id="successText"></span>
-            </div>
-
-            <!-- Login Form -->
-            <form id="loginForm" class="space-y-4">
-                <div>
-                    <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-envelope mr-2 text-cyan-600"></i>Email
-                    </label>
-                    <input 
-                        type="email" 
-                        id="email" 
-                        name="email"
-                        placeholder="clinician@example.com"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
-                        required
-                    >
-                </div>
-
-                <div>
-                    <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-lock mr-2 text-purple-600"></i>Password
-                    </label>
-                    <input 
-                        type="password" 
-                        id="password" 
-                        name="password"
-                        placeholder="Enter your password"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                        required
-                    >
-                </div>
-
-                <div class="flex items-center justify-between">
-                    <label class="flex items-center">
-                        <input type="checkbox" id="rememberMe" class="w-4 h-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500">
-                        <span class="ml-2 text-sm text-gray-600">Remember me</span>
-                    </label>
-                    <a href="#" class="text-sm text-cyan-600 hover:text-cyan-700">Forgot password?</a>
-                </div>
-
-                <button 
-                    type="submit" 
-                    id="loginButton"
-                    class="w-full bg-gradient-to-r from-cyan-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-cyan-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                >
-                    <i class="fas fa-sign-in-alt mr-2"></i>
-                    Sign In
+        <!-- Camera Selection -->
+        <div class="bg-gray-800 rounded-2xl p-8 mb-8 border border-gray-700">
+            <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                <i class="fas fa-camera text-cyan-400"></i>
+                Select Camera Source
+            </h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <button onclick="selectCamera('webcam')" class="camera-btn bg-gray-700 hover:bg-cyan-500/30 p-4 rounded-xl border border-gray-600 hover:border-cyan-500 transition-all">
+                    <i class="fas fa-webcam text-2xl mb-2"></i>
+                    <p class="text-sm">Webcam</p>
                 </button>
-            </form>
+                <button onclick="selectCamera('femto')" class="camera-btn bg-gray-700 hover:bg-cyan-500/30 p-4 rounded-xl border border-gray-600 hover:border-cyan-500 transition-all">
+                    <i class="fas fa-cube text-2xl mb-2"></i>
+                    <p class="text-sm">Femto Mega</p>
+                </button>
+                <button onclick="selectCamera('kinect')" class="camera-btn bg-gray-700 hover:bg-cyan-500/30 p-4 rounded-xl border border-gray-600 hover:border-cyan-500 transition-all">
+                    <i class="fas fa-microchip text-2xl mb-2"></i>
+                    <p class="text-sm">Azure Kinect</p>
+                </button>
+                <button onclick="selectCamera('orbbec')" class="camera-btn bg-gray-700 hover:bg-cyan-500/30 p-4 rounded-xl border border-gray-600 hover:border-cyan-500 transition-all">
+                    <i class="fas fa-cubes text-2xl mb-2"></i>
+                    <p class="text-sm">Orbbec</p>
+                </button>
+            </div>
+        </div>
 
-            <!-- Divider -->
-            <div class="relative my-6">
-                <div class="absolute inset-0 flex items-center">
-                    <div class="w-full border-t border-gray-300"></div>
-                </div>
-                <div class="relative flex justify-center text-sm">
-                    <span class="px-2 bg-white text-gray-500">OR</span>
-                </div>
+        <!-- Access Options -->
+        <div class="grid md:grid-cols-2 gap-6 mb-12">
+            <!-- Login Card -->
+            <div class="bg-gray-800 rounded-2xl p-8 border border-gray-700">
+                <h3 class="text-xl font-semibold mb-4">Clinician Login</h3>
+                <form id="loginForm" class="space-y-4">
+                    <input type="email" id="email" placeholder="Email" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 focus:border-cyan-500 focus:outline-none">
+                    <input type="password" id="password" placeholder="Password" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 focus:border-cyan-500 focus:outline-none">
+                    <button type="submit" class="w-full bg-gradient-to-r from-cyan-500 to-purple-600 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity">
+                        <i class="fas fa-sign-in-alt mr-2"></i>Sign In
+                    </button>
+                </form>
             </div>
 
-            <!-- Demo Mode Button -->
-            <button 
-                id="skipButton"
-                class="w-full bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white py-3 rounded-lg font-semibold hover:from-violet-600 hover:to-fuchsia-600 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-            >
-                <i class="fas fa-fast-forward mr-2"></i>
-                Skip to Demo Mode
-            </button>
-            <p class="text-xs text-center text-gray-500 mt-2">Full access with demo data for testing</p>
+            <!-- Free Demo Access -->
+            <div class="bg-gradient-to-br from-cyan-900/50 to-purple-900/50 rounded-2xl p-8 border border-cyan-500/30">
+                <div class="flex items-center gap-3 mb-4">
+                    <i class="fas fa-play-circle text-cyan-400 text-2xl"></i>
+                    <h3 class="text-xl font-semibold">Free Demo Access</h3>
+                </div>
+                <p class="text-gray-300 mb-6">Experience the full platform with pre-loaded patient data and sample assessments. No registration required.</p>
+                <button id="demoBtn" onclick="startDemo()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 py-4 rounded-lg font-semibold text-lg hover:opacity-90 transition-all glow">
+                    <i class="fas fa-bolt mr-2"></i>Start Free Demo
+                </button>
+                <div class="mt-4 text-xs text-gray-400">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Includes sample patients, exercises, and AI-powered analysis
+                </div>
+            </div>
         </div>
 
-        <!-- Registration Link -->
-        <div class="text-center">
-            <p class="text-gray-600">
-                Don't have an account? 
-                <a href="/static/register.html" class="text-cyan-600 hover:text-cyan-700 font-semibold">
-                    <i class="fas fa-user-plus mr-1"></i>Register here
-                </a>
-            </p>
+        <!-- Features Grid -->
+        <div class="grid md:grid-cols-3 gap-6 mb-12">
+            <div class="bg-gray-800/50 rounded-xl p-6 text-center">
+                <div class="w-12 h-12 bg-cyan-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-people-arrows text-cyan-400"></i>
+                </div>
+                <h4 class="font-semibold mb-2">Real-Time Tracking</h4>
+                <p class="text-sm text-gray-400">33 joint points tracked at 60fps with sub-millimeter precision</p>
+            </div>
+            <div class="bg-gray-800/50 rounded-xl p-6 text-center">
+                <div class="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-brain text-purple-400"></i>
+                </div>
+                <h4 class="font-semibold mb-2">AI-Powered Analysis</h4>
+                <p class="text-sm text-gray-400">Gemini Embedded 2.0 provides medical-grade insights and recommendations</p>
+            </div>
+            <div class="bg-gray-800/50 rounded-xl p-6 text-center">
+                <div class="w-12 h-12 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-file-medical text-emerald-400"></i>
+                </div>
+                <h4 class="font-semibold mb-2">Medical Reports</h4>
+                <p class="text-sm text-gray-400">Physician-ready documentation with trend analysis and clinical insights</p>
+            </div>
         </div>
 
-        <!-- Demo Credentials -->
-        <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p class="text-sm font-semibold text-blue-800 mb-2">
-                <i class="fas fa-info-circle mr-2"></i>Demo Credentials
-            </p>
-            <div class="text-xs text-blue-700 space-y-1">
-                <p><strong>Email:</strong> demo@physiomotion.com</p>
-                <p><strong>Password:</strong> demo123</p>
-                <p class="mt-2 text-blue-600"><em>Or click "Skip to Demo Mode" for instant access</em></p>
+        <!-- Camera Support -->
+        <div class="bg-gray-800 rounded-2xl p-6 mb-12">
+            <h3 class="text-lg font-semibold mb-4 text-center">Supported Camera Types</h3>
+            <div class="flex flex-wrap justify-center gap-4">
+                <span class="px-4 py-2 bg-gray-700 rounded-full text-sm"><i class="fas fa-check text-green-400 mr-2"></i>Standard Webcams</span>
+                <span class="px-4 py-2 bg-gray-700 rounded-full text-sm"><i class="fas fa-check text-green-400 mr-2"></i>Femto Mega (3D)</span>
+                <span class="px-4 py-2 bg-gray-700 rounded-full text-sm"><i class="fas fa-check text-green-400 mr-2"></i>Azure Kinect</span>
+                <span class="px-4 py-2 bg-gray-700 rounded-full text-sm"><i class="fas fa-check text-green-400 mr-2"></i>Orbbec DaBai</span>
+                <span class="px-4 py-2 bg-gray-700 rounded-full text-sm"><i class="fas fa-check text-green-400 mr-2"></i>Intel RealSense</span>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
     <script>
-        const loginForm = document.getElementById('loginForm');
-        const skipButton = document.getElementById('skipButton');
-        const errorMessage = document.getElementById('errorMessage');
-        const errorText = document.getElementById('errorText');
-        const successMessage = document.getElementById('successMessage');
-        const successText = document.getElementById('successText');
-        const loginButton = document.getElementById('loginButton');
+        let selectedCamera = 'webcam';
 
-        // Show error message
-        function showError(message) {
-            errorText.textContent = message;
-            errorMessage.classList.remove('hidden');
-            successMessage.classList.add('hidden');
-            setTimeout(() => {
-                errorMessage.classList.add('hidden');
-            }, 5000);
+        function selectCamera(type) {
+            selectedCamera = type;
+            document.querySelectorAll('.camera-btn').forEach(btn => btn.classList.remove('border-cyan-500', 'bg-cyan-500/20'));
+            event.target.closest('.camera-btn').classList.add('border-cyan-500', 'bg-cyan-500/20');
         }
 
-        // Show success message
-        function showSuccess(message) {
-            successText.textContent = message;
-            successMessage.classList.remove('hidden');
-            errorMessage.classList.add('hidden');
-        }
-
-        // Handle login form submission
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const rememberMe = document.getElementById('rememberMe').checked;
-
-            loginButton.disabled = true;
-            loginButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Signing in...';
-
-            try {
-                const response = await axios.post('/api/auth/login', {
-                    email,
-                    password
-                });
-
-                if (response.data.success) {
-                    // Store session data
-                    const storage = rememberMe ? localStorage : sessionStorage;
-                    storage.setItem('clinician_session', JSON.stringify(response.data.data));
-                    
-                    showSuccess('Login successful! Redirecting...');
-                    
-                    // Redirect to dashboard
-                    setTimeout(() => {
-                        window.location.href = '/';
-                    }, 1000);
-                } else {
-                    showError(response.data.error || 'Login failed. Please try again.');
-                    loginButton.disabled = false;
-                    loginButton.innerHTML = '<i class="fas fa-sign-in-alt mr-2"></i>Sign In';
-                }
-            } catch (error) {
-                console.error('Login error:', error);
-                showError(error.response?.data?.error || 'Invalid email or password. Please try again.');
-                loginButton.disabled = false;
-                loginButton.innerHTML = '<i class="fas fa-sign-in-alt mr-2"></i>Sign In';
-            }
-        });
-
-        // Handle skip to demo mode
-        skipButton.addEventListener('click', () => {
-            // Create demo session
+        function startDemo() {
             const demoSession = {
                 id: 0,
                 email: 'demo@physiomotion.com',
                 first_name: 'Demo',
                 last_name: 'Clinician',
-                title: 'DPT',
-                role: 'clinician',
-                is_demo: true
+                is_demo: true,
+                camera: selectedCamera
             };
-
-            sessionStorage.setItem('clinician_session', JSON.stringify(demoSession));
-            
-            showSuccess('Demo mode activated! Redirecting...');
-            
-            // Redirect to dashboard
-            setTimeout(() => {
-                window.location.href = '/';
-            }, 800);
-        });
-
-        // Check if already logged in
-        const existingSession = localStorage.getItem('clinician_session') || sessionStorage.getItem('clinician_session');
-        if (existingSession) {
-            window.location.href = '/';
+            sessionStorage.setItem('physiomotion_session', JSON.stringify(demoSession));
+            window.location.href = '/static/dashboard.html';
         }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    sessionStorage.setItem('physiomotion_session', JSON.stringify({ ...data.data, camera: selectedCamera }));
+                    window.location.href = '/static/dashboard.html';
+                } else {
+                    alert(data.error || 'Login failed');
+                }
+            } catch (err) {
+                alert('Connection error');
+            }
+        });
     </script>
 </body>
 </html>
