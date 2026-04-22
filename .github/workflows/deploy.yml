@@ -25,7 +25,7 @@ jobs:
           npx vercel@latest --version
           npx vercel@latest --prod \
             --token=${{ secrets.VERCEL_TOKEN }} \
-            --org=${{ secrets.VERCEL_ORG_ID }} \
+            --scope=${{ secrets.VERCEL_ORG_ID }} \
             --project=${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Verify deployment
