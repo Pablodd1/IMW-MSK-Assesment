@@ -152,7 +152,7 @@
                 camera: selectedCamera
             };
             sessionStorage.setItem('physiomotion_session', JSON.stringify(demoSession));
-            window.location.href = '/static/dashboard.html';
+            window.location.href = '/static/assessment.html';
         }
 
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -169,7 +169,7 @@
                 const data = await res.json();
                 if (data.success) {
                     sessionStorage.setItem('physiomotion_session', JSON.stringify({ ...data.data, camera: selectedCamera }));
-                    window.location.href = '/static/dashboard.html';
+                    window.location.href = '/static/assessment.html';
                 } else {
                     alert(data.error || 'Login failed');
                 }

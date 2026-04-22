@@ -1,21 +1,11 @@
 {
-    "version": 2,
-    "outputDirectory": "public",
-    "rewrites": [
-        {
-            "source": "/static/(.*)",
-            "destination": "/public/static/$1"
-        },
-        {
-            "source": "/api/(.*)",
-            "destination": "/api"
-        },
-        {
-            "source": "/(.*)",
-            "destination": "/api"
-        }
-    ],
-    "env": {
-        "NODE_VERSION": "20.x"
-    }
+  "buildCommand": "",
+  "framework": "static",
+  "outputDirectory": "dist"
+}
+  },
+  " Framework": "vite",
+  "installCommand": "npm install",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist"
 }
