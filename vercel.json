@@ -15,6 +15,5 @@
     "DEMO_MODE": "true",
     "NODE_ENV": "production"
   },
-  "project": "imw-msk-assesment",
-  "team": "pablos-projects-0f79dff2"
+  "project": "imw-msk-assesment"
 }
