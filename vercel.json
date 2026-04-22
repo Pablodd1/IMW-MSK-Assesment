@@ -1,7 +1,11 @@
 {
-  "buildCommand": "",
-  "framework": "static",
-  "outputDirectory": "dist"
+  "version": 2,
+  "builds": [
+    { "src": "dist/**", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "/$1" }
+  ]
 }
   },
   " Framework": "vite",
