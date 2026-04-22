@@ -557,6 +557,8 @@ export async function demoGemma4() {
   console.log('='.repeat(60));
 }
 
-if (require.main === module) {
-  demoGemma4().catch(console.error);
-}
+try {
+  if (require && require.main === module) {
+    demoGemma4().catch(console.error);
+  }
+} catch { /* ESM context — skip */ }

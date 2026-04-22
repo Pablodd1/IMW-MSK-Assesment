@@ -1,13 +1,14 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { logger } from 'hono/logger';
+import { logger as honoLogger } from 'hono/logger';
 import { MOCK_PATIENTS, EXERCISE_LIBRARY } from './mockData.js';
 import mskRouter from './routes/msk-analysis.js';
+import aiRoutes from './routes/ai-analysis.js';
 
 const app = new Hono();
 
 // Middleware
-app.use('*', logger());
+app.use('*', honoLogger());
 app.use('*', cors({
   origin: '*',
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -18,6 +19,11 @@ app.use('*', cors({
 // SPECIALIST AGENT ROUTES
 // ============================================================================
 app.route('/api/msk-analysis', mskRouter);
+
+// ============================================================================
+// AI ANALYSIS ROUTES
+// ============================================================================
+app.route('/api/ai', aiRoutes);
 
 // ============================================================================
 // HEALTH CHECK

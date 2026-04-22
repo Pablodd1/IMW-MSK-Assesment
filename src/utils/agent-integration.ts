@@ -443,6 +443,8 @@ export async function demoIntegration(): Promise<void> {
 }
 
 // Run demo if executed directly
-if (require.main === module) {
-  demoIntegration().catch(console.error);
-}
+try {
+  if (require && require.main === module) {
+    demoIntegration().catch(console.error);
+  }
+} catch { /* ESM context — skip */ }
