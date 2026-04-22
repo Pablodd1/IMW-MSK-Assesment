@@ -7,9 +7,3 @@
     { "src": "/(.*)", "dest": "/dist/$1" }
   ]
 }
-  },
-  " Framework": "vite",
-  "installCommand": "npm install",
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist"
-}
