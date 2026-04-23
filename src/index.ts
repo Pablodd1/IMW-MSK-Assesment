@@ -18,17 +18,17 @@ app.use('*', cors({
 // ============================================================================
 // SPECIALIST AGENT ROUTES
 // ============================================================================
-app.route('/api/msk-analysis', mskRouter);
+app.route('/msk-analysis', mskRouter);
 
 // ============================================================================
 // AI ANALYSIS ROUTES
 // ============================================================================
-app.route('/api/ai', aiRoutes);
+app.route('/ai', aiRoutes);
 
 // ============================================================================
 // HEALTH CHECK
 // ============================================================================
-app.get('/api/health', (c) => {
+app.get('/health', (c) => {
   return c.json({
     success: true,
     status: 'healthy',
@@ -50,7 +50,7 @@ app.get('/api/health', (c) => {
 // ============================================================================
 
 // Get all patients
-app.get('/api/patients', (c) => {
+app.get('/patients', (c) => {
   const patients = MOCK_PATIENTS.map(p => ({
     id: p.id,
     first_name: p.first_name,
@@ -72,7 +72,7 @@ app.get('/api/patients', (c) => {
 });
 
 // Get patient by ID
-app.get('/api/patients/:id', (c) => {
+app.get('/patients/:id', (c) => {
   const id = parseInt(c.req.param('id'));
   const patient = MOCK_PATIENTS.find(p => p.id === id);
   
@@ -84,7 +84,7 @@ app.get('/api/patients/:id', (c) => {
 });
 
 // Create new patient
-app.post('/api/patients', async (c) => {
+app.post('/patients', async (c) => {
   const body = await c.req.json();
   
   const newPatient = {
@@ -105,7 +105,7 @@ app.post('/api/patients', async (c) => {
 });
 
 // Update patient
-app.put('/api/patients/:id', async (c) => {
+app.put('/patients/:id', async (c) => {
   const id = parseInt(c.req.param('id'));
   const body = await c.req.json();
   
@@ -120,7 +120,7 @@ app.put('/api/patients/:id', async (c) => {
 });
 
 // Get patient medical history
-app.get('/api/patients/:id/medical-history', (c) => {
+app.get('/patients/:id/medical-history', (c) => {
   const id = parseInt(c.req.param('id'));
   const patient = MOCK_PATIENTS.find(p => p.id === id);
   
@@ -135,7 +135,7 @@ app.get('/api/patients/:id/medical-history', (c) => {
 });
 
 // Add medical history
-app.post('/api/patients/:id/medical-history', async (c) => {
+app.post('/patients/:id/medical-history', async (c) => {
   const id = parseInt(c.req.param('id'));
   const body = await c.req.json();
   
@@ -153,7 +153,7 @@ app.post('/api/patients/:id/medical-history', async (c) => {
 });
 
 // Get patient assessments
-app.get('/api/patients/:id/assessments', (c) => {
+app.get('/patients/:id/assessments', (c) => {
   const id = parseInt(c.req.param('id'));
   const patient = MOCK_PATIENTS.find(p => p.id === id);
   
@@ -168,7 +168,7 @@ app.get('/api/patients/:id/assessments', (c) => {
 });
 
 // Get patient prescriptions
-app.get('/api/patients/:id/prescriptions', (c) => {
+app.get('/patients/:id/prescriptions', (c) => {
   const id = parseInt(c.req.param('id'));
   const patient = MOCK_PATIENTS.find(p => p.id === id);
   
@@ -188,7 +188,7 @@ app.get('/api/patients/:id/prescriptions', (c) => {
 });
 
 // Get patient sessions
-app.get('/api/patients/:id/sessions', (c) => {
+app.get('/patients/:id/sessions', (c) => {
   const id = parseInt(c.req.param('id'));
   const patient = MOCK_PATIENTS.find(p => p.id === id);
   
@@ -207,7 +207,7 @@ app.get('/api/patients/:id/sessions', (c) => {
 // ============================================================================
 
 // Create assessment
-app.post('/api/assessments', async (c) => {
+app.post('/assessments', async (c) => {
   const body = await c.req.json();
   const { patient_id, assessment_type, clinician_id } = body;
   
@@ -239,7 +239,7 @@ app.post('/api/assessments', async (c) => {
 });
 
 // Get all assessments
-app.get('/api/assessments', (c) => {
+app.get('/assessments', (c) => {
   const allAssessments = MOCK_PATIENTS.flatMap(p => 
     (p.assessments || []).map(a => ({
       ...a,
@@ -252,7 +252,7 @@ app.get('/api/assessments', (c) => {
 });
 
 // Get assessment by ID
-app.get('/api/assessments/:id', (c) => {
+app.get('/assessments/:id', (c) => {
   const id = parseInt(c.req.param('id'));
   
   for (const patient of MOCK_PATIENTS) {
@@ -269,7 +269,7 @@ app.get('/api/assessments/:id', (c) => {
 });
 
 // Add test to assessment
-app.post('/api/assessments/:id/tests', async (c) => {
+app.post('/assessments/:id/tests', async (c) => {
   const assessmentId = parseInt(c.req.param('id'));
   const body = await c.req.json();
   
@@ -293,7 +293,7 @@ app.post('/api/assessments/:id/tests', async (c) => {
 });
 
 // Generate clinical note
-app.post('/api/assessments/:id/generate-note', async (c) => {
+app.post('/assessments/:id/generate-note', async (c) => {
   const assessmentId = parseInt(c.req.param('id'));
   
   for (const patient of MOCK_PATIENTS) {
@@ -368,7 +368,7 @@ function generateClinicalNote(patient: any, assessment: any) {
 // ============================================================================
 
 // Get all exercises
-app.get('/api/exercises', (c) => {
+app.get('/exercises', (c) => {
   const category = c.req.query('category');
   
   let exercises: any[] = EXERCISE_LIBRARY;
@@ -380,7 +380,7 @@ app.get('/api/exercises', (c) => {
 });
 
 // Get exercise by ID
-app.get('/api/exercises/:id', (c) => {
+app.get('/exercises/:id', (c) => {
   const id = c.req.param('id');
   const exercise = EXERCISE_LIBRARY.find(e => e.id === id);
   
@@ -396,7 +396,7 @@ app.get('/api/exercises/:id', (c) => {
 // ============================================================================
 
 // Create prescription
-app.post('/api/prescriptions', async (c) => {
+app.post('/prescriptions', async (c) => {
   const body = await c.req.json();
   const { patient_id, exercise_id, assessment_id, sets, reps, frequency, notes } = body;
   
@@ -436,7 +436,7 @@ app.post('/api/prescriptions', async (c) => {
 // ============================================================================
 
 // Record exercise session
-app.post('/api/exercise-sessions', async (c) => {
+app.post('/exercise-sessions', async (c) => {
   const body = await c.req.json();
   const { patient_id, exercises_completed, duration_minutes, pain_level, notes } = body;
   
@@ -477,7 +477,7 @@ app.post('/api/exercise-sessions', async (c) => {
 // ============================================================================
 
 // Get dashboard stats
-app.get('/api/dashboard/stats', (c) => {
+app.get('/dashboard/stats', (c) => {
   console.log('[PHYSIOMOTION] Dashboard stats endpoint hit');
   const stats = {
     total_patients: MOCK_PATIENTS.length,
@@ -503,7 +503,7 @@ app.get('/api/dashboard/stats', (c) => {
 });
 
 // Get patient progress
-app.get('/api/patients/:id/progress', (c) => {
+app.get('/patients/:id/progress', (c) => {
   const id = parseInt(c.req.param('id'));
   const patient = MOCK_PATIENTS.find(p => p.id === id);
   
@@ -527,7 +527,7 @@ app.get('/api/patients/:id/progress', (c) => {
 // AUTH ROUTES (Demo Mode)
 // ============================================================================
 
-app.post('/api/auth/login', async (c) => {
+app.post('/auth/login', async (c) => {
   const body = await c.req.json();
   
   // Demo mode - accept any credentials
@@ -547,7 +547,7 @@ app.post('/api/auth/login', async (c) => {
   });
 });
 
-app.get('/api/auth/me', (c) => {
+app.get('/auth/me', (c) => {
   return c.json({
     success: true,
     data: {
