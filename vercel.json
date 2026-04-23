@@ -6,6 +6,5 @@
   "env": {
     "DEMO_MODE": "true",
     "NODE_ENV": "production"
-  },
-  "project": "imw-msk-assesment"
+  }
 }
