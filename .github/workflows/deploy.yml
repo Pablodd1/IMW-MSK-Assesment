@@ -23,13 +23,11 @@ jobs:
       - name: Deploy to Vercel
         run: |
           npx vercel@latest --version
-          npx vercel@latest --prod --yes \
+          npx vercel@latest --prod --yes --force \
             --token=${{ secrets.VERCEL_TOKEN }} \
             --scope=${{ secrets.VERCEL_ORG_ID }}
 
       - name: Verify deployment
         run: |
           sleep 15
-          curl -s https://imw-msk-assesment.vercel.app/api/health | jq . || \
-          echo "Checking alternative URL..." && \
-          curl -s https://imw-msk-assesment-pablodds-projects.vercel.app/api/health | jq .
+          curl -s https://imw-msk-assesment.vercel.app/health | jq .
