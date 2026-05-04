@@ -9,7 +9,7 @@
     "start": "tsx index.ts",
     "init-db": "node scripts/init-db.js",
     "railway": "npm start",
-    "test": "curl http://localhost:3000/api/health"
+    "test": "curl -fsS http://localhost:${PORT:-3001}/health > /dev/null && echo \"health ok\""
   },
   "dependencies": {
     "@google/generative-ai": "^0.2.0",
