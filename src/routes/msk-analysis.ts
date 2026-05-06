@@ -143,8 +143,42 @@ mskRouter.post('/', async (c) => {
       }
     );
 
+    // -- Step 5.5: Fail-Closed Clinical Quality Gate --
+    // Prevent unsafe AI outputs if confidence is too low
+    const MINIMUM_CLINICAL_CONFIDENCE = 0.85; // 85% confidence required
+    const qualityStatus = agentResult.consensusConfidence >= MINIMUM_CLINICAL_CONFIDENCE
+      ? 'passed'
+      : 'failed';
+
+    if (qualityStatus === 'failed') {
+      console.warn(`Clinical quality gate failed. Confidence: ${agentResult.consensusConfidence}`);
+      // We still return a report, but without recommendations/RAG and with clear warnings
+      return c.json({
+        success: false,
+        error: 'Clinical quality gate failed: insufficient tracking confidence or consensus',
+        quality_flags: {
+          status: qualityStatus,
+          confidence: agentResult.consensusConfidence,
+          threshold: MINIMUM_CLINICAL_CONFIDENCE,
+          message: 'The AI could not confidently analyze this movement. Please ensure the patient is fully visible and repeat the assessment.'
+        },
+        partial_data: {
+          agent_analysis: {
+            consensus_confidence: agentResult.consensusConfidence,
+            agents_activated: agentResult.results.length,
+            body_regions_analyzed: [...new Set(bodyRegions)]
+          }
+        }
+      }, 422); // Unprocessable Entity
+    }
+
     // -- Step 6: Compile full clinical report --
     const report = {
+      quality_flags: {
+        status: qualityStatus,
+        confidence: agentResult.consensusConfidence,
+        threshold: MINIMUM_CLINICAL_CONFIDENCE
+      },
       assessment_id: `msk-${Date.now()}`,
       patient_id: patientId,
       session_id: activeSessionId,

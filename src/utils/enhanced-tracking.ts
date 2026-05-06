@@ -28,31 +28,39 @@ const DEFAULT_CONFIG: TrackingConfig = {
 class KalmanFilter {
   private q: number; // Process noise
   private r: number; // Measurement noise
-  private x: number = 0; // Estimated value
-  private p: number = 1; // Estimation error covariance
-  private k: number = 0; // Kalman gain
+
+  // States per axis
+  private states: Record<string, { x: number; p: number; k: number }> = {
+    x: { x: 0, p: 1, k: 0 },
+    y: { x: 0, p: 1, k: 0 },
+    z: { x: 0, p: 1, k: 0 }
+  };
 
   constructor(processNoise: number = 0.01, measurementNoise: number = 0.1) {
     this.q = processNoise;
     this.r = measurementNoise;
   }
 
-  update(measurement: number): number {
+  update(measurement: number, axis: 'x' | 'y' | 'z' = 'x'): number {
+    const state = this.states[axis];
+
     // Prediction update
-    this.p = this.p + this.q;
+    state.p = state.p + this.q;
 
     // Measurement update
-    this.k = this.p / (this.p + this.r);
-    this.x = this.x + this.k * (measurement - this.x);
-    this.p = (1 - this.k) * this.p;
+    state.k = state.p / (state.p + this.r);
+    state.x = state.x + state.k * (measurement - state.x);
+    state.p = (1 - state.k) * state.p;
 
-    return this.x;
+    return state.x;
   }
 
   reset(): void {
-    this.x = 0;
-    this.p = 1;
-    this.k = 0;
+    this.states = {
+      x: { x: 0, p: 1, k: 0 },
+      y: { x: 0, p: 1, k: 0 },
+      z: { x: 0, p: 1, k: 0 }
+    };
   }
 }
 
@@ -61,31 +69,38 @@ class KalmanFilter {
 // ============================================================================
 
 class MovingAverageFilter {
-  private window: number[];
   private windowSize: number;
-  private index: number = 0;
-  private filled: boolean = false;
+  private states: Record<string, { window: number[]; index: number; filled: boolean }> = {
+    x: { window: [], index: 0, filled: false },
+    y: { window: [], index: 0, filled: false },
+    z: { window: [], index: 0, filled: false }
+  };
 
   constructor(windowSize: number = 5) {
     this.windowSize = windowSize;
-    this.window = new Array(windowSize).fill(0);
+    this.states.x.window = new Array(windowSize).fill(0);
+    this.states.y.window = new Array(windowSize).fill(0);
+    this.states.z.window = new Array(windowSize).fill(0);
   }
 
-  update(value: number): number {
-    this.window[this.index] = value;
-    this.index = (this.index + 1) % this.windowSize;
+  update(value: number, axis: 'x' | 'y' | 'z' = 'x'): number {
+    const state = this.states[axis];
+    state.window[state.index] = value;
+    state.index = (state.index + 1) % this.windowSize;
 
-    if (this.index === 0) this.filled = true;
+    if (state.index === 0) state.filled = true;
 
-    const count = this.filled ? this.windowSize : this.index;
-    const sum = this.window.reduce((a, b) => a + b, 0);
+    const count = state.filled ? this.windowSize : state.index;
+    const sum = state.window.reduce((a, b) => a + b, 0);
     return sum / count;
   }
 
   reset(): void {
-    this.window.fill(0);
-    this.index = 0;
-    this.filled = false;
+    this.states = {
+      x: { window: new Array(this.windowSize).fill(0), index: 0, filled: false },
+      y: { window: new Array(this.windowSize).fill(0), index: 0, filled: false },
+      z: { window: new Array(this.windowSize).fill(0), index: 0, filled: false }
+    };
   }
 }
 
@@ -94,33 +109,37 @@ class MovingAverageFilter {
 // ============================================================================
 
 class OutlierDetector {
-  private history: number[] = [];
   private readonly maxHistory = 10;
   private readonly zThreshold = 2.5;
+  private states: Record<string, number[]> = {
+    x: [], y: [], z: []
+  };
 
-  isOutlier(value: number): boolean {
-    if (this.history.length < 3) {
-      this.history.push(value);
+  isOutlier(value: number, axis: 'x' | 'y' | 'z' = 'x'): boolean {
+    const history = this.states[axis];
+
+    if (history.length < 3) {
+      history.push(value);
       return false;
     }
 
-    const mean = this.history.reduce((a, b) => a + b, 0) / this.history.length;
+    const mean = history.reduce((a, b) => a + b, 0) / history.length;
     const std = Math.sqrt(
-      this.history.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / this.history.length
+      history.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / history.length
     );
 
     const zScore = Math.abs((value - mean) / (std || 1));
 
-    this.history.push(value);
-    if (this.history.length > this.maxHistory) {
-      this.history.shift();
+    history.push(value);
+    if (history.length > this.maxHistory) {
+      history.shift();
     }
 
     return zScore > this.zThreshold;
   }
 
   reset(): void {
-    this.history = [];
+    this.states = { x: [], y: [], z: [] };
   }
 }
 
@@ -173,7 +192,7 @@ class JointTracker {
       const visibility = landmark.visibility || 0;
       const isValid = visibility >= this.config.confidenceThreshold;
 
-      if (!isValid || (this.config.outlierRemoval && outlier.isOutlier(landmark.x))) {
+      if (!isValid || (this.config.outlierRemoval && (outlier.isOutlier(landmark.x, 'x') || outlier.isOutlier(landmark.y, 'y') || outlier.isOutlier(landmark.z || 0, 'z')))) {
         // Use last valid value or interpolate
         result[name] = {
           ...landmark,
@@ -189,14 +208,15 @@ class JointTracker {
       let filteredZ = landmark.z || 0;
 
       if (this.config.temporalSmoothing) {
-        filteredX = kalman.update(landmark.x);
-        filteredY = kalman.update(landmark.y);
-        filteredZ = kalman.update(landmark.z || 0);
+        filteredX = kalman.update(landmark.x, 'x');
+        filteredY = kalman.update(landmark.y, 'y');
+        filteredZ = kalman.update(landmark.z || 0, 'z');
       }
 
       if (this.config.smoothingWindow > 1) {
-        filteredX = movingAvg.update(filteredX);
-        filteredY = movingAvg.update(filteredY);
+        filteredX = movingAvg.update(filteredX, 'x');
+        filteredY = movingAvg.update(filteredY, 'y');
+        filteredZ = movingAvg.update(filteredZ, 'z');
       }
 
       result[name] = {
