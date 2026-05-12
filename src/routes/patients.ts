@@ -1,12 +1,12 @@
 // Patient Routes - Full CRUD with Database Integration and XSS Protection
 
 import { Hono } from 'hono'
-import type { Bindings, Variables, Patient, MedicalHistory } from '../types'
-import { authMiddleware, requireRole } from '../middleware/auth'
-import { validate, patientCreateSchema } from '../middleware/validation'
-import { getPool } from '../database'
-import { phiAudit } from '../middleware/hipaa'
-import { sanitizeString, sanitizeEmail, sanitizePhone } from '../utils/security'
+import type { Bindings, Variables, Patient, MedicalHistory } from '../types.js'
+import { authMiddleware, requireRole } from '../middleware/auth.js'
+import { validate, patientCreateSchema } from '../middleware/validation.js'
+import { getPool } from '../database.js'
+import { phiAudit } from '../middleware/hipaa.js'
+import { sanitizeString, sanitizeEmail, sanitizePhone } from '../utils/security.js'
 
 const patients = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 

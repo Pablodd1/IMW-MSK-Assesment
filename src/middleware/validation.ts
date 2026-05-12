@@ -3,7 +3,7 @@
 
 import { createMiddleware } from 'hono/factory'
 import { z } from 'zod'
-import type { Bindings, Variables } from '../types'
+import type { Bindings, Variables } from '../types.js'
 
 // Custom error handler for Zod
 function formatZodError(error: z.ZodError): { field: string; message: string }[] {

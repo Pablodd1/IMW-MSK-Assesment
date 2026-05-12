@@ -1,7 +1,7 @@
 // Enhanced Joint Tracking System
 // Maximum Accuracy Implementation for Orbbec Femto Mega & MediaPipe
 
-import type { PoseLandmark, JointAngle, SkeletonData, ClinicalJointAngle } from '../types';
+import type { PoseLandmark, JointAngle, SkeletonData, ClinicalJointAngle } from '../types.js';
 
 // ============================================================================
 // CONFIGURATION

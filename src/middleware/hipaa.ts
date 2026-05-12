@@ -2,8 +2,8 @@
 // Audit Logging & PHI Protection
 
 import { createMiddleware } from 'hono/factory'
-import type { Bindings, Variables } from '../types'
-import { getPool } from '../database'
+import type { Bindings, Variables } from '../types.js'
+import { getPool } from '../database.js'
 
 // Audit Action Types
 export type AuditAction =

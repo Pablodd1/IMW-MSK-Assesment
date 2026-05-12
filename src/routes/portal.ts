@@ -1,9 +1,9 @@
 // Patient Portal Routes - Patient-facing API endpoints
 
 import { Hono } from 'hono'
-import type { Bindings, Variables } from '../types'
-import { authMiddleware } from '../middleware/auth'
-import { getPool } from '../database'
+import type { Bindings, Variables } from '../types.js'
+import { authMiddleware } from '../middleware/auth.js'
+import { getPool } from '../database.js'
 import bcrypt from 'bcryptjs'
 
 const portal = new Hono<{ Bindings: Bindings; Variables: Variables }>()

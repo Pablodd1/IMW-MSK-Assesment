@@ -1,9 +1,9 @@
 // Video Upload Routes - Secure Storage and Playback
 
 import { Hono } from 'hono'
-import type { Bindings, Variables } from '../types'
-import { authMiddleware } from '../middleware/auth'
-import { getPool } from '../database'
+import type { Bindings, Variables } from '../types.js'
+import { authMiddleware } from '../middleware/auth.js'
+import { getPool } from '../database.js'
 
 const videos = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 

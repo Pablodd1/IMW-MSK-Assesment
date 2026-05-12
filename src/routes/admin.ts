@@ -1,9 +1,9 @@
 // Admin Routes - System Management and User Administration
 
 import { Hono } from 'hono'
-import type { Bindings, Variables } from '../types'
-import { authMiddleware, requireRole } from '../middleware/auth'
-import { getPool } from '../database'
+import type { Bindings, Variables } from '../types.js'
+import { authMiddleware, requireRole } from '../middleware/auth.js'
+import { getPool } from '../database.js'
 import bcrypt from 'bcryptjs'
 
 const admin = new Hono<{ Bindings: Bindings; Variables: Variables }>()

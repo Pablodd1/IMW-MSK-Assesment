@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { createMiddleware } from 'hono/factory'
-import type { Bindings, Variables } from '../types'
+import type { Bindings, Variables } from '../types.js'
 
 // In-memory rate limit store (for single worker)
 // In production, use Redis or Cloudflare KV

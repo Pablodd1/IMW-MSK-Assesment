@@ -3,11 +3,11 @@
 
 import { Hono } from 'hono'
 import bcrypt from 'bcryptjs'
-import type { Bindings, Variables } from '../types'
-import { generateToken, hashPassword, verifyPassword } from '../middleware/auth'
-import { validate, loginSchema, clinicianRegisterSchema } from '../middleware/validation'
-import { getPool, withTransaction } from '../database'
-import { auditLog } from '../middleware/hipaa'
+import type { Bindings, Variables } from '../types.js'
+import { generateToken, hashPassword, verifyPassword } from '../middleware/auth.js'
+import { validate, loginSchema, clinicianRegisterSchema } from '../middleware/validation.js'
+import { getPool, withTransaction } from '../database.js'
+import { auditLog } from '../middleware/hipaa.js'
 
 const auth = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 

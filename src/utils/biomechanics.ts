@@ -1,7 +1,7 @@
 // Biomechanical Analysis Utilities
 // Joint angle calculations, ROM analysis, and deficiency detection
 
-import type { PoseLandmark, JointAngle, BiomechanicalAnalysis, SkeletonData } from '../types';
+import type { PoseLandmark, JointAngle, BiomechanicalAnalysis, SkeletonData } from '../types.js';
 
 /**
  * Calculate angle between three points in 3D space

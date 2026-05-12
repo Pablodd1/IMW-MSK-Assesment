@@ -1,4 +1,4 @@
-import type { Bindings } from '../types'
+import type { Bindings } from '../types.js'
 
 // Global mockD1 for Cloudflare context
 export const mockD1 = {

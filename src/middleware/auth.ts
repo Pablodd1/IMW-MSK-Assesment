@@ -1,9 +1,9 @@
-import { mockD1 } from '../utils/db-helpers';
+import { mockD1 } from '../utils/db-helpers.js';
 // Security Middleware - Authentication & Authorization
 // Medical-Grade Implementation
 
 import { createMiddleware } from 'hono/factory'
-import type { Bindings, Variables } from '../types'
+import type { Bindings, Variables } from '../types.js'
 import bcrypt from 'bcryptjs'
 
 const SALT_ROUNDS = 12

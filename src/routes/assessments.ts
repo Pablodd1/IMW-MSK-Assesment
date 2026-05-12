@@ -1,10 +1,10 @@
 // Assessment Routes - Full Database Integration with XSS Protection
 
 import { Hono } from 'hono'
-import type { Bindings, Variables } from '../types'
-import { authMiddleware } from '../middleware/auth'
-import { getPool } from '../database'
-import { sanitizeString, sanitizeJsonContent } from '../utils/security'
+import type { Bindings, Variables } from '../types.js'
+import { authMiddleware } from '../middleware/auth.js'
+import { getPool } from '../database.js'
+import { sanitizeString, sanitizeJsonContent } from '../utils/security.js'
 
 const assessments = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 

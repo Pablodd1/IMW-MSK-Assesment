@@ -1,10 +1,10 @@
 // Exercise Routes - Full Database Integration with 100+ Exercises
 
 import { Hono } from 'hono'
-import type { Bindings, Variables } from '../types'
-import { authMiddleware } from '../middleware/auth'
-import { validate, prescriptionSchema } from '../middleware/validation'
-import { getPool } from '../database'
+import type { Bindings, Variables } from '../types.js'
+import { authMiddleware } from '../middleware/auth.js'
+import { validate, prescriptionSchema } from '../middleware/validation.js'
+import { getPool } from '../database.js'
 
 const exercises = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 

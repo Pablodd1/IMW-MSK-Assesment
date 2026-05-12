@@ -1,10 +1,10 @@
 // Movement Test Analysis Routes
 
 import { Hono } from 'hono'
-import type { Bindings, Variables } from '../types'
-import { authMiddleware } from '../middleware/auth'
-import { getPool } from '../database'
-import { performBiomechanicalAnalysis } from '../utils/biomechanics'
+import type { Bindings, Variables } from '../types.js'
+import { authMiddleware } from '../middleware/auth.js'
+import { getPool } from '../database.js'
+import { performBiomechanicalAnalysis } from '../utils/biomechanics.js'
 
 const tests = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
