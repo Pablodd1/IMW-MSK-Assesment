@@ -3,6 +3,9 @@
   "buildCommand": "npm ci",
   "installCommand": "npm install",
   "regions": ["iad1"],
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api" }
+  ],
   "env": {
     "DEMO_MODE": "true",
     "NODE_ENV": "production"

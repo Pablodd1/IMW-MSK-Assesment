@@ -1,7 +1,8 @@
 import { handle } from 'hono/vercel'
+import { Hono } from 'hono'
 import app from '../src/index'
 
-// Debug route - verify function is running
-app.get('/test', (c) => c.json({ ok: true, msg: 'function is running' }))
+// Debug route at root level - should be at /test when accessed via /api/test
+app.get('/test', (c) => c.json({ ok: true, msg: 'direct test route works' }))
 
 export default handle(app)

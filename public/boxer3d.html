@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" onerror="console.warn('Three.js CDN failed, 3D will be disabled')"></script>
+<script src="/static/boxer3d.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0a0a1a; color:#e2e8f0; font-family:system-ui,sans-serif; overflow:hidden; }
+  
+  .header { display:flex; justify-content:space-between; align-items:center; padding:10px 20px; background:#1e293b; border-bottom:1px solid #334155; }
+  .header h1 { font-size:1rem; color:#facc15; display:flex; align-items:center; gap:8px; }
+  .header .badge { font-size:.65rem; background:#334155; padding:2px 8px; border-radius:4px; color:#94a3b8; }
+  .status-bar { display:flex; gap:12px; font-size:.75rem; align-items:center; }
+  .dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:3px; }
+  .dot.green { background:#4ade80; }
+  .dot.yellow { background:#fbbf24; }
+  .dot.red { background:#f87171; }
+  .dot.gray { background:#475569; }
+
+  .main { display:flex; height:calc(100vh - 46px); }
+  
+  .cam-section { flex:1; display:flex; flex-direction:column; }
+  .cam-view { flex:1; position:relative; background:#050510; display:flex; align-items:center; justify-content:center; min-height:0; }
+  .cam-view video { width:100%; height:100%; object-fit:contain; }
+  .cam-view #poseOverlay { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+  .placeholder { color:#334155; text-align:center; }
+  .placeholder .icon { font-size:2.5rem; margin-bottom:.5rem; }
+  #pose3dContainer { height:160px; background:#050510; border-top:1px solid #1e293b; }
+  
+  .controls { position:absolute; bottom:16px; left:50%; transform:translateX(-50%); display:flex; gap:8px; z-index:10; }
+  .controls button { padding:8px 18px; border:none; border-radius:6px; font-weight:600; cursor:pointer; font-size:.8rem; }
+  .btn-start { background:#4ade80; color:#0f172a; }
+  .btn-start:hover { background:#22c55e; }
+  .btn-stop { background:#f87171; color:#fff; }
+  .btn-analyze { background:#60a5fa; color:#fff; }
+  .btn-analyze:disabled { opacity:.4; cursor:default; }
+
+  .fps { position:absolute; top:8px; right:8px; background:rgba(0,0,0,.7); padding:2px 8px; border-radius:4px; font-size:.7rem; font-family:monospace; color:#4ade80; z-index:10; }
+
+  .panel { width:420px; background:#1e293b; border-left:1px solid #334155; display:flex; flex-direction:column; overflow:hidden; }
+  .panel-tabs { display:flex; border-bottom:1px solid #334155; }
+  .panel-tabs button { flex:1; padding:8px; border:none; background:transparent; color:#64748b; font-size:.75rem; font-weight:600; cursor:pointer; border-bottom:2px solid transparent; }
+  .panel-tabs button.active { color:#facc15; border-bottom-color:#facc15; background:#0f172a40; }
+  
+  .tab-content { flex:1; overflow-y:auto; display:none; padding:10px 14px; }
+  .tab-content.active { display:block; }
+  
+  .joint-item { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid #1e293b; font-size:.75rem; }
+  .joint-item .name { color:#94a3b8; }
+  .joint-item .val { font-family:monospace; color:#4ade80; font-weight:600; }
+  .joint-item .val.warning { color:#fbbf24; }
+  .joint-item .val.critical { color:#f87171; }
+  .joint-item .norm { color:#475569; font-size:.65rem; }
+
+  .analysis-section { margin-bottom:10px; }
+  .analysis-section h4 { color:#facc15; font-size:.75rem; margin-bottom:4px; text-transform:uppercase; letter-spacing:.5px; }
+  .analysis-section p,.analysis-section pre { color:#cbd5e1; font-size:.75rem; line-height:1.4; white-space:pre-wrap; }
+  .analysis-section ul { list-style:none; padding:0; }
+  .analysis-section li { color:#94a3b8; font-size:.72rem; padding:2px 0; padding-left:12px; position:relative; }
+  .analysis-section li:before { content:'\u2022'; position:absolute; left:0; color:#4ade80; }
+  .code-tag { display:inline-block; background:#0f172a; color:#60a5fa; padding:1px 6px; border-radius:3px; font-family:monospace; font-size:.7rem; margin:1px; }
+  .rag-badge { display:inline-block; background:#166534; color:#86efac; padding:2px 8px; border-radius:4px; font-size:.65rem; margin-bottom:6px; }
+  .soap-section { border-left:2px solid #334155; padding-left:10px; margin-bottom:8px; }
+  .soap-section h4 { color:#facc15; font-size:.75rem; margin-bottom:2px; }
+  .soap-section pre { color:#cbd5e1; font-size:.72rem; white-space:pre-wrap; font-family:system-ui,sans-serif; line-height:1.4; }
+
+  .summary-bar { padding:8px 14px; background:#0f172a; border-top:1px solid #334155; font-size:.72rem; max-height:70px; overflow-y:auto; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🥊 Boxer3D <span class="badge">PhysioMotion v2.0</span> <span class="badge">IMW MSK</span></h1>
+  <div class="status-bar">
+    <span><span class="dot gray" id="sCam">⬤</span> Cam</span>
+    <span><span class="dot gray" id="sPose">⬤</span> YOLO11</span>
+    <span><span class="dot gray" id="sWS">⬤</span> WS</span>
+    <span><span class="dot gray" id="sBT">⬤</span> BT</span>
+    <span><span class="dot gray" id="sDepth">⬤</span> Depth</span>
+    <span id="sFPS" style="font-family:monospace;color:#4ade80;">—</span>
+  </div>
+</div>
+
+<div class="main">
+  <!-- LEFT: Camera + 3D -->
+  <div class="cam-section">
+    <div class="cam-view" id="cameraPanel">
+      <video id="poseVideo" autoplay playsinline muted style="display:none;"></video>
+      <canvas id="poseOverlay"></canvas>
+      <div class="placeholder" id="placeholder">
+        <div class="icon">📷</div>
+        <p style="font-size:.8rem;">Start tracking for real-time 3D MSK assessment</p>
+        <p style="font-size:.65rem;color:#475569;margin-top:4px;">Webcam • Femto Mega • Bluetooth wearables</p>
+      </div>
+      <div class="fps" id="fpsCounter" style="display:none;">—</div>
+      <div class="controls">
+        <button class="btn-start" id="btnStart" onclick="startTracking()">▶ Start</button>
+        <button class="btn-stop" id="btnStop" onclick="stopTracking()" style="display:none;">■ Stop</button>
+        <button class="btn-analyze" id="btnAnalyze" onclick="analyzeMovement()" disabled>🔍 Analyze</button>
+      </div>
+    </div>
+    <div id="pose3dContainer"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-tabs">
+      <button class="active" onclick="switchTab('angles',this)">🦴 Angles</button>
+      <button onclick="switchTab('analysis',this)">📋 SOAP Note</button>
+    </div>
+
+    <div class="tab-content active" id="tab-angles">
+      <div id="jointList">
+        <p style="color:#475569;font-size:.75rem;padding:20px;text-align:center;">Start tracking to see joint angles<br><span style="font-size:.65rem;">vs ROM normative data</span></p>
+      </div>
+    </div>
+
+    <div class="tab-content" id="tab-analysis">
+      <div id="analysisContent">
+        <p style="color:#475569;font-size:.75rem;padding:20px;text-align:center;">Click <b>Analyze</b> after tracking<br><span style="font-size:.65rem;">3 specialists + auditor → structured SOAP note</span></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="summary-bar" id="summaryBar">
+  <span style="color:#475569;">Ready — click Start to begin 3D tracking</span>
+</div>
+
+<script>
+let boxer = null;
+let tracking = false;
+
+const JOINT_ANGLES = [
+  { name: 'L Shoulder Flex', ids: [5,7,9], range: [0,180], norm: [80,140] },
+  { name: 'R Shoulder Flex', ids: [6,8,10], range: [0,180], norm: [80,140] },
+  { name: 'L Elbow', ids: [7,5,11], range: [0,160], norm: [20,90] },
+  { name: 'R Elbow', ids: [8,6,12], range: [0,160], norm: [20,90] },
+  { name: 'L Hip Flex', ids: [11,13,15], range: [0,130], norm: [30,70] },
+  { name: 'R Hip Flex', ids: [12,14,16], range: [0,130], norm: [30,70] },
+  { name: 'L Knee', ids: [13,15,11], range: [0,150], norm: [0,60] },
+  { name: 'R Knee', ids: [14,16,12], range: [0,150], norm: [0,60] },
+  { name: 'Trunk Lean', ids: [5,6,12], range: [-30,30], norm: [-10,10] },
+];
+
+function calcAngle(a, b, c) {
+  const ab = { x: a.x - b.x, y: a.y - b.y };
+  const cb = { x: c.x - b.x, y: c.y - b.y };
+  const dot = ab.x*cb.x + ab.y*cb.y;
+  const mag = Math.sqrt(ab.x*ab.x+ab.y*ab.y) * Math.sqrt(cb.x*cb.x+cb.y*cb.y);
+  if (mag === 0) return 0;
+  return Math.acos(Math.max(-1, Math.min(1, dot/mag))) * (180/Math.PI);
+}
+
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel-tabs button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ─── Joint Angle Rendering ───
+function renderJointAngles(keypoints) {
+  const map = {};
+  for (const k of keypoints) map[k.id] = k;
+  let html = '', abnorm = [];
+
+  for (const j of JOINT_ANGLES) {
+    const a = map[j.ids[0]], b = map[j.ids[1]], c = map[j.ids[2]];
+    if (!a||!b||!c || a.confidence<0.4||b.confidence<0.4||c.confidence<0.4) continue;
+    const angle = Math.round(calcAngle(a,b,c));
+    const isAbn = angle < j.norm[0] || angle > j.norm[1];
+    const cls = isAbn ? (angle < j.norm[0]/1.5 ? 'critical' : 'warning') : '';
+    if (isAbn) abnorm.push(`${j.name}: ${angle}° (norm ${j.norm[0]}-${j.norm[1]}°)`);
+
+    html += `<div class="joint-item">
+      <span class="name">${j.name}</span>
+      <div><span class="val ${cls}">${angle}°</span> <span class="norm">${j.norm[0]}-${j.norm[1]}</span></div>
+    </div>`;
+  }
+
+  document.getElementById('jointList').innerHTML = html || '<p style="color:#475569;font-size:.75rem;padding:20px;text-align:center;">No joints detected</p>';
+  window._lastAbnormal = abnorm;
+  document.getElementById('btnAnalyze').disabled = abnorm.length === 0;
+}
+
+// ─── Tracking ───
+async function startTracking() {
+  if (tracking) return; tracking = true;
+  document.getElementById('placeholder').style.display = 'none';
+  document.getElementById('poseVideo').style.display = 'block';
+  document.getElementById('btnStart').style.display = 'none';
+  document.getElementById('btnStop').style.display = 'inline-block';
+  document.getElementById('fpsCounter').style.display = 'block';
+  document.getElementById('sCam').className = 'dot green';
+  document.getElementById('sPose').className = 'dot green';
+  document.getElementById('sWS').className = 'dot green';
+
+  try {
+    boxer = new Boxer3D({ wsUrl: 'ws://localhost:8765', camWidth: 640, camHeight: 480, sendInterval: 150 });
+
+    document.addEventListener('skeleton', (e: any) => {
+      const { persons, fps } = e.detail;
+      if (fps) { document.getElementById('fpsCounter').textContent = fps+' FPS'; document.getElementById('sFPS').textContent = fps+' FPS'; }
+      if (persons.length > 0 && persons[0].keypoints.length > 0) {
+        window._lastKeypoints = persons[0].keypoints;
+        renderJointAngles(persons[0].keypoints);
+      }
+    });
+
+    await boxer.start('poseVideo', 'poseOverlay');
+    boxer.init3DScene('pose3dContainer');
+  } catch (e) {
+    console.error(e);
+    document.getElementById('sCam').className = 'dot red';
+    document.getElementById('sPose').className = 'dot red';
+  }
+}
+
+function stopTracking() {
+  tracking = false;
+  if (boxer) boxer.stop();
+  document.getElementById('btnStart').style.display = 'inline-block';
+  document.getElementById('btnStop').style.display = 'none';
+  ['sCam','sPose','sWS'].forEach(id => document.getElementById(id).className = 'dot gray');
+  document.getElementById('fpsCounter').style.display = 'none';
+}
+
+// ─── Analysis ───
+async function analyzeMovement() {
+  const btn = document.getElementById('btnAnalyze');
+  btn.disabled = true; btn.textContent = '⏳ Running 3 specialists...';
+  document.getElementById('summaryBar').innerHTML = '<span style="color:#fbbf24;">⏳ Running 3 specialists + auditor...</span>';
+
+  try {
+    const kps = window._lastKeypoints || [];
+    const abnorm = window._lastAbnormal || [];
+    // Build keypoints from the last skeleton data
+    const keypoints = kps.map((kp: any) => ({
+      id: kp.id, x: kp.x, y: kp.y, z: kp.z, confidence: kp.confidence
+    }));
+
+    const resp = await fetch('/ai/analyze-swarm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        keypoints: keypoints.length > 0 ? keypoints : [
+          {id:5,x:0.3,y:0.4,z:0,confidence:0.9},{id:6,x:0.7,y:0.4,z:0,confidence:0.9},
+          {id:11,x:0.35,y:0.65,z:0,confidence:0.9},{id:12,x:0.65,y:0.65,z:0,confidence:0.9},
+        ],
+        body_regions: ['upper','lower','spine'],
+        abnormalities: abnorm
+      })
+    });
+    const data = await resp.json();
+
+    if (data.success && data.swarm) {
+      const a = data.swarm.auditor;
+      const s = data.swarm.specialists;
+
+      // Build SOAP display
+      let html = `<div class="analysis-section"><span class="rag-badge">🧠 RAG ROM norms</span> <span class="rag-badge">🤖 ${data.swarm.model}</span></div>`;
+
+      if (a.subjective) html += `<div class="soap-section"><h4>SUBJECTIVE</h4><pre>${a.subjective}</pre></div>`;
+      if (a.objective) html += `<div class="soap-section"><h4>OBJECTIVE</h4><pre>${a.objective}</pre></div>`;
+      if (a.assessment) html += `<div class="soap-section"><h4>ASSESSMENT</h4><pre>${a.assessment}</pre></div>`;
+      if (a.plan) html += `<div class="soap-section"><h4>PLAN</h4><pre>${a.plan}</pre></div>`;
+
+      if (a.icd10?.length) html += `<div class="analysis-section" style="margin-top:8px;"><h4>ICD-10</h4>${a.icd10.map((c:string)=>`<span class="code-tag">${c}</span>`).join(' ')}</div>`;
+      if (a.cpt?.length) html += `<div class="analysis-section"><h4>CPT</h4>${a.cpt.map((c:string)=>`<span class="code-tag">${c}</span>`).join(' ')}</div>`;
+
+      // Specialist reports
+      html += `<div class="analysis-section" style="margin-top:8px;"><h4>Specialists</h4>`;
+      for (const r of s) {
+        html += `<p style="font-size:.7rem;color:#94a3b8;">${r.agent} (conf: ${r.confidence}): ${(r.findings||'').slice(0,80)}</p>`;
+      }
+      html += `</div>`;
+
+      document.getElementById('analysisContent').innerHTML = html;
+      document.getElementById('summaryBar').innerHTML = `
+        <span style="color:#4ade80;">✅ ${a.icd10?.length||0} ICD-10 • ${a.cpt?.length||0} CPT • Conf: ${(a.confidence*100).toFixed(0)}%</span>
+      `;
+    }
+  } catch (e: any) {
+    document.getElementById('analysisContent').innerHTML = `<p style="color:#f87171;font-size:.75rem;">Analysis failed: ${e.message}</p>`;
+  }
+  btn.disabled = false; btn.textContent = '🔍 Analyze';
+}
+
+// ─── Bluetooth / Femto Mega ───
+function connectFemto() {
+  document.getElementById('sBT').className = 'dot yellow';
+  document.getElementById('btList').innerHTML = `
+    <div class="device-item"><span class="name">🔲 Orbbec Femto Mega</span><span class="signal">🔄 Connecting...</span></div>
+  `;
+  fetch('/api/femto/connect').then(r=>r.json()).then(d => {
+    document.getElementById('sBT').className = d.success ? 'dot green' : 'dot red';
+    document.getElementById('btList').innerHTML = d.success
+      ? `<div class="device-item"><span class="name">🔲 Femto Mega</span><span class="signal">● Depth ${d.depth||'3D'}</span></div>`
+      : `<div class="device-item"><span class="name">Femto Mega</span><span class="signal" style="color:#f87171;">✗ Disconnected</span></div>`;
+  }).catch(() => {
+    document.getElementById('sBT').className = 'dot red';
+    document.getElementById('btList').innerHTML += '<p style="color:#f87171;font-size:.7rem;margin-top:4px;">Femto bridge not reachable</p>';
+  });
+}
+
+function scanBluetooth() {
+  document.getElementById('sBT').className = 'dot yellow';
+  document.getElementById('btList').innerHTML = '<p style="color:#475569;font-size:.75rem;">Scanning for devices...</p>';
+  // Web Bluetooth API
+  if (navigator.bluetooth) {
+    navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: ['battery_service', 'heart_rate']
+    }).then(device => {
+      document.getElementById('btList').innerHTML = `
+        <div class="device-item"><span class="name">📱 ${device.name||'Unknown'}</span><span class="signal">● Connected</span></div>
+        <p style="color:#94a3b8;font-size:.7rem;margin-top:6px;">Connected. Data streaming...</p>
+      `;
+      document.getElementById('sBT').className = 'dot green';
+    }).catch(e => {
+      document.getElementById('btList').innerHTML = `<p style="color:#f87171;font-size:.75rem;">${e.message}</p>`;
+      document.getElementById('sBT').className = 'dot red';
+    });
+  } else {
+    document.getElementById('btList').innerHTML = `<p style="color:#fbbf24;font-size:.75rem;">Bluetooth API not available in this browser<br><span style="font-size:.65rem;">Use Chrome/Edge. Femto Mega works via USB.</span></p>`;
+  }
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.key === ' ' && tracking) { e.preventDefault(); analyzeMovement(); }
+});
+</script>
+</body>
+</html>

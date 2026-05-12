@@ -190,3 +190,4 @@ $RECYCLE.BIN/
 # Python
 __pycache__/
 *.pyc
+.vercel

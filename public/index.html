@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IMW PhysioMotion — Chiropractic Assistant + 3D MSK Assessment</title>
+<script src="/static/boxer3d.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0a0f1e; color:#e2e8f0; font-family:system-ui,sans-serif; }
+  
+  /* ─── Nav ─── */
+  .nav { display:flex; justify-content:space-between; align-items:center; padding:8px 18px; background:#0d1528; border-bottom:1px solid #1a2a4a; }
+  .nav h1 { font-size:.95rem; color:#facc15; display:flex; align-items:center; gap:8px; }
+  .nav h1 span { font-size:.6rem; color:#475569; font-weight:400; }
+  .status { display:flex; gap:10px; font-size:.7rem; }
+  .dot { display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:3px; }
+  .dot.green { background:#4ade80; }
+  .dot.gray { background:#475569; }
+
+  /* ─── Main Layout ─── */
+  .main { display:flex; height:calc(100vh - 40px); }
+  .sidebar { width:180px; background:#0d1528; border-right:1px solid #1a2a4a; padding:8px 0; display:flex; flex-direction:column; }
+  .sidebar a { display:flex; align-items:center; gap:8px; padding:10px 16px; font-size:.75rem; color:#64748b; text-decoration:none; border-left:2px solid transparent; }
+  .sidebar a:hover, .sidebar a.active { color:#e2e8f0; background:#1a2a4a40; border-left-color:#facc15; }
+
+  .content { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+
+  /* ─── 3D View ─── */
+  .viewer { flex:1; position:relative; background:#050a16; display:flex; align-items:center; justify-content:center; min-height:0; }
+  .viewer video { width:100%; height:100%; object-fit:contain; }
+  .viewer #poseOverlay { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+  .viewer .placeholder { color:#1a2a4a; text-align:center; }
+  .viewer .placeholder .icon { font-size:3rem; }
+  #pose3dContainer { height:140px; background:#050a16; border-top:1px solid #1a2a4a; }
+
+  .controls { position:absolute; bottom:12px; left:50%; transform:translateX(-50%); display:flex; gap:6px; z-index:10; }
+  .controls button { padding:6px 14px; border:none; border-radius:5px; font-weight:600; cursor:pointer; font-size:.75rem; }
+  .btn-go { background:#4ade80; color:#0f172a; }
+  .btn-stop { background:#f87171; color:#fff; }
+  .btn-analyze { background:#60a5fa; color:#fff; }
+  .btn-analyze:disabled { opacity:.4; }
+  .fps { position:absolute; top:6px; right:6px; background:rgba(0,0,0,.7); padding:2px 6px; border-radius:3px; font-size:.65rem; font-family:monospace; color:#4ade80; z-index:10; }
+
+  /* ─── Right Panel ─── */
+  .panel { width:440px; background:#0d1528; border-left:1px solid #1a2a4a; display:flex; flex-direction:column; overflow:hidden; }
+  .panel-tabs { display:flex; border-bottom:1px solid #1a2a4a; }
+  .panel-tabs button { flex:1; padding:7px; border:none; background:transparent; color:#475569; font-size:.7rem; font-weight:600; cursor:pointer; border-bottom:2px solid transparent; }
+  .panel-tabs button.active { color:#facc15; border-bottom-color:#facc15; background:#1a2a4a30; }
+
+  .tab-content { flex:1; overflow-y:auto; display:none; padding:8px 12px; }
+  .tab-content.active { display:block; }
+
+  .joint-item { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #1a2a4a; font-size:.7rem; }
+  .joint-item .name { color:#94a3b8; }
+  .joint-item .val { font-family:monospace; color:#4ade80; }
+  .joint-item .val.warn { color:#fbbf24; }
+  .joint-item .val.err { color:#f87171; }
+  .joint-item .norm { color:#475569; font-size:.6rem; }
+
+  .soap-box { border-left:2px solid #1a2a4a; padding-left:8px; margin-bottom:6px; }
+  .soap-box h4 { color:#facc15; font-size:.7rem; margin-bottom:2px; }
+  .soap-box pre { color:#cbd5e1; font-size:.68rem; white-space:pre-wrap; font-family:system-ui; line-height:1.3; }
+  .code-tag { display:inline-block; background:#0f172a; color:#60a5fa; padding:1px 5px; border-radius:3px; font-size:.65rem; margin:1px; }
+
+  .rx-card { background:#1a2a4a30; border:1px solid #1a2a4a; border-radius:6px; padding:8px; margin-bottom:6px; }
+  .rx-card h5 { color:#4ade80; font-size:.7rem; margin-bottom:2px; }
+  .rx-card p { color:#94a3b8; font-size:.68rem; }
+  .rx-card .sets { color:#facc15; font-size:.65rem; }
+
+  .coach-msg { background:#1a2a4a30; border-radius:6px; padding:8px; margin-bottom:6px; font-size:.72rem; line-height:1.4; }
+  .coach-msg .label { color:#facc15; font-weight:600; font-size:.65rem; text-transform:uppercase; }
+  .coach-msg.ai { border-left:3px solid #60a5fa; }
+  .coach-msg.user { border-left:3px solid #4ade80; }
+
+  .summary { padding:6px 12px; background:#0a0f1e; border-top:1px solid #1a2a4a; font-size:.68rem; max-height:56px; overflow-y:auto; }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <h1>🦴 IMW PhysioMotion <span>Chiropractic Assistant & Coach AI</span></h1>
+  <div class="status">
+    <span><span class="dot gray" id="s1">⬤</span> Cam</span>
+    <span><span class="dot gray" id="s2">⬤</span> 3D</span>
+    <span><span class="dot gray" id="s3">⬤</span> AI</span>
+    <span id="fpsLabel" style="color:#4ade80;">—</span>
+  </div>
+</div>
+
+<div class="main">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <a href="#" class="active" onclick="showView('track',this)">🎯 3D Tracking</a>
+    <a href="#" onclick="showView('rx',this)">💊 RX Exercises</a>
+    <a href="#" onclick="showView('coach',this)">🤖 AI Coach</a>
+    <a href="#" onclick="showView('history',this)">📊 HyperAnalytics</a>
+    <div style="flex:1"></div>
+    <a href="#" onclick="showView('about',this)" style="font-size:.65rem;">📖 Guide</a>
+  </div>
+
+  <div class="content">
+    <!-- 3D Tracking View -->
+    <div id="view-track" class="viewer" style="display:flex;flex-direction:column;">
+      <div style="flex:1;position:relative;display:flex;align-items:center;justify-content:center;">
+        <video id="poseVideo" autoplay playsinline muted style="display:none;width:100%;height:100%;object-fit:contain;"></video>
+        <canvas id="poseOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
+        <div class="placeholder" id="placeholder">
+          <div class="icon">📷</div>
+          <p style="font-size:.8rem;">Click Start for 3D posture analysis</p>
+        </div>
+        <div class="fps" id="fpsCounter" style="display:none;">—</div>
+        <div class="controls">
+          <button class="btn-go" id="btnStart" onclick="startTracking()">▶ Start</button>
+          <button class="btn-stop" id="btnStop" onclick="stopTracking()" style="display:none;">■ Stop</button>
+          <button class="btn-analyze" id="btnAnalyze" onclick="analyzeMovement()" disabled>🔍 Analyze</button>
+        </div>
+      </div>
+      <div id="pose3dContainer"></div>
+    </div>
+
+    <!-- RX Exercises View -->
+    <div id="view-rx" class="viewer" style="display:none;flex-direction:column;">
+      <div style="flex:1;overflow-y:auto;padding:12px;">
+        <h3 style="color:#facc15;font-size:.85rem;margin-bottom:8px;">💊 Prescribed Exercises</h3>
+        <div id="rxList">
+          <p style="color:#475569;font-size:.75rem;">Run a 3D analysis first to get personalized exercise prescriptions</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Coach View -->
+    <div id="view-coach" class="viewer" style="display:none;flex-direction:column;">
+      <div style="flex:1;overflow-y:auto;padding:12px;">
+        <div id="coachChat">
+          <div class="coach-msg ai">
+            <div class="label">🤖 AI Coach</div>
+            <p>Hello! I'm your chiropractic movement coach. Run a 3D analysis or ask me a question about your assessment results.</p>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px;">
+          <input id="coachInput" style="flex:1;background:#1a2a4a;border:1px solid #1a2a4a;border-radius:4px;padding:6px 10px;color:#e2e8f0;font-size:.75rem;" placeholder="Ask about your assessment...">
+          <button onclick="askCoach()" style="padding:6px 12px;background:#60a5fa;border:none;border-radius:4px;color:#fff;font-size:.75rem;cursor:pointer;">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- HyperAnalytics View -->
+    <div id="view-history" class="viewer" style="display:none;flex-direction:column;">
+      <div style="flex:1;overflow-y:auto;padding:12px;">
+        <h3 style="color:#facc15;font-size:.85rem;margin-bottom:8px;">📊 HyperAnalytics — ROM Trends</h3>
+        <div id="analyticsContent">
+          <p style="color:#475569;font-size:.75rem;">Assessment history will appear here after running analyses</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="panel">
+    <div class="panel-tabs">
+      <button class="active" onclick="switchPanel('angles',this)">🦴 Joints</button>
+      <button onclick="switchPanel('soap',this)">📋 SOAP</button>
+      <button onclick="switchPanel('codes',this)">🏷️ Codes</button>
+    </div>
+
+    <div class="tab-content active" id="tab-angles">
+      <div id="jointList"><p style="color:#475569;font-size:.7rem;padding:20px;text-align:center;">Start tracking<br><span style="font-size:.6rem;">vs ROM normative data</span></p></div>
+    </div>
+
+    <div class="tab-content" id="tab-soap">
+      <div id="soapContent"><p style="color:#475569;font-size:.7rem;padding:20px;text-align:center;">Analyze to see SOAP note</p></div>
+    </div>
+
+    <div class="tab-content" id="tab-codes">
+      <div id="codesContent"><p style="color:#475569;font-size:.7rem;padding:20px;text-align:center;">ICD-10 / CPT codes appear after analysis</p></div>
+    </div>
+  </div>
+</div>
+
+<div class="summary" id="summaryBar">
+  <span style="color:#475569;">Ready. Click Start to begin 3D tracking.</span>
+</div>
+
+<script>
+let tracker = null;
+let tracking = false;
+let lastSOAP = null;
+
+// ─── Views ───
+function showView(view, btn) {
+  document.querySelectorAll('.viewer').forEach(v => v.style.display = 'none');
+  document.getElementById('view-'+view).style.display = 'flex';
+  document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (view === 'rx' && lastSOAP) renderRX(lastSOAP);
+}
+
+function switchPanel(tab, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel-tabs button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ─── Joint Angle Calc ───
+const JOINTS = [
+  {n:'L Shoulder',ids:[5,7,9],norm:[80,140]},{n:'R Shoulder',ids:[6,8,10],norm:[80,140]},
+  {n:'L Elbow',ids:[7,5,11],norm:[20,90]},{n:'R Elbow',ids:[8,6,12],norm:[20,90]},
+  {n:'L Hip',ids:[11,13,15],norm:[30,70]},{n:'R Hip',ids:[12,14,16],norm:[30,70]},
+  {n:'L Knee',ids:[13,15,11],norm:[0,60]},{n:'R Knee',ids:[14,16,12],norm:[0,60]},
+];
+function angle(a,b,c) { const ab={x:a.x-b.x,y:a.y-b.y},cb={x:c.x-b.x,y:c.y-b.y}; const d=ab.x*cb.x+ab.y*cb.y,m=Math.sqrt(ab.x*ab.x+ab.y*ab.y)*Math.sqrt(cb.x*cb.x+cb.y*cb.y); return m?Math.acos(Math.max(-1,Math.min(1,d/m)))*180/Math.PI:0; }
+
+function renderJoints(kps) {
+  const m={}; for(const k of kps) m[k.id]=k;
+  let h='',ab=[];
+  for(const j of JOINTS) {
+    const a=m[j.ids[0]],b=m[j.ids[1]],c=m[j.ids[2]];
+    if(!a||!b||!c||a.confidence<0.4) continue;
+    const v=Math.round(angle(a,b,c)),bad=v<j.norm[0]||v>j.norm[1];
+    if(bad) ab.push(`${j.n}: ${v}° (nrml ${j.norm[0]}-${j.norm[1]})`);
+    h+=`<div class="joint-item"><span class="name">${j.n}</span><div><span class="val ${bad?'warn':''}">${v}°</span> <span class="norm">${j.norm[0]}-${j.norm[1]}</span></div></div>`;
+  }
+  document.getElementById('jointList').innerHTML = h||'<p style="color:#475569;font-size:.7rem;padding:20px;">No joints</p>';
+  window._abn = ab;
+  document.getElementById('btnAnalyze').disabled = !kps.length;
+}
+
+// ─── Tracking ───
+async function startTracking() {
+  if(tracking) return; tracking=true;
+  document.getElementById('placeholder').style.display='none';
+  document.getElementById('poseVideo').style.display='block';
+  document.getElementById('btnStart').style.display='none';
+  document.getElementById('btnStop').style.display='inline-block';
+  document.getElementById('fpsCounter').style.display='block';
+  document.getElementById('s1').className='dot green'; document.getElementById('s2').className='dot green';
+
+  try {
+    tracker = new Boxer3D({wsUrl:'ws://localhost:8765',camWidth:640,camHeight:480,sendInterval:150});
+    document.addEventListener('skeleton',(e)=>{
+      const{persons,fps}=e.detail;
+      if(fps){document.getElementById('fpsCounter').textContent=fps+' FPS';document.getElementById('fpsLabel').textContent=fps+' FPS';}
+      if(persons.length&&persons[0].keypoints.length){window._kps=persons[0].keypoints;renderJoints(persons[0].keypoints);}
+    });
+    await tracker.start('poseVideo','poseOverlay');
+    tracker.init3DScene('pose3dContainer');
+  } catch(e){document.getElementById('s1').className='dot gray';document.getElementById('s2').className='dot gray';}
+}
+
+function stopTracking(){tracking=false;if(tracker)tracker.stop();document.getElementById('btnStart').style.display='inline-block';document.getElementById('btnStop').style.display='none';document.getElementById('s1').className='dot gray';document.getElementById('s2').className='dot gray';document.getElementById('fpsCounter').style.display='none';}
+
+// ─── Swarm Analysis → SOAP ───
+async function analyzeMovement() {
+  const btn=document.getElementById('btnAnalyze');btn.disabled=true;btn.textContent='⏳ 3 specialists...';
+  document.getElementById('summaryBar').innerHTML='<span style="color:#fbbf24;">Running 3 specialists + auditor...</span>';
+  document.getElementById('s3').className='dot yellow';
+
+  try {
+    const kps=window._kps||[],abn=window._abn||[];
+    const r=await fetch('/ai/analyze-swarm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      keypoints:kps.length?kps.map((kp)=>({id:kp.id,x:kp.x,y:kp.y,z:kp.z,confidence:kp.confidence})):[{id:5,x:.3,y:.4,z:0,confidence:.9},{id:6,x:.7,y:.4,z:0,confidence:.9}],
+      body_regions:['upper','lower','spine'],abnormalities:abn
+    })});
+    const d=await r.json();
+    
+    if(d.success&&d.swarm){
+      const a=d.swarm.auditor;lastSOAP=a;
+      let h='<div style="margin-bottom:6px;"><span class="code-tag">🧠 RAG</span> <span class="code-tag">🤖 3-specialist swarm</span></div>';
+      if(a.subjective) h+=`<div class="soap-box"><h4>SUBJECTIVE</h4><pre>${a.subjective}</pre></div>`;
+      if(a.objective) h+=`<div class="soap-box"><h4>OBJECTIVE</h4><pre>${a.objective}</pre></div>`;
+      if(a.assessment) h+=`<div class="soap-box"><h4>ASSESSMENT</h4><pre>${a.assessment}</pre></div>`;
+      if(a.plan) h+=`<div class="soap-box"><h4>PLAN</h4><pre>${a.plan}</pre></div>`;
+      document.getElementById('soapContent').innerHTML=h;
+
+      let c='';
+      if(a.icd10?.length) c+=`<div style="margin-bottom:6px;"><h4 style="color:#facc15;font-size:.7rem;margin-bottom:4px;">ICD-10</h4>${a.icd10.map(c=>`<span class="code-tag">${c}</span>`).join(' ')}</div>`;
+      if(a.cpt?.length) c+=`<div><h4 style="color:#facc15;font-size:.7rem;margin-bottom:4px;">CPT</h4>${a.cpt.map(c=>`<span class="code-tag">${c}</span>`).join(' ')}</div>`;
+      document.getElementById('codesContent').innerHTML=c||'<p style="color:#475569;font-size:.7rem;">No codes</p>';
+
+      document.getElementById('summaryBar').innerHTML=`<span style="color:#4ade80;">✅ ${a.icd10?.length||0} ICD-10 • ${a.cpt?.length||0} CPT • ${(a.confidence*100).toFixed(0)}% conf</span>`;
+      document.getElementById('s3').className='dot green';
+    }
+  } catch(e:any){
+    document.getElementById('soapContent').innerHTML=`<p style="color:#f87171;font-size:.7rem;">${e.message}</p>`;
+  }
+  btn.disabled=false;btn.textContent='🔍 Analyze';
+}
+
+// ─── RX Exercises ───
+function renderRX(a) {
+  if(!a) return;
+  const cond=a.assessment||'',dx=a.icd10||[];
+  let ex='';
+  // Suggest exercises based on diagnosis
+  const lowerBody=(cond.toLowerCase().includes('knee')||cond.toLowerCase().includes('hip')||cond.toLowerCase().includes('gait')||cond.toLowerCase().includes('lower'));
+  const upperBody=(cond.toLowerCase().includes('shoulder')||cond.toLowerCase().includes('elbow')||cond.toLowerCase().includes('upper'));
+  const spine=(cond.toLowerCase().includes('spine')||cond.toLowerCase().includes('posture')||cond.toLowerCase().includes('cervical')||cond.toLowerCase().includes('lumbar'));
+
+  if(upperBody||spine) ex+=`<div class="rx-card"><h5>Pendulum (Codman)</h5><p>Shoulder ROM, acute phase</p><div class="sets">3 × 15 reps • CPT 97110</div></div>
+  <div class="rx-card"><h5>Wall Slides</h5><p>Shoulder flexion, recovery phase</p><div class="sets">3 × 10 reps • CPT 97110</div></div>`;
+  if(lowerBody) ex+=`<div class="rx-card"><h5>Quad Sets</h5><p>Knee extension, acute phase</p><div class="sets">3 × 15 reps • CPT 97110</div></div>
+  <div class="rx-card"><h5>Straight Leg Raises</h5><p>Hip flexor strengthening</p><div class="sets">3 × 10 reps • CPT 97110</div></div>`;
+  if(spine) ex+=`<div class="rx-card"><h5>Cat-Cow</h5><p>Spinal mobility, acute phase</p><div class="sets">2 × 10 reps • CPT 97112</div></div>
+  <div class="rx-card"><h5>Dead Bug</h5><p>Core stability, strengthening phase</p><div class="sets">3 × 8 reps • CPT 97110</div></div>`;
+  if(!ex) ex='<p style="color:#475569;font-size:.7rem;">Run analysis first to see personalized exercises</p>';
+  document.getElementById('rxList').innerHTML=ex;
+}
+
+// ─── AI Coach Chat ───
+async function askCoach() {
+  const input=document.getElementById('coachInput'),q=input.value.trim();
+  if(!q) return;
+  input.value='';
+  const chat=document.getElementById('coachChat');
+  chat.innerHTML+=`<div class="coach-msg user"><p>${q}</p></div>`;
+  chat.innerHTML+=`<div class="coach-msg ai"><div class="label">🤖 Thinking...</div></div>`;
+
+  try {
+    const context=lastSOAP?`Assessment context: ${JSON.stringify(lastSOAP)}`:'No assessment data yet';
+    const r=await fetch('/ai/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      patient_name:'AI Coach Query',chief_complaint:q,abnormalities:[],body_region:'general'
+    })});
+    const d=await r.json();
+    const resp=d.analysis?.summary||'I could not process that question. Please try again.';
+    chat.innerHTML=chat.innerHTML.replace('<div class="label">🤖 Thinking...</div>',`<div class="label">🤖 AI Coach</div><p>${resp}</p>`);
+  } catch(e){
+    chat.innerHTML=chat.innerHTML.replace('<div class="label">🤖 Thinking...</div>',`<div class="label">🤖 AI Coach</div><p>Sorry, I encountered an error.</p>`);
+  }
+  chat.scrollTop=chat.scrollHeight;
+}
+
+// Keyboard shortcut
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&document.getElementById('view-coach').style.display!=='none'){askCoach();}
+});
+</script>
+</body>
+</html>
