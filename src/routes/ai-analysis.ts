@@ -72,7 +72,7 @@ function buildROMTable(regions: string[]): string {
       if (!norms) continue;
       out += `\n**${j.toUpperCase()}**\n`;
       for (const [m, [mn, mx]] of Object.entries(norms as Record<string, [number, number]>)) {
-        out += `  ${m}: ${mn}°-${mx}°
+        out += `  ${m}: ${mn}°-${mx}°\n`;
       }
     }
   }
@@ -238,7 +238,7 @@ aiRoutes.post('/analyze', async (c) => {
         if (!norms) continue;
         ctx += `\n### ${joint.toUpperCase()} ROM Norms:\n`;
         for (const [movement, [mn, mx]] of Object.entries(norms as Record<string, [number, number]>)) {
-          ctx += `  ${movement}: normal ${mn}°-${mx}°
+          ctx += `  ${movement}: normal ${mn}°-${mx}°\n`;
         }
       }
       return ctx;
