@@ -5,13 +5,13 @@
 // ============================================================================
 
 import { Hono } from 'hono';
-import { Brain, MOVEMENT_REGION_MAP } from '../utils/brain-orchestrator.js.js';
-import { vectorRAGQuery, embedMovementData } from '../utils/vector-rag.js.js';
+import { Brain, MOVEMENT_REGION_MAP } from '../utils/brain-orchestrator.js';
+import { vectorRAGQuery, embedMovementData } from '../utils/vector-rag.js';
 import {
   signMovementSession,
   verifyMovementSession,
   verifyDataIntegrity
-} from '../utils/crypto-vault.js.js';
+} from '../utils/crypto-vault.js';
 
 const mskRouter = new Hono();
 

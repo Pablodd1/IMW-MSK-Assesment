@@ -1,5 +1,5 @@
 // Video capture and processing
-import { CameraManager } from './render';
+import { CameraManager } from './render.js';
 
 export class VideoProcessor {
   private camera: CameraManager;

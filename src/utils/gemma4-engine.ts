@@ -388,7 +388,7 @@ class Gemma4Engine {
 // Integration with Brain Orchestrator
 // ============================================================================
 
-import { Brain } from './brain-orchestrator';
+import { Brain } from './brain-orchestrator.js';
 
 class Gemma4BrainIntegration {
   private engine: Gemma4Engine;

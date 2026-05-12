@@ -3,8 +3,8 @@
 // Connects Brain Orchestrator to PhysioMotion & DealFlow
 // ============================================================================
 
-import { Brain } from './brain-orchestrator';
-import { ACPBus, BaseAgent, ACPMessage } from './agent-communication-protocol';
+import { Brain } from './brain-orchestrator.js';
+import { ACPBus, BaseAgent, ACPMessage } from './agent-communication-protocol.js';
 
 // ============================================================================
 // PhysioMotion Integration
