@@ -1,5 +1,4 @@
 import { Hono } from 'hono';
-import { serveStatic } from '@hono/node-server/serve-static';
 import { cors } from 'hono/cors';
 import { logger as honoLogger } from 'hono/logger';
 import { MOCK_PATIENTS, EXERCISE_LIBRARY } from './mockData.js';
@@ -16,12 +15,7 @@ app.use('*', cors({
   allowHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Static files
-app.use('/static/*', serveStatic({ root: './public' }));
-app.use('/boxer3d', serveStatic({ path: './public/boxer3d.html' }));
-app.use('/boxer3d.html', serveStatic({ path: './public/boxer3d.html' }));
-// Default: serve the unified IMW PhysioMotion dashboard
-app.get('/', serveStatic({ path: './public/index.html' }));
+// Static files are served by Vercel CDN directly (public/ folder)
 
 // ============================================================================
 // SPECIALIST AGENT ROUTES

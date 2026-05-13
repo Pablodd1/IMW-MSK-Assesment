@@ -4,7 +4,17 @@
   "installCommand": "npm install",
   "regions": ["iad1"],
   "rewrites": [
-    { "source": "/(.*)", "destination": "/api" }
+    { "source": "/api/(.*)", "destination": "/api" },
+    { "source": "/health", "destination": "/api" },
+    { "source": "/ai/(.*)", "destination": "/api" },
+    { "source": "/patients(.*)", "destination": "/api" },
+    { "source": "/assessments(.*)", "destination": "/api" },
+    { "source": "/exercises(.*)", "destination": "/api" },
+    { "source": "/prescriptions(.*)", "destination": "/api" },
+    { "source": "/exercise-sessions(.*)", "destination": "/api" },
+    { "source": "/msk-analysis(.*)", "destination": "/api" },
+    { "source": "/dashboard(.*)", "destination": "/api" },
+    { "source": "/boxer3d(.*)", "destination": "/api" }
   ],
   "env": {
     "DEMO_MODE": "true",
