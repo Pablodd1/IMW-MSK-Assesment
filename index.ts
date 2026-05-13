@@ -1,5 +1,5 @@
 import { serve } from '@hono/node-server';
-import app from './src/index';
+import app from './src/index.js';
 import * as dotenv from 'dotenv';
 
 // Load environment variables
