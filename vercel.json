@@ -1,20 +1,25 @@
 {
-  "framework": null,
-  "buildCommand": "npm ci",
-  "installCommand": "npm install",
   "regions": ["iad1"],
+  "functions": {
+    "api/index.ts": {
+      "memory": 256,
+      "maxDuration": 30
+    }
+  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" },
     { "source": "/health", "destination": "/api" },
+    { "source": "/info", "destination": "/api" },
+    { "source": "/test", "destination": "/api" },
     { "source": "/ai/(.*)", "destination": "/api" },
     { "source": "/patients(.*)", "destination": "/api" },
     { "source": "/assessments(.*)", "destination": "/api" },
     { "source": "/exercises(.*)", "destination": "/api" },
     { "source": "/prescriptions(.*)", "destination": "/api" },
-    { "source": "/exercise-sessions(.*)", "destination": "/api" },
-    { "source": "/msk-analysis(.*)", "destination": "/api" },
     { "source": "/dashboard(.*)", "destination": "/api" },
-    { "source": "/boxer3d(.*)", "destination": "/api" }
+    { "source": "/msk-analysis(.*)", "destination": "/api" },
+    { "source": "/boxer3d", "destination": "/api" },
+    { "source": "/boxer3d.html", "destination": "/api" }
   ],
   "env": {
     "DEMO_MODE": "true",
