@@ -7,7 +7,7 @@ export class MedicalAIAnalysis {
 
   constructor(apiKey: string) {
     this.genAI = new GoogleGenerativeAI(apiKey);
-    this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
   }
 
   async analyzeBiomechanics(jointData: any, patientContext: any): Promise<any> {
