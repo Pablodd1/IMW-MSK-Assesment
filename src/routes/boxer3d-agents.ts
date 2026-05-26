@@ -3,7 +3,7 @@
  * Integrates the Python agent pipeline into the Node.js/Express backend.
  */
 import { Router, Request, Response } from 'express';
-import { execSync, exec } from 'child_process';
+import { execFileSync, exec } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 
@@ -22,10 +22,13 @@ export function createAgentApi(): Router {
       const outputDir = path.join(POSE_ENGINE_DIR, 'output', Date.now().toString());
       fs.mkdirSync(outputDir, { recursive: true });
 
-      const cmd = `${PYTHON} ${POSE_ENGINE_DIR}/orchestrator.py "${videoPath}" -o "${outputDir}" -p "${patientName || 'Patient'}" -m "${model || 'yolo11n-pose'}"`;
-      console.log(`[Boxer3D] Running: ${cmd}`);
-
-      const stdout = execSync(cmd, { timeout: 300000, cwd: POSE_ENGINE_DIR }).toString();
+      const stdout = execFileSync(PYTHON, [
+        path.join(POSE_ENGINE_DIR, 'orchestrator.py'),
+        videoPath,
+        '-o', outputDir,
+        '-p', patientName || 'Patient',
+        '-m', model || 'yolo11n-pose'
+      ], { timeout: 300000, cwd: POSE_ENGINE_DIR, maxBuffer: 10 * 1024 * 1024 }).toString();
       console.log(`[Boxer3D] Done:`, stdout.slice(0, 200));
 
       const reportPath = path.join(outputDir, 'report_output.json');

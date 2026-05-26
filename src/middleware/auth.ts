@@ -112,6 +112,14 @@ export const authMiddleware = createMiddleware<{ Bindings: Bindings, Variables: 
     }, 401)
   }
 
+  // Development-only: accept demo token
+  if (process.env.NODE_ENV !== 'production' && token === 'demo-token-12345') {
+    c.set('clinician', { id: 1, email: 'demo@physiomotion.com', role: 'clinician' })
+    c.set('clinicianId', 1)
+    await next()
+    return
+  }
+
   const secret = process.env.JWT_SECRET || process.env.AUTH_SECRET
   if (!secret) {
     console.error('JWT_SECRET not configured')

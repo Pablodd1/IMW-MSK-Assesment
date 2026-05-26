@@ -4,13 +4,16 @@ import { logger as honoLogger } from 'hono/logger';
 import { MOCK_PATIENTS, EXERCISE_LIBRARY } from './mockData.js';
 import mskRouter from './routes/msk-analysis.js';
 import aiRoutes from './routes/ai-analysis.js';
+import { authMiddleware } from './middleware/auth.js';
 
 const app = new Hono();
 
 // Middleware
 app.use('*', honoLogger());
 app.use('*', cors({
-  origin: '*',
+  origin: process.env.NODE_ENV === 'production'
+    ? ['https://imw-msk-assesment.vercel.app', 'https://imwmsk.com', 'https://www.imwmsk.com']
+    : '*',
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization']
 }));
@@ -52,7 +55,7 @@ app.get('/health', (c) => {
 // ============================================================================
 
 // Get all patients
-app.get('/patients', (c) => {
+app.get('/patients', authMiddleware, (c) => {
   const patients = MOCK_PATIENTS.map(p => ({
     id: p.id,
     first_name: p.first_name,
@@ -74,7 +77,7 @@ app.get('/patients', (c) => {
 });
 
 // Get patient by ID
-app.get('/patients/:id', (c) => {
+app.get('/patients/:id', authMiddleware, (c) => {
   const id = parseInt(c.req.param('id'));
   const patient = MOCK_PATIENTS.find(p => p.id === id);
   
@@ -86,7 +89,7 @@ app.get('/patients/:id', (c) => {
 });
 
 // Create new patient
-app.post('/patients', async (c) => {
+app.post('/patients', authMiddleware, async (c) => {
   const body = await c.req.json();
   
   const newPatient = {
@@ -107,7 +110,7 @@ app.post('/patients', async (c) => {
 });
 
 // Update patient
-app.put('/patients/:id', async (c) => {
+app.put('/patients/:id', authMiddleware, async (c) => {
   const id = parseInt(c.req.param('id'));
   const body = await c.req.json();
   
@@ -122,7 +125,7 @@ app.put('/patients/:id', async (c) => {
 });
 
 // Get patient medical history
-app.get('/patients/:id/medical-history', (c) => {
+app.get('/patients/:id/medical-history', authMiddleware, (c) => {
   const id = parseInt(c.req.param('id'));
   const patient = MOCK_PATIENTS.find(p => p.id === id);
   
@@ -137,7 +140,7 @@ app.get('/patients/:id/medical-history', (c) => {
 });
 
 // Add medical history
-app.post('/patients/:id/medical-history', async (c) => {
+app.post('/patients/:id/medical-history', authMiddleware, async (c) => {
   const id = parseInt(c.req.param('id'));
   const body = await c.req.json();
   
@@ -155,7 +158,7 @@ app.post('/patients/:id/medical-history', async (c) => {
 });
 
 // Get patient assessments
-app.get('/patients/:id/assessments', (c) => {
+app.get('/patients/:id/assessments', authMiddleware, (c) => {
   const id = parseInt(c.req.param('id'));
   const patient = MOCK_PATIENTS.find(p => p.id === id);
   
@@ -170,7 +173,7 @@ app.get('/patients/:id/assessments', (c) => {
 });
 
 // Get patient prescriptions
-app.get('/patients/:id/prescriptions', (c) => {
+app.get('/patients/:id/prescriptions', authMiddleware, (c) => {
   const id = parseInt(c.req.param('id'));
   const patient = MOCK_PATIENTS.find(p => p.id === id);
   
@@ -190,7 +193,7 @@ app.get('/patients/:id/prescriptions', (c) => {
 });
 
 // Get patient sessions
-app.get('/patients/:id/sessions', (c) => {
+app.get('/patients/:id/sessions', authMiddleware, (c) => {
   const id = parseInt(c.req.param('id'));
   const patient = MOCK_PATIENTS.find(p => p.id === id);
   
@@ -209,7 +212,7 @@ app.get('/patients/:id/sessions', (c) => {
 // ============================================================================
 
 // Create assessment
-app.post('/assessments', async (c) => {
+app.post('/assessments', authMiddleware, async (c) => {
   const body = await c.req.json();
   const { patient_id, assessment_type, clinician_id } = body;
   
@@ -241,7 +244,7 @@ app.post('/assessments', async (c) => {
 });
 
 // Get all assessments
-app.get('/assessments', (c) => {
+app.get('/assessments', authMiddleware, (c) => {
   const allAssessments = MOCK_PATIENTS.flatMap(p => 
     (p.assessments || []).map(a => ({
       ...a,
@@ -254,7 +257,7 @@ app.get('/assessments', (c) => {
 });
 
 // Get assessment by ID
-app.get('/assessments/:id', (c) => {
+app.get('/assessments/:id', authMiddleware, (c) => {
   const id = parseInt(c.req.param('id'));
   
   for (const patient of MOCK_PATIENTS) {
@@ -271,7 +274,7 @@ app.get('/assessments/:id', (c) => {
 });
 
 // Add test to assessment
-app.post('/assessments/:id/tests', async (c) => {
+app.post('/assessments/:id/tests', authMiddleware, async (c) => {
   const assessmentId = parseInt(c.req.param('id'));
   const body = await c.req.json();
   
@@ -295,7 +298,7 @@ app.post('/assessments/:id/tests', async (c) => {
 });
 
 // Generate clinical note
-app.post('/assessments/:id/generate-note', async (c) => {
+app.post('/assessments/:id/generate-note', authMiddleware, async (c) => {
   const assessmentId = parseInt(c.req.param('id'));
   
   for (const patient of MOCK_PATIENTS) {
@@ -398,7 +401,7 @@ app.get('/exercises/:id', (c) => {
 // ============================================================================
 
 // Create prescription
-app.post('/prescriptions', async (c) => {
+app.post('/prescriptions', authMiddleware, async (c) => {
   const body = await c.req.json();
   const { patient_id, exercise_id, assessment_id, sets, reps, frequency, notes } = body;
   
@@ -438,7 +441,7 @@ app.post('/prescriptions', async (c) => {
 // ============================================================================
 
 // Record exercise session
-app.post('/exercise-sessions', async (c) => {
+app.post('/exercise-sessions', authMiddleware, async (c) => {
   const body = await c.req.json();
   const { patient_id, exercises_completed, duration_minutes, pain_level, notes } = body;
   
@@ -479,7 +482,7 @@ app.post('/exercise-sessions', async (c) => {
 // ============================================================================
 
 // Get dashboard stats
-app.get('/dashboard/stats', (c) => {
+app.get('/dashboard/stats', authMiddleware, (c) => {
   console.log('[PHYSIOMOTION] Dashboard stats endpoint hit');
   const stats = {
     total_patients: MOCK_PATIENTS.length,
@@ -505,7 +508,7 @@ app.get('/dashboard/stats', (c) => {
 });
 
 // Get patient progress
-app.get('/patients/:id/progress', (c) => {
+app.get('/patients/:id/progress', authMiddleware, (c) => {
   const id = parseInt(c.req.param('id'));
   const patient = MOCK_PATIENTS.find(p => p.id === id);
   
@@ -531,8 +534,17 @@ app.get('/patients/:id/progress', (c) => {
 
 app.post('/auth/login', async (c) => {
   const body = await c.req.json();
-  
-  // Demo mode - accept any credentials
+
+  // Production: demo mode is DISABLED. Return clear error.
+  if (process.env.NODE_ENV === 'production') {
+    return c.json({
+      success: false,
+      error: 'Demo authentication is disabled in production. Real credentials required.',
+      code: 'DEMO_DISABLED'
+    }, 401);
+  }
+
+  // Development: demo mode - accept any credentials
   return c.json({
     success: true,
     data: {
@@ -549,18 +561,18 @@ app.post('/auth/login', async (c) => {
   });
 });
 
-app.get('/auth/me', (c) => {
+app.get('/auth/me', authMiddleware, (c) => {
+  const clinician = c.get('clinician');
   return c.json({
     success: true,
     data: {
       user: {
-        id: 1,
-        name: 'Dr. Demo Clinician',
-        email: 'demo@physiomotion.com',
-        role: 'clinician',
-        license: 'PT12345'
+        id: clinician.id,
+        name: (clinician as any).name || 'Clinician',
+        email: clinician.email,
+        role: clinician.role,
       },
-      demo_mode: true
+      demo_mode: process.env.NODE_ENV !== 'production' && c.req.header('Authorization')?.replace('Bearer ', '') === 'demo-token-12345'
     }
   });
 });
