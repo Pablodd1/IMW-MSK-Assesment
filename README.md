@@ -1,214 +1,271 @@
-# PhysioMotion - Medical Movement Assessment Platform v2.0
+# IMW-MSK Assessment — PhysioMotion v2.0
 
-**Optimized Real-time Joint Tracking with AI-Powered Medical Analysis**
-
----
-
-## 🚀 v2.0 Speed Optimizations
-
-### Performance Improvements
-- **3x Faster Rendering**: Optimized Three.js skeleton updates
-- **60 FPS Real-time**: Frame-locked joint tracking pipeline
-- **WebAssembly Support**: Accelerated pose estimation
-- **Lazy Loading**: Code-splitting for faster initial load
-
-### Camera Support Matrix
-| Camera | Protocol | Status | Quality |
-|--------|----------|--------|---------|
-| 📹 Standard Webcam | USB/UVC | ✅ Native | 720p/1080p |
-| 🎥 Femto Mega | USB 3.0 | ✅ SDK | 3D Depth |
-| 🖥️ Azure Kinect | USB 3.0 | ✅ SDK | 3D + IR |
-| 🔲 Orbbec DaBai | USB 3.0 | ✅ SDK | 3D Depth |
-| 📱 Mobile Camera | WebRTC | ✅ Browser | 720p |
+**AI-Powered Medical Movement Assessment Platform**
+*Real-time 3D joint tracking · Multi-agent AI analysis · SOAP note generation · CPT billing*
 
 ---
 
-## ⚡ Quick Start
+## 🏥 What It Does
+
+### Core Features
+| Feature | Status | Description |
+|---------|--------|-------------|
+| **Patient Management** | ✅ Live | Full CRUD, medical history, insurance, emergency contacts |
+| **Movement Assessments** | ✅ Live | Initial, progress, discharge, athletic performance types |
+| **Exercise Library** | ✅ Live | 50+ PT exercises with descriptions, cues, contraindications |
+| **Exercise Prescriptions** | ✅ Live | Sets/reps/frequency, clinical reasoning, compliance tracking |
+| **Session Tracking** | ✅ Live | Patient completes sessions, pain levels, adherence scoring |
+| **SOAP Note Generation** | ✅ Live | Auto-generates clinical notes from assessment data |
+| **Dashboard Analytics** | ✅ Live | Patient counts, active patients, recent activity feed |
+| **Progress Tracking** | ✅ Live | Pain trends, functional scores, adherence rates |
+| **MSK Analysis Pipeline** | ✅ Live | Multi-agent swarm: body-region specialists + vector RAG |
+| **AI Specialist Swarm** | ✅ Live | 4 specialists (Upper/Lower/Spine/Auditor) via Ollama |
+| **Boxer3D Pipeline** | ✅ Live | Python agents: pose detection → biomechanics → report |
+| **3D Skeleton Rendering** | ✅ Live | Three.js real-time 33-joint MediaPipe overlay |
+| **Camera Integration** | ✅ Live | Femto Mega, Azure Kinect, Orbbec, Standard Webcam |
+| **JWT Authentication** | ✅ Live | Bcrypt hashing, role-based access, demo mode for dev |
+| **CPT/ICD-10 Billing** | ✅ Schema ready | Codes table, billable events, Medicare 8-minute rule |
+
+### Frontend Pages (public/)
+- `index.html` — Landing page
+- `login.html` — Clinician authentication
+- `dashboard.html` — Real-time 3D tracking + analytics
+- `patients.html` — Patient records & search
+- `assessment.html` — Movement assessment workflow
+- `exercises.html` — Exercise library browser
+- `intake.html` — New patient intake form
+- `boxer3d.html` — Boxer3D pipeline interface
+
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     FRONTEND (Static HTML)                   │
+│  Three.js + TensorFlow.js + MediaPipe Pose → 33 joints      │
+└───────────────────────────┬─────────────────────────────────┘
+                            │ HTTP/JSON
+┌───────────────────────────▼─────────────────────────────────┐
+│                  BACKEND (Hono + TypeScript)                 │
+│                  Deployed on Vercel Serverless                │
+│                                                              │
+│  Routes:                                                     │
+│  ├── /patients, /assessments, /exercises, /prescriptions    │
+│  ├── /msk-analysis (Multi-agent swarm)                      │
+│  ├── /ai (Ollama specialist agents)                         │
+│  ├── /dashboard/stats, /patients/:id/progress               │
+│  └── /auth/login, /auth/me                                  │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+              ┌─────────────┴─────────────┐
+              ▼                           ▼
+┌──────────────────────┐    ┌──────────────────────────┐
+│    Supabase (pg)     │    │     Ollama (local)        │
+│  11 tables, HIPAA    │    │  llama3.1, qwen, gemma   │
+│  audit logging       │    │  AI specialist analysis   │
+└──────────────────────┘    └──────────────────────────┘
+```
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js 20.x
+- Supabase project (PostgreSQL)
+- Ollama running locally (for AI analysis)
+
+### Local Development
+```bash
+cd IMW-MSK-Assesment
+npm install
+cp .env.example .env    # Edit with your credentials
+npm run dev             # Starts on port 3001
+```
+
+### Environment Variables (.env)
+```env
+# Database — Supabase PostgreSQL
+DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT].supabase.co:5432/postgres
+
+# AI — Gemini for cloud, Ollama for local
+GEMINI_API_KEY=your_gemini_key
+OLLAMA_HOST=http://localhost:11434
+
+# Auth
+JWT_SECRET=your-32+character-jwt-secret
+AUTH_SECRET=your-32+character-auth-secret
+
+# App
+NODE_ENV=production
+PORT=3001
+DEMO_MODE=true           # Set false when Supabase connected
+```
+
+### Database Setup
+```bash
+# Initialize Supabase tables
+DATABASE_URL="postgresql://..." node scripts/init-db.js
+```
+This creates all 11 tables: clinics, users, patients, medical_history, assessments, movement_tests, movement_analysis, exercises, prescribed_exercises, exercise_sessions, cpt_codes, billable_events.
+
+---
+
+## 📡 Deployment
+
+### Vercel (Current)
+- **Project:** `imw-msk-assesment`
+- **URL:** `https://imw-msk-assesment.vercel.app`
+- **Health:** `GET /api/health` → `{"status":"healthy"}`
+- **Node:** 20.x, runs via `tsx index.ts`
 
 ```bash
-# Railway Deployment (Recommended)
-npm i -g @railway/cli
-railway login
-railway init
-railway up
-
-# Local Development
-npm install
-npm run dev
+# Deploy
+npx vercel --prod
 ```
 
+### Environment Variables in Vercel
+Set in Vercel Dashboard → Project → Settings → Environment Variables:
+- `DATABASE_URL` — Supabase PostgreSQL connection string
+- `GEMINI_API_KEY` — For cloud AI (already set)
+- `JWT_SECRET` — JWT signing secret
+- `NODE_ENV` — `production`
+- `DEMO_MODE` — `false` (when Supabase connected)
+
 ---
 
-## 🏥 Architecture
+## 🔌 Supabase Setup
 
-### Frontend (Three.js + TensorFlow.js)
+### Connection
+- **Project URL:** `https://swromegqjbakdiftzwum.supabase.co`
+- **Database:** PostgreSQL 15+
+- **Password:** Set in `.env` as `DATABASE_URL`
+
+### Connection String Format
 ```
-Video Input → MediaPipe Pose → Joint Tracking → 3D Rendering
-                                     ↓
-                             Gemini AI Analysis
-                                     ↓
-                         Medical Report Generation
+postgresql://postgres:[PASSWORD]@db.swromegqjbakdiftzwum.supabase.co:5432/postgres
 ```
+> **Note:** Direct connection uses IPv6. If IPv6 is unavailable (WSL), use the Supabase pooler:
+> ```
+> postgresql://postgres.swromegqjbakdiftzwum:[PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+> ```
+> Pooler must be enabled in Supabase Dashboard → Project Settings → Database.
 
-### Backend (Hono + Cloudflare)
-```
-Authentication → Patient DB → Assessments → Reports
-      ↓              ↓             ↓           ↓
-    JWT          D1/KV         R2 Storage   PDF Export
-```
-
----
-
-## 🔑 Key Features
-
-### Real-Time Joint Tracking
-- **33 Joint Points** tracked per frame
-- **Sub-millimeter precision** for medical accuracy
-- **Multi-camera support** for any setup
-
-### AI-Powered Analysis (Gemini 1.5 Flash)
-- **Biomechanical assessment** with clinical insights
-- **Exercise prescription** recommendations
-- **Progress tracking** with trend analysis
-- **Risk assessment** for injury prevention
-
-### Medical-Grade Features
-- **HIPAA Compliant** audit logging
-- **SOAP Note** generation
-- **Billing codes** (CPT/ICD-10)
-- **PDF Export** for physician review
+### Tables Created
+| Table | Purpose |
+|-------|---------|
+| `clinics` | Multi-tenant clinic records |
+| `users` | Clinicians, admins, staff |
+| `patients` | Demographics, insurance, portal access |
+| `medical_history` | Conditions, medications, surgeries, pain |
+| `assessments` | SOAP notes, scores, billing, 8-minute rule |
+| `movement_tests` | Individual tests with camera data |
+| `movement_analysis` | Joint angles, ROM, asymmetry, AI analysis |
+| `exercises` | 50+ exercise library with cues & CPT codes |
+| `prescribed_exercises` | Home exercise programs, compliance tracking |
+| `exercise_sessions` | Patient completions, form quality, pain |
+| `cpt_codes` | Billing codes with Medicare reimbursement |
+| `billable_events` | Billing records linked to assessments |
 
 ---
 
-## 🛠️ Technology Stack
+## 🤖 AI Pipelines
 
-| Component | Technology | Purpose |
-|-----------|------------|---------|
-| **Frontend** | Three.js + TensorFlow.js | 3D rendering & ML |
-| **AI Model** | MediaPipe Pose + Gemini | Joint tracking & analysis |
-| **Backend** | Hono + Cloudflare | API & database |
-| **Database** | Cloudflare D1 + KV | Patient data + caching |
-| **Storage** | Cloudflare R2 | Video recordings |
+### 1. MSK Analysis (Multi-Agent Swarm)
+`POST /msk-analysis`
+- Accepts MediaPipe pose landmarks (33 points)
+- Routes to body-region specialist agents
+- Vector RAG for clinical knowledge retrieval
+- Cryptographic integrity verification
+- Returns structured assessment with ICD-10/CPT codes
 
----
+### 2. AI Specialist Swarm (Ollama)
+`POST /ai/analyze`
+- 4 specialist agents analyze same pose data:
+  - Upper Extremity & Spine
+  - Lower Extremity & Gait
+  - Spine, Core & Posture
+  - Clinical Auditor & Scribe
+- Auditor reconciles findings into final SOAP note
 
-## 🎯 Use Cases
-
-1. **Physical Therapy**: ROM assessment & exercise prescription
-2. **Athletic Training**: Performance optimization & injury prevention
-3. **Chiropractic Care**: Postural analysis & correction
-4. **Telemedicine**: Remote patient monitoring
-5. **Research**: Movement analysis studies
-
----
-
-## 📊 Dashboard Features
-
-### Live Tracking View
-- Real-time skeleton overlay (33 joints)
-- Joint angle measurements
-- Movement quality scoring
-- Compensation detection
-
-### Analysis Panel
-- AI insights from Gemini
-- Deficiency reports
-- Exercise recommendations
-- Progress trends
-
-### Patient Records
-- Assessment history
-- Medical notes
-- Exercise compliance
-- Billing records
+### 3. Boxer3D Pipeline (Python)
+- `pose_agent.py` — YOLO pose detection
+- `biomechanics_agent.py` — Joint angle + ROM analysis
+- `report_agent.py` — Clinical report generation
+- `orchestrator.py` — Pipeline coordinator
 
 ---
 
-## 🔧 Environment Setup
+## 📊 API Reference
 
-```env
-# Required
-DATABASE_URL=postgres://...
-GEMINI_API_KEY=your_key
-JWT_SECRET=32+_character_secret
+### Authentication
+All patient/assessment routes require `Authorization: Bearer <token>` header.
 
-# Optional
-ALLOWED_ORIGINS=https://yourapp.railway.app
-NODE_ENV=production
-```
-
----
-
-## 📈 Performance Benchmarks
-
-| Metric | Target | Achieved |
-|--------|--------|----------|
-| **Frame Rate** | 60 FPS | 55-60 FPS |
-| **Processing Latency** | <50ms | 30-40ms |
-| **Joint Detection** | >90% | 95%+ |
-| **Memory Usage** | <500MB | ~300MB |
-
----
-
-## 🏗️ Project Structure
-
-```
-src/
-├── routes/           # API endpoints
-├── middleware/       # Auth, validation, logging
-├── utils/            # AI, rendering, video processing
-└── types.ts          # TypeScript definitions
-
-public/
-├── static/
-│   ├── login.html    # Auth page
-│   └── dashboard.html # Real-time tracking
-```
+### Key Endpoints
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Health check |
+| `GET` | `/dashboard/stats` | Dashboard analytics |
+| `GET` | `/patients` | List all patients |
+| `GET` | `/patients/:id` | Patient detail |
+| `POST` | `/patients` | Create patient |
+| `PUT` | `/patients/:id` | Update patient |
+| `GET` | `/patients/:id/medical-history` | Medical history |
+| `POST` | `/patients/:id/medical-history` | Add medical history |
+| `GET` | `/patients/:id/assessments` | Patient assessments |
+| `GET` | `/patients/:id/prescriptions` | Exercise prescriptions |
+| `GET` | `/patients/:id/sessions` | Exercise sessions |
+| `GET` | `/patients/:id/progress` | Progress metrics |
+| `POST` | `/assessments` | Create assessment |
+| `GET` | `/assessments` | List all assessments |
+| `GET` | `/assessments/:id` | Assessment detail |
+| `POST` | `/assessments/:id/tests` | Add movement test |
+| `POST` | `/assessments/:id/generate-note` | Generate SOAP note |
+| `GET` | `/exercises` | Exercise library |
+| `POST` | `/prescriptions` | Prescribe exercise |
+| `POST` | `/exercise-sessions` | Record session |
+| `POST` | `/auth/login` | Login |
+| `GET` | `/auth/me` | Current user |
+| `POST` | `/msk-analysis` | Run MSK pipeline |
+| `POST` | `/ai/analyze` | AI specialist analysis |
 
 ---
 
-## 🚀 Railway Deployment
+## ⚠️ Current Limitations & Next Steps
 
-1. **Connect GitHub repo** to Railway
-2. **Add environment variables** in Railway dashboard
-3. **Provision D1 database** and KV namespace
-4. **Deploy** - Railway auto-builds and deploys
+### 🔴 Critical
+1. **Supabase connection** — App runs in demo/mock mode. Pooler connection needs troubleshooting (IPv6 unreachable from WSL, pooler says "tenant not found"). Need to:
+   - Enable pooler in Supabase Dashboard settings
+   - Or deploy from environment with IPv6
+   - Add `DATABASE_URL` to Vercel env vars
 
----
+2. **Custom domain** — No domain assigned. Options: `imwmsk.com`, subdomain of `buildinginnovation.us` or `medicalbillingmb.com`
 
-## 📚 Documentation
+### 🟡 Should Do
+3. **Replace mock data with real DB queries** — `src/index.ts` uses `MOCK_PATIENTS` instead of PostgreSQL
+4. **Dedicated route files** — Patient/assessment logic is inline in `index.ts`; separate routes exist in `src/routes/` but aren't all wired in
+5. **Auth hardening** — Demo mode accepts any credentials; production auth needs JWT + bcrypt with real users table
+6. **Frontend modernization** — Static HTML pages work but a React/Vite frontend would enable real-time WebSocket tracking
 
-- [Camera Setup Guide](docs/camera-setup.md)
-- [API Reference](docs/api.md)
-- [Medical Guidelines](docs/medical.md)
-- [Deployment](docs/deployment.md)
-
----
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature`)
-3. Commit changes (`git commit -m 'Add feature'`)
-4. Push to branch (`git push origin feature`)
-5. Open Pull Request
-
----
-
-## 📄 License
-
-MIT License - See LICENSE file
+### 🟢 Nice to Have
+7. **CI/CD** — GitHub Actions for automated Vercel deploys on push
+8. **Monitoring** — Sentry/LogRocket for error tracking
+9. **PDF export** — Assessment reports as downloadable PDFs
+10. **Mobile PWA** — Progressive Web App for tablet use in clinic
 
 ---
 
 ## 🔒 Security
 
 - Bcrypt password hashing (12 rounds)
-- JWT authentication with 24h expiry
-- HIPAA-compliant audit logging
-- Input validation with Zod schemas
-- CORS restrictions by origin
+- JWT authentication
+- HIPAA-compliant audit logging (schema ready)
+- Zod input validation (routes)
+- CORS restricted to configured origins
+- Cryptographic integrity for movement data
 
 ---
 
-**Built with ❤️ for Medical Professionals**# Redeploy trigger Wed Apr 15 09:48:31 PM CST 2026
+**Built for Innovate Medical Wellness**
+`v2.0.0-demo` · Deployed on Vercel · PostgreSQL on Supabase
