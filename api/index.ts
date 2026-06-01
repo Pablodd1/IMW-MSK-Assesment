@@ -1,17 +1,71 @@
-import { handle } from 'hono/vercel'
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import app from '../src/index.js';
 
-const app = new Hono()
-app.use('*', cors({ origin: '*', allowHeaders: ['Content-Type', 'Authorization'] }))
+/**
+ * Vercel Serverless Adapter for Hono
+ * Bridges Vercel's Node.js request/response to Hono's fetch API.
+ * This ensures ALL routes defined in src/index.ts work on Vercel.
+ */
 
-app.get('/api/health', (c) => c.json({ success: true, status: 'healthy', ts: new Date().toISOString() }))
-app.get('/api/test', (c) => c.json({ ok: true, msg: 'Vercel works', ts: new Date().toISOString() }))
-app.get('/api/info', (c) => c.json({ success: true, model: { name: 'Boxer3D MSK' } }))
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const url = new URL(
+    req.url || '/',
+    `http://${req.headers.host || 'localhost'}`
+  );
 
-// Direct paths (without /api prefix)
-app.get('/health', (c) => c.json({ success: true, status: 'healthy', ts: new Date().toISOString() }))
-app.get('/test', (c) => c.json({ ok: true, msg: 'Vercel works', ts: new Date().toISOString() }))
-app.get('/info', (c) => c.json({ success: true, model: { name: 'Boxer3D MSK' } }))
+  // Build headers
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(req.headers)) {
+    if (value === undefined) continue;
+    if (Array.isArray(value)) {
+      for (const v of value) headers.append(key, v);
+    } else {
+      headers.append(key, String(value));
+    }
+  }
 
-export default handle(app)
+  // Build body
+  let body: BodyInit | undefined = undefined;
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    if (typeof req.body === 'string') {
+      body = req.body;
+    } else if (Buffer.isBuffer(req.body)) {
+      body = req.body;
+    } else if (req.body !== undefined && req.body !== null) {
+      body = JSON.stringify(req.body);
+      if (!headers.has('content-type')) {
+        headers.set('content-type', 'application/json');
+      }
+    }
+  }
+
+  // Build Web Request
+  const request = new Request(url.toString(), {
+    method: req.method,
+    headers,
+    body,
+  });
+
+  try {
+    const response = await app.fetch(request);
+
+    // Copy status
+    res.status(response.status);
+
+    // Copy headers
+    response.headers.forEach((value, key) => {
+      res.setHeader(key, value);
+    });
+
+    // Send body
+    const responseBody = await response.text();
+    res.send(responseBody);
+  } catch (err: any) {
+    console.error('[VERCEL ADAPTER] Error:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: err.message,
+    });
+  }
+}

@@ -483,16 +483,16 @@ export interface BiomechanicalAnalysis {
 
 export type Variables = {
   clinician?: {
-    id: number;
+    id: string | number;
     email: string;
     role: string;
-    clinic_id?: number;
+    clinic_id?: string | number;
     npi_number?: string;
   };
-  clinicianId?: number;
-  patientId?: number;
+  clinicianId?: string | number;
+  patientId?: string | number;
   validatedData?: any;
-  validatedId?: number;
+  validatedId?: string | number;
 }
 
 // ============================================================================

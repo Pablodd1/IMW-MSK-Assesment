@@ -1,10 +1,19 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger as honoLogger } from 'hono/logger';
-import { MOCK_PATIENTS, EXERCISE_LIBRARY } from './mockData.js';
 import mskRouter from './routes/msk-analysis.js';
 import aiRoutes from './routes/ai-analysis.js';
 import { authMiddleware } from './middleware/auth.js';
+import { analyzeMovement, quickAssessment, getAIInfo } from './utils/ai-analysis.js';
+import { searchKnowledge, getRehabProtocol, REHAB_PROTOCOLS, ROM_NORMATIVE, CLINICAL_CALCULATORS, MEDICAL_CONDITIONS, CPT_CODES } from './utils/rag-knowledge.js';
+import {
+  listPatients, getPatient, createPatient, updatePatient,
+  listAssessments, getAssessment, createAssessment,
+  addTest, createPrescription, recordSession,
+  listExercises, getExercise, getDashboardStats,
+  getClinicianByEmail, createClinician,
+} from './lib/database.js';
+import { hashPassword, verifyPassword, generateToken } from './middleware/auth.js';
 
 const app = new Hono();
 
@@ -18,8 +27,6 @@ app.use('*', cors({
   allowHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Static files are served by Vercel CDN directly (public/ folder)
-
 // ============================================================================
 // SPECIALIST AGENT ROUTES
 // ============================================================================
@@ -30,6 +37,133 @@ app.route('/msk-analysis', mskRouter);
 // ============================================================================
 app.route('/ai', aiRoutes);
 
+// Enhanced AI movement analysis (with RAG)
+app.post('/ai/analyze-movement', authMiddleware, async (c) => {
+  const body = await c.req.json();
+  const { patientId, movementTest, landmarks, bodyRegion, frameCount, depthData } = body;
+
+  if (!patientId || !movementTest || !landmarks || !bodyRegion) {
+    return c.json({ success: false, error: 'patientId, movementTest, landmarks, and bodyRegion are required' }, 400);
+  }
+
+  try {
+    const result = await analyzeMovement({ patientId, movementTest, landmarks, bodyRegion, frameCount, depthData });
+    return c.json({ success: true, data: result, ai: getAIInfo() });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
+});
+
+// Quick clinical assessment (no camera needed)
+app.post('/ai/quick-assess', authMiddleware, async (c) => {
+  const body = await c.req.json();
+  const { patientId, bodyRegion, chiefComplaint, painScale, functionalLimitations } = body;
+
+  if (!patientId || !bodyRegion || !chiefComplaint) {
+    return c.json({ success: false, error: 'patientId, bodyRegion, and chiefComplaint are required' }, 400);
+  }
+
+  try {
+    const result = await quickAssessment({ patientId, bodyRegion, chiefComplaint, painScale: painScale || 0, functionalLimitations: functionalLimitations || '' });
+    return c.json({ success: true, data: result, ai: getAIInfo() });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
+});
+
+// AI provider info
+app.get('/ai/info', (c) => {
+  return c.json({ success: true, data: getAIInfo() });
+});
+
+// ============================================================================
+// RAG KNOWLEDGE ROUTES
+// ============================================================================
+app.get('/knowledge/search', (c) => {
+  const q = c.req.query('q') || '';
+  const results = searchKnowledge(q);
+  return c.json({ success: true, data: results, count: results.length });
+});
+
+app.get('/knowledge/conditions', (c) => {
+  const region = c.req.query('region');
+  const conditions = region
+    ? MEDICAL_CONDITIONS.filter(c => c.category === region)
+    : MEDICAL_CONDITIONS;
+  return c.json({ success: true, data: conditions.map(c => ({ name: c.name, icd10: c.icd10, category: c.category, specialTests: c.specialTests })) });
+});
+
+app.get('/knowledge/rehab/:condition', (c) => {
+  const condition = c.req.param('condition');
+  const protocol = getRehabProtocol(condition);
+  if (!protocol) return c.json({ success: false, error: 'No protocol found for condition' }, 404);
+  return c.json({ success: true, data: protocol });
+});
+
+app.get('/knowledge/rom', (c) => {
+  return c.json({ success: true, data: ROM_NORMATIVE });
+});
+
+app.get('/knowledge/calculators', (c) => {
+  return c.json({ success: true, data: Object.entries(CLINICAL_CALCULATORS).map(([key, calc]) => ({ key, ...calc })) });
+});
+
+app.get('/knowledge/cpt', (c) => {
+  return c.json({ success: true, data: CPT_CODES });
+});
+
+// ============================================================================
+// ENHANCED ASSESSMENT
+// ============================================================================
+app.post('/assessments/enhanced', authMiddleware, async (c) => {
+  const body = await c.req.json();
+  const { patient_id, assessment_type, clinician_id, chief_complaint, pain_scale, movement_test, landmarks, body_region, run_ai } = body;
+
+  const patient = await getPatient(patient_id);
+  if (!patient) {
+    return c.json({ success: false, error: 'Patient not found' }, 404);
+  }
+
+  const newAssessment = await createAssessment({
+    patient_id,
+    assessment_type: assessment_type || 'initial',
+    clinician_id,
+    chief_complaint: chief_complaint || '',
+    pain_scale: pain_scale || 0,
+    movement_test: movement_test || null,
+    goals: body.goals || [],
+    clinical_notes: '',
+    ai_analysis: null,
+  });
+
+  // Run AI analysis if landmarks provided
+  if (run_ai && landmarks && body_region) {
+    try {
+      const aiResult = await analyzeMovement({
+        patientId: patient_id,
+        movementTest: movement_test || 'general_assessment',
+        landmarks,
+        bodyRegion: body_region,
+      });
+      // Update assessment with AI results
+      const updated = { ...newAssessment, ai_analysis: aiResult, clinical_notes: aiResult.soapNote.assessment };
+      // Add recommended tests
+      updated.tests = (aiResult.recommendedTests || []).map((t: any) => ({
+        id: Date.now() + Math.random(),
+        test_name: t.name,
+        rationale: t.rationale,
+        status: 'pending',
+      }));
+      return c.json({ success: true, data: updated }, 201);
+    } catch (err: any) {
+      console.error('[Enhanced Assessment] AI analysis failed:', err.message);
+      return c.json({ success: true, data: { ...newAssessment, ai_analysis: { error: err.message } } }, 201);
+    }
+  }
+
+  return c.json({ success: true, data: newAssessment }, 201);
+});
+
 // ============================================================================
 // HEALTH CHECK
 // ============================================================================
@@ -38,14 +172,24 @@ app.get('/health', (c) => {
     success: true,
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    version: '2.0.0-demo',
-    commit: 'c8dd9fe',
+    version: '3.0.0',
+    commit: 'supabase-integration',
+    ai: getAIInfo(),
     features: {
       patients: true,
       assessments: true,
       exercises: true,
       camera: true,
-      reporting: true
+      reporting: true,
+      ai_analysis: true,
+      rag_knowledge: {
+        conditions: MEDICAL_CONDITIONS.length,
+        calculators: Object.keys(CLINICAL_CALCULATORS).length,
+        rom_norms: Object.keys(ROM_NORMATIVE).length,
+        cpt_codes: Object.keys(CPT_CODES).length,
+        rehab_protocols: Object.keys(REHAB_PROTOCOLS).length,
+      },
+      telegram_notifications: !!process.env.TELEGRAM_BOT_TOKEN,
     }
   });
 });
@@ -54,317 +198,149 @@ app.get('/health', (c) => {
 // PATIENT ROUTES
 // ============================================================================
 
-// Get all patients
-app.get('/patients', authMiddleware, (c) => {
-  const patients = MOCK_PATIENTS.map(p => ({
-    id: p.id,
-    first_name: p.first_name,
-    last_name: p.last_name,
-    date_of_birth: p.date_of_birth,
-    gender: p.gender,
-    email: p.email,
-    phone: p.phone,
-    created_at: p.created_at,
-    medical_history: p.medical_history,
-    assessments: p.assessments,
-    exercise_sessions: p.exercise_sessions,
-    progress_metrics: p.progress_metrics,
-    pain_trend: p.progress_metrics?.pain_trend || [],
-    latest_assessment: p.assessments?.[p.assessments.length - 1]?.assessment_date || null
-  }));
-  
+app.get('/patients', authMiddleware, async (c) => {
+  const patients = await listPatients();
   return c.json({ success: true, data: patients });
 });
 
-// Get patient by ID
-app.get('/patients/:id', authMiddleware, (c) => {
-  const id = parseInt(c.req.param('id'));
-  const patient = MOCK_PATIENTS.find(p => p.id === id);
-  
-  if (!patient) {
-    return c.json({ success: false, error: 'Patient not found' }, 404);
-  }
-  
+app.get('/patients/:id', authMiddleware, async (c) => {
+  const id = c.req.param('id');
+  const patient = await getPatient(id);
+  if (!patient) return c.json({ success: false, error: 'Patient not found' }, 404);
   return c.json({ success: true, data: patient });
 });
 
-// Create new patient
 app.post('/patients', authMiddleware, async (c) => {
   const body = await c.req.json();
-  
-  const newPatient = {
-    id: MOCK_PATIENTS.length + 1,
-    ...body,
-    created_at: new Date().toISOString(),
-    assessments: [],
-    exercise_sessions: [],
-    progress_metrics: {
-      pain_trend: [],
-      functional_score_trend: []
-    }
-  };
-  
-  MOCK_PATIENTS.push(newPatient as any);
-  
+  const newPatient = await createPatient(body);
   return c.json({ success: true, data: newPatient }, 201);
 });
 
-// Update patient
 app.put('/patients/:id', authMiddleware, async (c) => {
-  const id = parseInt(c.req.param('id'));
+  const id = c.req.param('id');
   const body = await c.req.json();
-  
-  const patientIndex = MOCK_PATIENTS.findIndex(p => p.id === id);
-  if (patientIndex === -1) {
-    return c.json({ success: false, error: 'Patient not found' }, 404);
-  }
-  
-  MOCK_PATIENTS[patientIndex] = { ...MOCK_PATIENTS[patientIndex], ...body };
-  
-  return c.json({ success: true, data: MOCK_PATIENTS[patientIndex] });
+  const patient = await updatePatient(id, body);
+  if (!patient) return c.json({ success: false, error: 'Patient not found' }, 404);
+  return c.json({ success: true, data: patient });
 });
 
-// Get patient medical history
-app.get('/patients/:id/medical-history', authMiddleware, (c) => {
-  const id = parseInt(c.req.param('id'));
-  const patient = MOCK_PATIENTS.find(p => p.id === id);
-  
-  if (!patient) {
-    return c.json({ success: false, error: 'Patient not found' }, 404);
-  }
-  
-  return c.json({ 
-    success: true, 
-    data: patient.medical_history || {}
-  });
+app.get('/patients/:id/medical-history', authMiddleware, async (c) => {
+  const id = c.req.param('id');
+  const patient = await getPatient(id);
+  if (!patient) return c.json({ success: false, error: 'Patient not found' }, 404);
+  return c.json({ success: true, data: patient.medical_history || {} });
 });
 
-// Add medical history
 app.post('/patients/:id/medical-history', authMiddleware, async (c) => {
-  const id = parseInt(c.req.param('id'));
+  const id = c.req.param('id');
   const body = await c.req.json();
-  
-  const patientIndex = MOCK_PATIENTS.findIndex(p => p.id === id);
-  if (patientIndex === -1) {
-    return c.json({ success: false, error: 'Patient not found' }, 404);
-  }
-  
-  MOCK_PATIENTS[patientIndex].medical_history = {
-    ...MOCK_PATIENTS[patientIndex].medical_history,
-    ...body
-  };
-  
-  return c.json({ success: true, data: MOCK_PATIENTS[patientIndex].medical_history });
-});
-
-// Get patient assessments
-app.get('/patients/:id/assessments', authMiddleware, (c) => {
-  const id = parseInt(c.req.param('id'));
-  const patient = MOCK_PATIENTS.find(p => p.id === id);
-  
-  if (!patient) {
-    return c.json({ success: false, error: 'Patient not found' }, 404);
-  }
-  
-  return c.json({ 
-    success: true, 
-    data: patient.assessments || []
+  const patient = await getPatient(id);
+  if (!patient) return c.json({ success: false, error: 'Patient not found' }, 404);
+  const updated = await updatePatient(id, {
+    medical_history: { ...patient.medical_history, ...body }
   });
+  return c.json({ success: true, data: updated?.medical_history });
 });
 
-// Get patient prescriptions
-app.get('/patients/:id/prescriptions', authMiddleware, (c) => {
-  const id = parseInt(c.req.param('id'));
-  const patient = MOCK_PATIENTS.find(p => p.id === id);
-  
-  if (!patient) {
-    return c.json({ success: false, error: 'Patient not found' }, 404);
-  }
-  
-  const prescriptions = patient.assessments?.flatMap((a: any) => 
-    a.prescriptions?.map((p: any) => ({
-      ...p,
-      assessment_id: a.id,
-      assessment_date: a.assessment_date
-    })) || []
-  ) || [];
-  
-  return c.json({ success: true, data: prescriptions });
+app.get('/patients/:id/assessments', authMiddleware, async (c) => {
+  const id = c.req.param('id');
+  const patient = await getPatient(id);
+  if (!patient) return c.json({ success: false, error: 'Patient not found' }, 404);
+  // For now, filter from all assessments
+  const all = await listAssessments();
+  const filtered = all.filter((a: any) => String(a.patient_id) === id);
+  return c.json({ success: true, data: filtered });
 });
 
-// Get patient sessions
-app.get('/patients/:id/sessions', authMiddleware, (c) => {
-  const id = parseInt(c.req.param('id'));
-  const patient = MOCK_PATIENTS.find(p => p.id === id);
-  
-  if (!patient) {
-    return c.json({ success: false, error: 'Patient not found' }, 404);
-  }
-  
-  return c.json({ 
-    success: true, 
-    data: patient.exercise_sessions || []
-  });
+app.get('/patients/:id/prescriptions', authMiddleware, async (c) => {
+  const id = c.req.param('id');
+  const patient = await getPatient(id);
+  if (!patient) return c.json({ success: false, error: 'Patient not found' }, 404);
+  // Prescriptions not directly queryable by patient yet in db layer; return empty
+  return c.json({ success: true, data: [] });
+});
+
+app.get('/patients/:id/sessions', authMiddleware, async (c) => {
+  const id = c.req.param('id');
+  const patient = await getPatient(id);
+  if (!patient) return c.json({ success: false, error: 'Patient not found' }, 404);
+  return c.json({ success: true, data: [] });
 });
 
 // ============================================================================
 // ASSESSMENT ROUTES
 // ============================================================================
 
-// Create assessment
 app.post('/assessments', authMiddleware, async (c) => {
   const body = await c.req.json();
   const { patient_id, assessment_type, clinician_id } = body;
-  
-  const patientIndex = MOCK_PATIENTS.findIndex(p => p.id === patient_id);
-  if (patientIndex === -1) {
-    return c.json({ success: false, error: 'Patient not found' }, 404);
-  }
-  
-  const newAssessment = {
-    id: Date.now(),
-    patient_id,
-    assessment_type,
-    clinician_id,
-    assessment_date: new Date().toISOString(),
-    tests: [],
-    prescriptions: [],
+  const patient = await getPatient(patient_id);
+  if (!patient) return c.json({ success: false, error: 'Patient not found' }, 404);
+  const newAssessment = await createAssessment({
+    patient_id, assessment_type, clinician_id,
     pain_scale: body.pain_scale || 0,
     chief_complaint: body.chief_complaint || '',
     goals: body.goals || [],
-    clinical_notes: ''
-  };
-  
-  if (!MOCK_PATIENTS[patientIndex].assessments) {
-    MOCK_PATIENTS[patientIndex].assessments = [];
-  }
-  MOCK_PATIENTS[patientIndex].assessments.push(newAssessment as any);
-  
+  });
   return c.json({ success: true, data: newAssessment }, 201);
 });
 
-// Get all assessments
-app.get('/assessments', authMiddleware, (c) => {
-  const allAssessments = MOCK_PATIENTS.flatMap(p => 
-    (p.assessments || []).map(a => ({
-      ...a,
-      patient_id: p.id,
-      patient_name: `${p.first_name} ${p.last_name}`
-    }))
-  );
-  
-  return c.json({ success: true, data: allAssessments });
+app.get('/assessments', authMiddleware, async (c) => {
+  const assessments = await listAssessments();
+  return c.json({ success: true, data: assessments });
 });
 
-// Get assessment by ID
-app.get('/assessments/:id', authMiddleware, (c) => {
-  const id = parseInt(c.req.param('id'));
-  
-  for (const patient of MOCK_PATIENTS) {
-    const assessment = patient.assessments?.find((a: any) => a.id === id);
-    if (assessment) {
-      return c.json({ 
-        success: true, 
-        data: { ...assessment, patient }
-      });
-    }
-  }
-  
-  return c.json({ success: false, error: 'Assessment not found' }, 404);
+app.get('/assessments/:id', authMiddleware, async (c) => {
+  const id = c.req.param('id');
+  const assessment = await getAssessment(id);
+  if (!assessment) return c.json({ success: false, error: 'Assessment not found' }, 404);
+  return c.json({ success: true, data: assessment });
 });
 
-// Add test to assessment
 app.post('/assessments/:id/tests', authMiddleware, async (c) => {
-  const assessmentId = parseInt(c.req.param('id'));
+  const assessmentId = c.req.param('id');
   const body = await c.req.json();
-  
-  for (const patient of MOCK_PATIENTS) {
-    const assessment = patient.assessments?.find((a: any) => a.id === assessmentId);
-    if (assessment) {
-      const newTest = {
-        id: Date.now(),
-        ...body,
-        created_at: new Date().toISOString()
-      };
-      
-      if (!assessment.tests) assessment.tests = [];
-      assessment.tests.push(newTest);
-      
-      return c.json({ success: true, data: newTest }, 201);
-    }
-  }
-  
-  return c.json({ success: false, error: 'Assessment not found' }, 404);
+  const test = await addTest(assessmentId, body);
+  return c.json({ success: true, data: test }, 201);
 });
 
-// Generate clinical note
 app.post('/assessments/:id/generate-note', authMiddleware, async (c) => {
-  const assessmentId = parseInt(c.req.param('id'));
-  
-  for (const patient of MOCK_PATIENTS) {
-    const assessment = patient.assessments?.find((a: any) => a.id === assessmentId);
-    if (assessment) {
-      // Generate automated note based on assessment data
-      const note = generateClinicalNote(patient, assessment);
-      assessment.clinical_notes = note;
-      
-      return c.json({ success: true, data: { note } });
-    }
-  }
-  
-  return c.json({ success: false, error: 'Assessment not found' }, 404);
+  const assessmentId = c.req.param('id');
+  const assessment = await getAssessment(assessmentId);
+  if (!assessment) return c.json({ success: false, error: 'Assessment not found' }, 404);
+  const patient = await getPatient(assessment.patient_id);
+  const note = generateClinicalNote(patient || {}, assessment);
+  return c.json({ success: true, data: { note } });
 });
 
 function generateClinicalNote(patient: any, assessment: any) {
   const tests = assessment.tests || [];
   const prescriptions = assessment.prescriptions || [];
-  
-  let note = `CLINICAL NOTE\n`;
-  note += `==============\n\n`;
-  note += `Patient: ${patient.first_name} ${patient.last_name}\n`;
-  note += `DOB: ${patient.date_of_birth}\n`;
+  let note = `CLINICAL NOTE\n==============\n\n`;
+  note += `Patient: ${patient?.first_name || ''} ${patient?.last_name || ''}\n`;
+  note += `DOB: ${patient?.date_of_birth || 'N/A'}\n`;
   note += `Assessment Date: ${new Date(assessment.assessment_date).toLocaleDateString()}\n`;
-  note += `Clinician: ${assessment.clinician || 'Dr. PT Clinician'}\n\n`;
-  
-  note += `CHIEF COMPLAINT:\n`;
-  note += `${assessment.chief_complaint || 'No chief complaint recorded'}\n\n`;
-  
-  note += `SUBJECTIVE:\n`;
-  note += `Pain Level: ${assessment.pain_scale}/10\n`;
-  note += `Patient reports ${assessment.functional_status || 'functional limitations as noted above'}.\n\n`;
-  
+  note += `Clinician: ${assessment.clinician_id || 'Dr. PT Clinician'}\n\n`;
+  note += `CHIEF COMPLAINT:\n${assessment.chief_complaint || 'No chief complaint recorded'}\n\n`;
+  note += `SUBJECTIVE:\nPain Level: ${assessment.pain_scale || 0}/10\n\n`;
   note += `OBJECTIVE:\n`;
   tests.forEach((test: any) => {
     note += `- ${test.test_name}:\n`;
     if (test.results) {
       Object.entries(test.results).forEach(([key, value]: [string, any]) => {
-        if (typeof value === 'object' && value !== null) {
-          note += `  ${key}: ${value.value || value.result || JSON.stringify(value)}\n`;
-        } else {
-          note += `  ${key}: ${value}\n`;
-        }
+        note += `  ${key}: ${typeof value === 'object' ? JSON.stringify(value) : value}\n`;
       });
     }
   });
-  note += `\n`;
-  
-  note += `ASSESSMENT:\n`;
-  note += `${assessment.clinical_notes || 'Functional movement deficits identified. See objective findings above.'}\n\n`;
-  
-  note += `PLAN:\n`;
-  note += `1. Physical therapy ${prescriptions.length > 0 ? 'with prescribed exercises' : 'evaluation and treatment'}\n`;
-  note += `2. Home exercise program compliance essential\n`;
-  if (assessment.goals && assessment.goals.length > 0) {
-    note += `3. Goals: ${assessment.goals.join('; ')}\n`;
-  }
+  note += `\nASSESSMENT:\n${assessment.clinical_notes || 'Functional movement deficits identified.'}\n\n`;
+  note += `PLAN:\n1. Physical therapy evaluation and treatment\n2. Home exercise program compliance essential\n`;
+  if (assessment.goals?.length) note += `3. Goals: ${assessment.goals.join('; ')}\n`;
   note += `4. Re-evaluate in 2-4 weeks\n\n`;
-  
   note += `PRESCRIBED EXERCISES:\n`;
   prescriptions.forEach((p: any, i: number) => {
     note += `${i + 1}. ${p.exercise_name}: ${p.sets} sets x ${p.reps} reps, ${p.frequency}\n`;
     if (p.notes) note += `   Notes: ${p.notes}\n`;
   });
-  
   return note;
 }
 
@@ -372,27 +348,16 @@ function generateClinicalNote(patient: any, assessment: any) {
 // EXERCISE ROUTES
 // ============================================================================
 
-// Get all exercises
-app.get('/exercises', (c) => {
+app.get('/exercises', async (c) => {
   const category = c.req.query('category');
-  
-  let exercises: any[] = EXERCISE_LIBRARY;
-  if (category) {
-    exercises = exercises.filter(e => e.category === category);
-  }
-  
+  const exercises = await listExercises(category || undefined);
   return c.json({ success: true, data: exercises });
 });
 
-// Get exercise by ID
-app.get('/exercises/:id', (c) => {
+app.get('/exercises/:id', async (c) => {
   const id = c.req.param('id');
-  const exercise = EXERCISE_LIBRARY.find(e => e.id === id);
-  
-  if (!exercise) {
-    return c.json({ success: false, error: 'Exercise not found' }, 404);
-  }
-  
+  const exercise = await getExercise(id);
+  if (!exercise) return c.json({ success: false, error: 'Exercise not found' }, 404);
   return c.json({ success: true, data: exercise });
 });
 
@@ -400,39 +365,9 @@ app.get('/exercises/:id', (c) => {
 // PRESCRIPTION ROUTES
 // ============================================================================
 
-// Create prescription
 app.post('/prescriptions', authMiddleware, async (c) => {
   const body = await c.req.json();
-  const { patient_id, exercise_id, assessment_id, sets, reps, frequency, notes } = body;
-  
-  const exercise = EXERCISE_LIBRARY.find(e => e.id === exercise_id);
-  if (!exercise) {
-    return c.json({ success: false, error: 'Exercise not found' }, 404);
-  }
-  
-  const prescription = {
-    id: Date.now(),
-    exercise_id,
-    exercise_name: exercise.name,
-    sets,
-    reps,
-    frequency,
-    notes,
-    created_at: new Date().toISOString()
-  };
-  
-  // Add to patient's assessment
-  if (assessment_id) {
-    for (const patient of MOCK_PATIENTS) {
-      const assessment = patient.assessments?.find((a: any) => a.id === assessment_id);
-      if (assessment) {
-        if (!assessment.prescriptions) assessment.prescriptions = [];
-        assessment.prescriptions.push(prescription);
-        break;
-      }
-    }
-  }
-  
+  const prescription = await createPrescription(body);
   return c.json({ success: true, data: prescription }, 201);
 });
 
@@ -440,40 +375,9 @@ app.post('/prescriptions', authMiddleware, async (c) => {
 // SESSION ROUTES
 // ============================================================================
 
-// Record exercise session
 app.post('/exercise-sessions', authMiddleware, async (c) => {
   const body = await c.req.json();
-  const { patient_id, exercises_completed, duration_minutes, pain_level, notes } = body;
-  
-  const patientIndex = MOCK_PATIENTS.findIndex(p => p.id === patient_id);
-  if (patientIndex === -1) {
-    return c.json({ success: false, error: 'Patient not found' }, 404);
-  }
-  
-  const session = {
-    id: Date.now(),
-    session_date: new Date().toISOString(),
-    exercises_completed,
-    duration_minutes,
-    pain_level,
-    notes,
-    adherence: pain_level <= 3 ? 'excellent' : pain_level <= 5 ? 'good' : 'fair'
-  };
-  
-  if (!MOCK_PATIENTS[patientIndex].exercise_sessions) {
-    MOCK_PATIENTS[patientIndex].exercise_sessions = [];
-  }
-  MOCK_PATIENTS[patientIndex].exercise_sessions.push(session as any);
-  
-  // Update progress metrics
-  if (!MOCK_PATIENTS[patientIndex].progress_metrics) {
-    MOCK_PATIENTS[patientIndex].progress_metrics = { pain_trend: [] };
-  }
-  if (!MOCK_PATIENTS[patientIndex].progress_metrics.pain_trend) {
-    MOCK_PATIENTS[patientIndex].progress_metrics.pain_trend = [];
-  }
-  MOCK_PATIENTS[patientIndex].progress_metrics.pain_trend.push(pain_level);
-  
+  const session = await recordSession(body);
   return c.json({ success: true, data: session }, 201);
 });
 
@@ -481,84 +385,113 @@ app.post('/exercise-sessions', authMiddleware, async (c) => {
 // ANALYTICS & REPORTING
 // ============================================================================
 
-// Get dashboard stats
-app.get('/dashboard/stats', authMiddleware, (c) => {
-  console.log('[PHYSIOMOTION] Dashboard stats endpoint hit');
-  const stats = {
-    total_patients: MOCK_PATIENTS.length,
-    active_patients: MOCK_PATIENTS.filter(p => {
-      const latest = p.assessments?.[p.assessments.length - 1];
-      if (!latest) return false;
-      const daysSince = (Date.now() - new Date(latest.assessment_date).getTime()) / (1000 * 60 * 60 * 24);
-      return daysSince < 30;
-    }).length,
-    total_assessments: MOCK_PATIENTS.reduce((acc, p) => acc + (p.assessments?.length || 0), 0),
-    total_sessions: MOCK_PATIENTS.reduce((acc, p) => acc + (p.exercise_sessions?.length || 0), 0),
-    recent_activity: MOCK_PATIENTS.flatMap(p => 
-      (p.exercise_sessions || []).map(s => ({
-        patient_name: `${p.first_name} ${p.last_name}`,
-        date: s.session_date,
-        duration: s.duration_minutes,
-        exercises: s.exercises_completed?.length || 0
-      }))
-    ).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5)
-  };
-  
+app.get('/dashboard/stats', authMiddleware, async (c) => {
+  const stats = await getDashboardStats();
   return c.json({ success: true, data: stats });
 });
 
-// Get patient progress
-app.get('/patients/:id/progress', authMiddleware, (c) => {
-  const id = parseInt(c.req.param('id'));
-  const patient = MOCK_PATIENTS.find(p => p.id === id);
-  
-  if (!patient) {
-    return c.json({ success: false, error: 'Patient not found' }, 404);
-  }
-  
+app.get('/patients/:id/progress', authMiddleware, async (c) => {
+  const id = c.req.param('id');
+  const patient = await getPatient(id);
+  if (!patient) return c.json({ success: false, error: 'Patient not found' }, 404);
   const progress = {
     pain_trend: patient.progress_metrics?.pain_trend || [],
     functional_trend: patient.progress_metrics?.functional_score_trend || [],
-    sessions_completed: patient.exercise_sessions?.length || 0,
-    total_exercise_time: patient.exercise_sessions?.reduce((acc: number, s: { duration_minutes?: number }) => acc + (s.duration_minutes || 0), 0) || 0,
-    adherence_rate: patient.exercise_sessions?.length > 0 ? 85 : 0, // Mock calculation
-    latest_pain: patient.assessments?.[patient.assessments.length - 1]?.pain_scale || 0
+    sessions_completed: 0,
+    total_exercise_time: 0,
+    adherence_rate: 0,
+    latest_pain: 0,
   };
-  
   return c.json({ success: true, data: progress });
 });
 
 // ============================================================================
-// AUTH ROUTES (Demo Mode)
+// AUTH ROUTES
 // ============================================================================
 
 app.post('/auth/login', async (c) => {
   const body = await c.req.json();
+  const { email, password } = body;
 
-  // Production: demo mode is DISABLED. Return clear error.
-  if (process.env.NODE_ENV === 'production') {
+  // Development demo mode
+  if (process.env.NODE_ENV !== 'production' && (!email || !password || password === 'demo')) {
     return c.json({
-      success: false,
-      error: 'Demo authentication is disabled in production. Real credentials required.',
-      code: 'DEMO_DISABLED'
-    }, 401);
+      success: true,
+      data: {
+        user: { id: 'demo', name: 'Dr. Demo Clinician', email: email || 'demo@physiomotion.com', role: 'clinician', license: 'PT12345' },
+        token: 'demo-token-12345',
+        demo_mode: true
+      }
+    });
   }
 
-  // Development: demo mode - accept any credentials
-  return c.json({
-    success: true,
-    data: {
-      user: {
-        id: 1,
-        name: 'Dr. Demo Clinician',
-        email: body.email || 'demo@physiomotion.com',
-        role: 'clinician',
-        license: 'PT12345'
-      },
-      token: 'demo-token-12345',
-      demo_mode: true
+  if (!email || !password) {
+    return c.json({ success: false, error: 'Email and password required', code: 'MISSING_CREDENTIALS' }, 400);
+  }
+
+  try {
+    const clinician = await getClinicianByEmail(email);
+    if (!clinician) {
+      return c.json({ success: false, error: 'Invalid credentials', code: 'INVALID_CREDENTIALS' }, 401);
     }
-  });
+
+    const valid = await verifyPassword(password, clinician.password_hash);
+    if (!valid) {
+      return c.json({ success: false, error: 'Invalid credentials', code: 'INVALID_CREDENTIALS' }, 401);
+    }
+
+    const secret = process.env.JWT_SECRET || process.env.AUTH_SECRET;
+    if (!secret) {
+      return c.json({ success: false, error: 'Server configuration error', code: 'CONFIG_ERROR' }, 500);
+    }
+
+    const token = await generateToken(
+      { id: clinician.id, email: clinician.email, role: clinician.role, clinic_id: clinician.clinic_id },
+      secret
+    );
+
+    return c.json({
+      success: true,
+      data: {
+        user: { id: clinician.id, name: clinician.name, email: clinician.email, role: clinician.role, license: clinician.license },
+        token,
+        demo_mode: false
+      }
+    });
+  } catch (err: any) {
+    console.error('[AUTH] Login error:', err);
+    return c.json({ success: false, error: 'Authentication failed' }, 500);
+  }
+});
+
+app.post('/auth/register', async (c) => {
+  const body = await c.req.json();
+  const { email, password, name, role, license } = body;
+
+  if (!email || !password || !name) {
+    return c.json({ success: false, error: 'Email, password, and name are required' }, 400);
+  }
+
+  try {
+    const existing = await getClinicianByEmail(email);
+    if (existing) {
+      return c.json({ success: false, error: 'Email already registered', code: 'EMAIL_EXISTS' }, 409);
+    }
+
+    const passwordHash = await hashPassword(password);
+    const clinician = await createClinician({
+      email,
+      password_hash: passwordHash,
+      name,
+      role: role || 'clinician',
+      license: license || null,
+    });
+
+    return c.json({ success: true, data: { id: clinician.id, email: clinician.email, name: clinician.name } }, 201);
+  } catch (err: any) {
+    console.error('[AUTH] Register error:', err);
+    return c.json({ success: false, error: 'Registration failed' }, 500);
+  }
 });
 
 app.get('/auth/me', authMiddleware, (c) => {
@@ -567,7 +500,7 @@ app.get('/auth/me', authMiddleware, (c) => {
     success: true,
     data: {
       user: {
-        id: clinician.id,
+        id: (clinician as any).id,
         name: (clinician as any).name || 'Clinician',
         email: clinician.email,
         role: clinician.role,
@@ -578,24 +511,56 @@ app.get('/auth/me', authMiddleware, (c) => {
 });
 
 // ============================================================================
+// TELEGRAM NOTIFICATIONS
+// ============================================================================
+
+app.post('/notify/telegram', authMiddleware, async (c) => {
+  const body = await c.req.json() as any;
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const defaultChatId = process.env.TELEGRAM_CHAT_ID || '7838956683';
+
+  if (!token) {
+    return c.json({ success: false, error: 'TELEGRAM_BOT_TOKEN not configured' }, 500);
+  }
+
+  const chatId = body.chatId || defaultChatId;
+  const prefix = body.type === 'alert' ? '🚨 ALERT'
+    : body.type === 'assessment' ? '📋 Assessment'
+    : body.type === 'daily_digest' ? '🌅 Daily Digest'
+    : '📌';
+
+  const fullMessage = `${prefix}${body.patientName ? ` — ${body.patientName}` : ''}\n${body.message}`;
+
+  try {
+    const tgUrl = `https://api.telegram.org/bot${token}/sendMessage`;
+    const res = await fetch(tgUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: fullMessage,
+        parse_mode: 'HTML',
+      }),
+    });
+    const data = await res.json() as any;
+    if (!data.ok) throw new Error(data.description || 'Telegram API error');
+    return c.json({ success: true, data: { messageId: data.result?.message_id, chat: chatId } });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
+});
+
+// ============================================================================
 // ERROR HANDLING
 // ============================================================================
 
 app.onError((err, c) => {
   console.error('Error:', err);
-  return c.json({
-    success: false,
-    error: 'Internal server error',
-    message: err.message
-  }, 500);
+  return c.json({ success: false, error: 'Internal server error', message: err.message }, 500);
 });
 
 app.notFound((c) => {
-  return c.json({
-    success: false,
-    error: 'Not found',
-    path: c.req.path
-  }, 404);
+  return c.json({ success: false, error: 'Not found', path: c.req.path }, 404);
 });
 
 export default app;

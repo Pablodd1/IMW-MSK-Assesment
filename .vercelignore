@@ -1,0 +1,21 @@
+# Dependencies (installed on Vercel)
+node_modules/
+node_modules/.cache/
+
+# Python pose engine (not needed for API deployment)
+pose-engine/
+pose-engine/models/
+*.tar.gz
+
+# Git
+.git/
+.gitignore
+
+# Test/docs
+*.md
+!README.md
+docs/
+
+# Build artifacts
+dist/
+.cache/

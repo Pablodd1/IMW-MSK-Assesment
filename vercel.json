@@ -1,15 +1,15 @@
 {
   "regions": ["iad1"],
-  "functions": {
-    "api/**/*.ts": {
-      "maxDuration": 30
-    }
-  },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/health", "destination": "/api/health" },
-    { "source": "/test", "destination": "/api/test" },
-    { "source": "/info", "destination": "/api/info" },
-    { "source": "/patients(.*)", "destination": "/api/patients$1" }
+    { "source": "/api/(.*)", "destination": "/api/index" },
+    { "source": "/health", "destination": "/api/index" },
+    { "source": "/patients/(.*)", "destination": "/api/index" },
+    { "source": "/assessments/(.*)", "destination": "/api/index" },
+    { "source": "/exercises/(.*)", "destination": "/api/index" },
+    { "source": "/dashboard/(.*)", "destination": "/api/index" },
+    { "source": "/knowledge/(.*)", "destination": "/api/index" },
+    { "source": "/ai/(.*)", "destination": "/api/index" },
+    { "source": "/notify/(.*)", "destination": "/api/index" },
+    { "source": "/test", "destination": "/api/index" }
   ]
 }
