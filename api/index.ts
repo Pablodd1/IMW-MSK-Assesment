@@ -30,7 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (typeof req.body === 'string') {
       body = req.body;
     } else if (Buffer.isBuffer(req.body)) {
-      body = req.body;
+      body = new Uint8Array(req.body);
     } else if (req.body !== undefined && req.body !== null) {
       body = JSON.stringify(req.body);
       if (!headers.has('content-type')) {

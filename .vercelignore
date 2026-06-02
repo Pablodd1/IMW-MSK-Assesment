@@ -2,10 +2,15 @@
 node_modules/
 node_modules/.cache/
 
-# Python pose engine (not needed for API deployment)
+# Python pose engine + ML models (not needed for API deployment)
 pose-engine/
 pose-engine/models/
+models/
+femto_bridge/
 *.tar.gz
+*.onnx
+*.pt
+*.task
 
 # Git
 .git/
