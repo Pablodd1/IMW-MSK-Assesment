@@ -190,7 +190,8 @@ $RECYCLE.BIN/
 # Python
 __pycache__/
 *.pyc
-.vercel
+.vercel/output/
+.vercel/cache/
 pose-engine/
 models/
 *.tar.gz

@@ -1,0 +1,16 @@
+{
+  "projectId": "prj_g4e0rOcdnmizFI4lnmgquuQEt8Yg",
+  "orgId": "team_xrMOKza08y8Otqc35AFNvaVf",
+  "projectName": "imw-msk-assesment",
+  "settings": {
+    "createdAt": 1772307506947,
+    "framework": null,
+    "devCommand": null,
+    "installCommand": null,
+    "buildCommand": null,
+    "outputDirectory": null,
+    "rootDirectory": null,
+    "directoryListing": false,
+    "nodeVersion": "20.x"
+  }
+}
