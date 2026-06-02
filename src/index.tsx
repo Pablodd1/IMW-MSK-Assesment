@@ -552,6 +552,18 @@ app.post('/notify/telegram', authMiddleware, async (c) => {
 });
 
 // ============================================================================
+// HEALTH CHECK
+// ============================================================================
+
+app.get('/health', (c) => {
+  return c.json({ success: true, status: 'healthy', version: '2.0.0-demo', timestamp: new Date().toISOString() })
+});
+
+app.get('/api/health', (c) => {
+  return c.json({ success: true, status: 'healthy', version: '2.0.0-demo', timestamp: new Date().toISOString() })
+});
+
+// ============================================================================
 // PROVIDER PORTAL
 // ============================================================================
 
