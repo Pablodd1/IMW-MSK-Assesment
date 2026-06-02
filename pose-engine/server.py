@@ -39,25 +39,22 @@ except ImportError:
     os.system("pip3 install --user --break-system-packages websockets")
     import websockets
 
-# ─── Kalman Filter ───
-class KalmanFilter1D:
-    def __init__(self, process_noise=1e-3, measurement_noise=1e-1):
-        self.x = 0.0
-        self.p = 1.0
-        self.q = process_noise
-        self.r = measurement_noise
-        self.initialized = False
+# ─── P0: 1-Euro Filter (replaces Kalman) ───
+from one_euro_filter import OneEuroFilter, OneEuroFilter3D
 
-    def update(self, measurement):
-        if not self.initialized:
-            self.x = measurement
-            self.initialized = True
-            return self.x
-        self.p += self.q
-        k = self.p / (self.p + self.r)
-        self.x += k * (measurement - self.x)
-        self.p *= (1 - k)
-        return self.x
+# ─── P0: Anatomical Skeleton Filter ───
+from bone_constraints import AnatomicalSkeletonFilter
+
+# ─── P1: Clinical Assessment Engines ───
+from fms_engine import FMSEngine, FMSScore
+from chiropractic_analyzer import ChiropracticAnalyzer
+
+# ─── P1: DWPose (optional — on-demand clinical precision) ───
+try:
+    from dwpose_backend import DWPoseBackend
+    DWPOSE_AVAILABLE = True
+except Exception:
+    DWPOSE_AVAILABLE = False
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -75,13 +72,14 @@ class PoseEngine:
         self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
         self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
         self.confidence = confidence
-        self.kalman_filters = {}
+        self.euro_filters = {}
+        self.skeleton_filter = AnatomicalSkeletonFilter(history_size=5)
 
-    def get_kalman(self, kid, axis):
+    def get_euro(self, kid, axis):
         key = (kid, axis)
-        if key not in self.kalman_filters:
-            self.kalman_filters[key] = KalmanFilter1D()
-        return self.kalman_filters[key]
+        if key not in self.euro_filters:
+            self.euro_filters[key] = OneEuroFilter(freq=30.0, mincutoff=1.0, beta=0.05, dcutoff=1.0)
+        return self.euro_filters[key]
 
     def process_frame(self, jpeg_bytes, depth_data=None):
         np_arr = np.frombuffer(jpeg_bytes, np.uint8)
@@ -130,9 +128,9 @@ class PoseEngine:
                         if 0 < d < 5000:
                             z = d / 1000.0
 
-                sx = self.get_kalman(kid, 'x').update(kp_x / w)
-                sy = self.get_kalman(kid, 'y').update(kp_y / h)
-                sz = self.get_kalman(kid, 'z').update(z)
+                sx = self.get_euro(kid, 'x').filter(kp_x / w)
+                sy = self.get_euro(kid, 'y').filter(kp_y / h)
+                sz = self.get_euro(kid, 'z').filter(z)
 
                 keypoints_3d.append({
                     "id": kid,
@@ -142,6 +140,10 @@ class PoseEngine:
                     "confidence": round(kp_conf, 3),
                     "depth_valid": z > 0
                 })
+
+            # P0: Apply anatomical skeleton constraints
+            if keypoints_3d:
+                keypoints_3d = self.skeleton_filter.update(keypoints_3d)
 
             if keypoints_3d:
                 keypoints_list.append({
@@ -165,7 +167,9 @@ class PoseEngine:
         }
 
     def reset_filters(self):
-        self.kalman_filters = {}
+        self.euro_filters = {}
+        self.skeleton_filter.reset()
+        print("[PoseEngine] Filters reset (1-Euro + Skeleton)")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -403,6 +407,11 @@ class DualModelServer:
         self.frame_count = 0
         self.fps_start = time.time()
 
+        # P1: Clinical engines
+        self.fms_engine = FMSEngine(depth_available=False)
+        self.chiro_analyzer = ChiropracticAnalyzer()
+        self.dwpose = None
+
         # DEIMv2 setup
         self.deimv2_interval = deimv2_interval
         self.deimv2_enabled = False
@@ -472,8 +481,89 @@ class DualModelServer:
                     await websocket.send(json.dumps({
                         "type": "pong",
                         "deimv2": deimv2_status,
-                        "models": ["yolo11-pose"] + (["deimv2-wholebody34"] if self.deimv2_enabled else [])
+                        "models": ["yolo11-pose"] + (["deimv2-wholebody34"] if self.deimv2_enabled else []),
+                        "clinical_engines": ["fms", "chiropractic", "bone_constraints", "1euro_filter"],
+                        "dwpose_available": DWPOSE_AVAILABLE
                     }))
+
+                elif cmd == "fms":
+                    # Run FMS battery on current frame
+                    jpeg_bytes = base64.b64decode(data["jpeg"])
+                    result = self.engine.process_frame(jpeg_bytes)
+                    result.pop("_bgr_frame", None)
+
+                    kpts = {}
+                    if result.get("persons"):
+                        kpts = {int(kp["id"]): kp for kp in result["persons"][0]["keypoints"]}
+
+                    fms_battery = self.fms_engine.run_battery(kpts)
+                    await websocket.send(json.dumps(_json_safe({
+                        "type": "fms_result",
+                        "battery": {
+                            name: {
+                                "test_name": r.test_name,
+                                "score": int(r.score),
+                                "criteria_met": r.criteria_met,
+                                "compensations": r.compensations,
+                                "raw_measurements": r.raw_measurements,
+                                "notes": r.notes,
+                            }
+                            for name, r in fms_battery.items()
+                        }
+                    })))
+
+                elif cmd == "chiro":
+                    # Run chiropractic postural screen
+                    jpeg_bytes = base64.b64decode(data["jpeg"])
+                    result = self.engine.process_frame(jpeg_bytes)
+                    result.pop("_bgr_frame", None)
+
+                    kpts = {}
+                    if result.get("persons"):
+                        kpts = {int(kp["id"]): kp for kp in result["persons"][0]["keypoints"]}
+
+                    screen = self.chiro_analyzer.full_postural_screen(kpts)
+                    await websocket.send(json.dumps(_json_safe({
+                        "type": "chiro_result",
+                        "screen": screen
+                    })))
+
+                elif cmd == "assess":
+                    # Full clinical assessment: FMS + Chiropractic
+                    jpeg_bytes = base64.b64decode(data["jpeg"])
+                    depth_data = None
+                    if "depth" in data and data["depth"]:
+                        depth_arr = base64.b64decode(data["depth"])
+                        depth_data = np.frombuffer(depth_arr, dtype=np.uint16).reshape(
+                            data.get("depth_h", 256), data.get("depth_w", 256))
+
+                    result = self.engine.process_frame(jpeg_bytes, depth_data)
+                    result.pop("_bgr_frame", None)
+
+                    kpts = {}
+                    if result.get("persons"):
+                        kpts = {int(kp["id"]): kp for kp in result["persons"][0]["keypoints"]}
+
+                    fms_battery = self.fms_engine.run_battery(kpts)
+                    chiro_screen = self.chiro_analyzer.full_postural_screen(kpts)
+
+                    await websocket.send(json.dumps(_json_safe({
+                        "type": "clinical_assessment",
+                        "pose": result,
+                        "fms": {
+                            name: {
+                                "test_name": r.test_name,
+                                "score": int(r.score),
+                                "criteria_met": r.criteria_met,
+                                "compensations": r.compensations,
+                                "raw_measurements": r.raw_measurements,
+                                "notes": r.notes,
+                            }
+                            for name, r in fms_battery.items()
+                        },
+                        "chiropractic": chiro_screen,
+                        "timestamp": time.time()
+                    })))
 
         except websockets.exceptions.ConnectionClosed:
             pass
@@ -483,9 +573,11 @@ class DualModelServer:
 
     async def start(self):
         print(f"\n{'='*55}")
-        print(f"  Boxer3D Pose Engine v4.0 — Dual Model")
+        print(f"  Boxer3D Pose Engine v4.1 — P0 Filters Active")
         print(f"  WebSocket: ws://{self.host}:{self.port}")
         print(f"  YOLO: 17 keypoints, real-time (every frame)")
+        print(f"  Smoothing: 1-Euro Filter (adaptive, zero-lag)")
+        print(f"  Constraints: AnatomicalSkeletonFilter (bone-length)")
         if self.deimv2_enabled:
             print(f"  DEIMv2: head pose + attributes (every {self.deimv2_interval} frames, async)")
         else:
