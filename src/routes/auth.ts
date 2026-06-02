@@ -27,7 +27,7 @@ function getClientIP(c: any): string {
 async function logAudit(
   c: any, 
   action: string, 
-  userId: number | null = null, 
+  userId: string | number | null = null, 
   email: string | null = null,
   success: boolean = true,
   details: any = {}

@@ -226,6 +226,17 @@
                                 <ul id="tipsList" style="margin-top:6px;padding-left:16px;line-height:1.7"></ul>
                             </div>
 
+                            <!-- Calibration Option -->
+                            <div id="calibrationOption" style="display:none;margin-bottom:16px;padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
+                                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:var(--text);font-weight:600">
+                                    <input type="checkbox" id="calibrateCheckbox" onchange="toggleCalibrationOption()" style="accent-color:var(--cyan);width:16px;height:16px;cursor:pointer">
+                                    <span>⚙️ Run Calibration Wizard first</span>
+                                </label>
+                                <p style="font-size:11px;color:var(--muted);margin:6px 0 0 26px">Guides patient through T-pose, distance, and profile positioning</p>
+                                <div id="calibrationStatus" style="display:none;margin-top:8px;font-size:11px;color:var(--amber)"></div>
+                                <div id="calibrationResults" style="display:none;margin-top:8px"></div>
+                            </div>
+
                             <button id="startBtn" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px" onclick="launchCamera()" disabled>
                                 <span class="spinner hidden" id="startSpinner"></span>
                                 <i class="fas fa-video" id="startIcon"></i>
@@ -288,6 +299,8 @@
 
 <!-- Load new medical-grade engine -->
 <script src="/static/pose-engine-v2.js"></script>
+<!-- Femto Mega Calibration Wizard -->
+<script src="/static/calibration-wizard.js"></script>
 
 <script>
 // =============================================================================
@@ -306,7 +319,10 @@ const STATE = {
     exerciseId: null,
     lastAngles: {},
     lastCompensations: [],
-    lastRoms: {}
+    lastRoms: {},
+    calibrationWizard: null,
+    isCalibrating: false,
+    calibrationProfile: null
 };
 
 // =============================================================================
@@ -340,7 +356,26 @@ function selectCamera(type) {
     const tips = CAMERA_TIPS[type] || [];
     document.getElementById('tipsList').innerHTML = tips.map(t => `<li>${t}</li>`).join('');
     document.getElementById('setupTips').style.display = 'block';
+    document.getElementById('calibrationOption').style.display = 'block';
     document.getElementById('startBtn').disabled = false;
+}
+
+function toggleCalibrationOption() {
+    const checked = document.getElementById('calibrateCheckbox').checked;
+    const startBtn = document.getElementById('startBtn');
+    if (checked) {
+        startBtn.innerHTML = '<span class="spinner hidden" id="startSpinner"></span><i class="fas fa-video" id="startIcon"></i> Start Camera & Calibrate';
+        // Load last calibration profile if exists
+        const last = getLastCalibration();
+        if (last) {
+            document.getElementById('calibrationResults').style.display = 'block';
+            document.getElementById('calibrationResults').innerHTML = 
+                `<div style="font-size:11px;color:var(--green)">📋 Last calibration: ${new Date(last.timestamp).toLocaleDateString()} (score: ${(last.overallScore * 100).toFixed(0)}%)</div>`;
+        }
+    } else {
+        startBtn.innerHTML = '<span class="spinner hidden" id="startSpinner"></span><i class="fas fa-video" id="startIcon"></i> Start Camera & Tracking';
+        document.getElementById('calibrationResults').style.display = 'none';
+    }
 }
 
 async function launchCamera() {
@@ -383,10 +418,15 @@ async function launchCamera() {
         await MedicalPoseEngine.initialize(video, canvas, onPoseResults);
         MedicalPoseEngine.start();
 
+        // Start calibration wizard if requested
+        if (document.getElementById('calibrateCheckbox').checked) {
+            startCalibrationFlow(video, canvas);
+        }
+
         // Hide setup overlay
         document.getElementById('setupOverlay').style.display = 'none';
         document.getElementById('recordBtn').disabled = false;
-        setStatus('ready', 'LIVE');
+        setStatus('ready', STATE.isCalibrating ? 'CALIBRATING' : 'LIVE');
 
     } catch (err) {
         console.error('Camera error:', err);
@@ -410,6 +450,92 @@ async function flipCamera() {
 }
 
 // =============================================================================
+// Calibration Flow
+// =============================================================================
+function startCalibrationFlow(video, canvas) {
+    console.log('[Assessment] Starting calibration wizard...');
+    STATE.isCalibrating = true;
+    STATE.calibrationWizard = new CalibrationWizard({
+        canvasId: 'canvasEl',
+        statusEl: 'calibrationStatus',
+        wsUrl: 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws',
+        framesRequired: 30,
+        onStepChange: (stepIndex, step) => {
+            const statusEl = document.getElementById('calibrationStatus');
+            if (statusEl) {
+                statusEl.style.display = 'block';
+                statusEl.textContent = `⚙️ ${step.title}: ${step.message}`;
+            }
+        },
+        onComplete: (profile) => {
+            onCalibrationComplete(profile);
+        }
+    });
+
+    STATE.calibrationWizard.start();
+
+    // Update UI for calibration mode
+    document.getElementById('calibrationStatus').style.display = 'block';
+    document.getElementById('calibrationStatus').textContent = '⚙️ Calibration starting...';
+    document.getElementById('recordBtn').disabled = true;
+    setStatus('ready', 'CALIBRATING');
+}
+
+function onCalibrationComplete(profile) {
+    console.log('[Assessment] Calibration complete:', profile);
+    STATE.isCalibrating = false;
+    STATE.calibrationProfile = profile;
+
+    // Update calibration results display
+    renderCalibrationResults(profile);
+
+    // Update status
+    setStatus('ready', 'CALIBRATED');
+    document.getElementById('recordBtn').disabled = false;
+    document.getElementById('calibrationStatus').style.display = 'none';
+
+    // Re-enable clinical renderer
+    const canvas = document.getElementById('canvasEl');
+    if (canvas) {
+        const ctx2 = canvas.getContext('2d');
+        ctx2.clearRect(0, 0, canvas.width, canvas.height);
+    }
+}
+
+function renderCalibrationResults(profile) {
+    const resultsEl = document.getElementById('calibrationResults');
+    if (!resultsEl) return;
+    resultsEl.style.display = 'block';
+
+    const score = Math.round(profile.overallScore * 100);
+    const color = score >= 80 ? 'var(--green)' : score >= 60 ? 'var(--amber)' : 'var(--red)';
+
+    resultsEl.innerHTML = `
+        <div style="padding:10px;background:rgba(0,230,118,0.08);border-radius:6px;border:1px solid rgba(0,230,118,0.2)">
+            <div style="font-size:12px;font-weight:700;color:${color};margin-bottom:6px">
+                ✅ Calibration Complete — Score: ${score}%
+            </div>
+            <div style="font-size:10px;color:var(--muted)">
+                ${profile.steps.map(s => 
+                    `<span style="display:inline-block;margin-right:10px">${s.id}: ${Math.round(s.score * 100)}%</span>`
+                ).join('')}
+            </div>
+            <div style="font-size:10px;color:var(--muted);margin-top:4px">
+                Pose Engine: ${profile.wsConnected ? '🟢 Connected' : '🟡 Local fallback'} · 
+                ${new Date(profile.timestamp).toLocaleTimeString()}
+            </div>
+        </div>
+    `;
+}
+
+// Listen for calibration complete event from the wizard
+window.addEventListener('calibrationComplete', (e) => {
+    if (e.detail && e.detail.profile) {
+        onCalibrationComplete(e.detail.profile);
+    }
+});
+
+// =============================================================================
 // Pose Results Handler
 // =============================================================================
 const ctx = () => document.getElementById('canvasEl').getContext('2d');
@@ -423,20 +549,27 @@ function onPoseResults(data) {
     STATE.lastRoms = roms;
     STATE.lastCompensations = compensations;
 
-    // Render skeleton + overlays on canvas
-    ClinicalRenderer.draw(ctx(), canvas, {
-        landmarks, angles, quality, roms, fps, inferenceMs, compensations
-    }, {
-        showAngles: STATE.overlays.angles,
-        showROM: STATE.overlays.rom,
-        showCompensations: STATE.overlays.comp
-    });
+    // Feed calibration wizard if active
+    if (STATE.isCalibrating && STATE.calibrationWizard && landmarks && landmarks.length > 0) {
+        STATE.calibrationWizard.update(landmarks);
+    }
+
+    // Render skeleton + overlays on canvas (skip during calibration — wizard draws its own)
+    if (!STATE.isCalibrating) {
+        ClinicalRenderer.draw(ctx(), canvas, {
+            landmarks, angles, quality, roms, fps, inferenceMs, compensations
+        }, {
+            showAngles: STATE.overlays.angles,
+            showROM: STATE.overlays.rom,
+            showCompensations: STATE.overlays.comp
+        });
+    }
 
     // Update perf indicator
     document.getElementById('perfInfo').textContent = `${fps}fps · ${inferenceMs}ms · Grade ${quality.grade}`;
 
-    // Record frame if active
-    if (STATE.isRecording && landmarks) {
+    // Record frame if active (and not calibrating)
+    if (STATE.isRecording && !STATE.isCalibrating && landmarks) {
         STATE.frames.push({ timestamp: Date.now(), landmarks, angles });
     }
 
@@ -683,8 +816,16 @@ function resetSession() {
 
     STATE.stream = null;
     STATE.isRecording = false;
+    STATE.isCalibrating = false;
     STATE.frames = [];
     clearInterval(STATE.recTimer);
+
+    // Clean up calibration wizard
+    if (STATE.calibrationWizard) {
+        STATE.calibrationWizard.stop();
+        STATE.calibrationWizard.disconnect();
+        STATE.calibrationWizard = null;
+    }
 
     document.getElementById('setupOverlay').style.display = 'flex';
     document.getElementById('videoEl').srcObject = null;
@@ -693,6 +834,11 @@ function resetSession() {
     document.getElementById('stopBtn').classList.add('hidden');
     document.getElementById('analyzeBtn').classList.add('hidden');
     document.getElementById('recTime').classList.add('hidden');
+    document.getElementById('calibrationOption').style.display = 'none';
+    document.getElementById('calibrationStatus').style.display = 'none';
+    document.getElementById('calibrationResults').style.display = 'none';
+    document.getElementById('calibrateCheckbox').checked = false;
+    document.getElementById('startBtn').innerHTML = '<span class="spinner hidden" id="startSpinner"></span><i class="fas fa-video" id="startIcon"></i> Start Camera & Tracking';
     document.querySelectorAll('.cam-opt').forEach(e => e.classList.remove('selected'));
     document.getElementById('startBtn').disabled = true;
     document.getElementById('flipBtn').classList.add('hidden');

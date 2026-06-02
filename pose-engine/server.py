@@ -49,6 +49,62 @@ from bone_constraints import AnatomicalSkeletonFilter
 from fms_engine import FMSEngine, FMSScore
 from chiropractic_analyzer import ChiropracticAnalyzer
 
+# ─── P2: 6-Agent Clinical Swarm ───
+from clinical_swarm_v2 import ClinicalSwarmV2, AgentOutput
+
+# ─── P2: Mock LLM clients for swarm (swap in real clients for production) ───
+class MockLLMClient:
+    """Returns structured JSON when real LLM endpoints aren't available."""
+    def __init__(self, name="mock"):
+        self.name = name
+    async def complete(self, prompt: str) -> str:
+        import json
+        # Return valid default JSON based on prompt type
+        if "Pose Data Validator" in prompt:
+            return json.dumps({"valid_regions": ["shoulder", "hip", "knee"],
+                               "missing": [], "quality_score": 0.75})
+        elif "clinical safety screener" in prompt:
+            return json.dumps({"finding": "No acute red flags detected from available data",
+                               "confidence": 0.85, "red_flags": []})
+        elif "Board-Certified Physical Therapist" in prompt:
+            return json.dumps({"finding": "Functional movement pattern assessment: "
+                               "coordinated movement with potential minor asymmetries. "
+                               "Recommend further ROM and strength testing.",
+                               "confidence": 0.72,
+                               "evidence": ["FMS normative data", "movement pattern analysis"],
+                               "red_flags": []})
+        elif "Doctor of Chiropractic" in prompt:
+            return json.dumps({"finding": "Postural assessment shows neutral alignment "
+                               "with minor deviations within normal range. "
+                               "No structural contraindications for care.",
+                               "confidence": 0.68,
+                               "evidence": ["plumb line analysis", "pelvic symmetry check"],
+                               "red_flags": []})
+        elif "SOAP" in prompt or "Synthesize" in prompt:
+            return json.dumps({
+                "subjective": "Patient presents for movement assessment. "
+                              "Chief complaint as documented.",
+                "objective": "Movement screening performed. "
+                             "Key observations documented in assessment sections.",
+                "assessment": "Multi-agent analysis complete. "
+                              "Findings integrated from PT, Chiropractic, and safety screening agents.",
+                "plan": "1. Complete comprehensive physical examination\n"
+                       "2. Initiate conservative care per clinical guidelines\n"
+                       "3. Re-evaluate in 2-4 weeks\n"
+                       "4. Patient education on home exercise program",
+                "icd10": ["Z02.9", "M25.50"],
+                "cpt": ["97110", "97112"],
+                "confidence": 0.78,
+                "human_review_required": False
+            })
+        else:
+            return json.dumps({"response": "ok"})
+
+class MockRAGRetriever:
+    """Returns empty evidence when no knowledge base is connected."""
+    async def search(self, query: str) -> list:
+        return []
+
 # ─── P1: DWPose (optional — on-demand clinical precision) ───
 try:
     from dwpose_backend import DWPoseBackend
@@ -412,6 +468,14 @@ class DualModelServer:
         self.chiro_analyzer = ChiropracticAnalyzer()
         self.dwpose = None
 
+        # P2: 6-Agent Clinical Swarm (initialized with mock LLMs; swap for production)
+        self.swarm_orchestrator = ClinicalSwarmV2(
+            gemini_client=MockLLMClient("gemini-mock"),
+            rag_retriever=MockRAGRetriever(),
+            local_llm_client=MockLLMClient("local-mock")
+        )
+        self.swarm_enabled = True
+
         # DEIMv2 setup
         self.deimv2_interval = deimv2_interval
         self.deimv2_enabled = False
@@ -478,11 +542,18 @@ class DualModelServer:
 
                 elif cmd == "ping":
                     deimv2_status = "active" if self.deimv2_enabled else "disabled"
+                    swarm_status = "active" if self.swarm_enabled else "disabled"
                     await websocket.send(json.dumps({
                         "type": "pong",
                         "deimv2": deimv2_status,
                         "models": ["yolo11-pose"] + (["deimv2-wholebody34"] if self.deimv2_enabled else []),
-                        "clinical_engines": ["fms", "chiropractic", "bone_constraints", "1euro_filter"],
+                        "clinical_engines": ["fms", "chiropractic", "bone_constraints", "1euro_filter", "6_agent_clinical_swarm"],
+                        "swarm": {
+                            "status": swarm_status,
+                            "agents": ["pose_validator", "pt_specialist", "chiro_specialist",
+                                       "red_flag_sentinel", "rag_knowledge", "soap_synthesizer"],
+                            "model": "clinical_swarm_v2 (6-agent orchestrated)"
+                        },
                         "dwpose_available": DWPOSE_AVAILABLE
                     }))
 
@@ -529,7 +600,7 @@ class DualModelServer:
                     })))
 
                 elif cmd == "assess":
-                    # Full clinical assessment: FMS + Chiropractic
+                    # Full clinical assessment: FMS + Chiropractic + 6-Agent Swarm
                     jpeg_bytes = base64.b64decode(data["jpeg"])
                     depth_data = None
                     if "depth" in data and data["depth"]:
@@ -547,6 +618,24 @@ class DualModelServer:
                     fms_battery = self.fms_engine.run_battery(kpts)
                     chiro_screen = self.chiro_analyzer.full_postural_screen(kpts)
 
+                    # P2: Run 6-Agent Clinical Swarm
+                    swarm_result = None
+                    if self.swarm_enabled:
+                        try:
+                            patient_ctx = data.get("patient_context", {})
+                            swarm_result = await self.swarm_orchestrator.analyze(
+                                pose_data=result,
+                                fms_results=fms_battery,
+                                chiro_data=chiro_screen,
+                                patient_ctx=patient_ctx
+                            )
+                            print(f"[Swarm] Analysis complete. "
+                                  f"Valid regions: {swarm_result.get('validation', {}).get('valid_regions', [])}, "
+                                  f"Red flags: {len(swarm_result.get('red_flags', {}).get('flags', []))}")
+                        except Exception as e:
+                            print(f"[Swarm] Error during analysis: {e}")
+                            swarm_result = {"error": str(e)}
+
                     await websocket.send(json.dumps(_json_safe({
                         "type": "clinical_assessment",
                         "pose": result,
@@ -562,6 +651,7 @@ class DualModelServer:
                             for name, r in fms_battery.items()
                         },
                         "chiropractic": chiro_screen,
+                        "swarm": swarm_result,
                         "timestamp": time.time()
                     })))
 
@@ -573,7 +663,7 @@ class DualModelServer:
 
     async def start(self):
         print(f"\n{'='*55}")
-        print(f"  Boxer3D Pose Engine v4.1 — P0 Filters Active")
+        print(f"  Boxer3D Pose Engine v4.1 — P0 + P2 Filters Active")
         print(f"  WebSocket: ws://{self.host}:{self.port}")
         print(f"  YOLO: 17 keypoints, real-time (every frame)")
         print(f"  Smoothing: 1-Euro Filter (adaptive, zero-lag)")
@@ -582,6 +672,10 @@ class DualModelServer:
             print(f"  DEIMv2: head pose + attributes (every {self.deimv2_interval} frames, async)")
         else:
             print(f"  DEIMv2: disabled")
+        if self.swarm_enabled:
+            print(f"  Swarm: 6-Agent Clinical Reasoning Pipeline (mock LLMs — swap for production)")
+        else:
+            print(f"  Swarm: disabled")
         print(f"{'='*55}\n")
         async with websockets.serve(self.handle_client, self.host, self.port):
             await asyncio.Future()

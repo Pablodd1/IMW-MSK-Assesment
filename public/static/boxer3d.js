@@ -6,7 +6,7 @@
 
 class Boxer3D {
     constructor(config = {}) {
-        this.wsUrl = config.wsUrl || 'ws://localhost:8765';
+        this.wsUrl = config.wsUrl || 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws';
         this.video = null;
         this.canvas = null;
         this.ctx = null;

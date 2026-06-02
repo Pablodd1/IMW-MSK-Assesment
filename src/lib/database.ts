@@ -79,7 +79,7 @@ export interface ExerciseSession {
 
 function mockToDbPatient(p: any): Patient {
   return {
-    id: typeof p.id === 'number' ? String(p.id) : p.id,
+    id: String(p.id),
     first_name: p.first_name || '',
     last_name: p.last_name || '',
     date_of_birth: p.date_of_birth,
@@ -157,7 +157,7 @@ export async function updatePatient(id: string, input: Partial<Patient>): Promis
   }
   const idx = MOCK_PATIENTS.findIndex((p: any) => String(p.id) === id);
   if (idx === -1) return null;
-  MOCK_PATIENTS[idx] = { ...MOCK_PATIENTS[idx], ...input };
+  MOCK_PATIENTS[idx] = { ...MOCK_PATIENTS[idx], ...input } as any;
   return mockToDbPatient(MOCK_PATIENTS[idx]);
 }
 

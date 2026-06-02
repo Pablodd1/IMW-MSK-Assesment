@@ -56,9 +56,18 @@ class ClinicalSwarmV2:
             validation = {"valid_regions": [], "missing": [], "quality_score": 0.0}
 
         # STEP 2: Retrieve evidence
+        def _get_score(v):
+            if hasattr(v, 'score'):
+                s = v.score
+                if hasattr(s, 'value'):
+                    return s.value
+                return int(s)
+            if isinstance(v, dict):
+                return v.get('score', 'unknown')
+            return str(v)
         evidence_ctx = await self._rag_search(
             f"{patient_ctx.get('chief_complaint', 'pain')} "
-            f"{json.dumps({k: v.score for k, v in fms_results.items()})}"
+            f"{json.dumps({k: _get_score(v) for k, v in fms_results.items()})}"
         )
 
         # STEP 3: Parallel specialists
@@ -113,13 +122,23 @@ class ClinicalSwarmV2:
     async def _pt_specialist(
         self, pose_data, fms, validation, evidence
     ) -> AgentOutput:
+        def _score(test_key):
+            v = fms.get(test_key, {})
+            if hasattr(v, 'score'):
+                s = v.score
+                if hasattr(s, 'value'):
+                    return s.value
+                return int(s)
+            if isinstance(v, dict):
+                return v.get('score', 'unknown')
+            return 'unknown'
         prompt = (
             "You are a Board-Certified Physical Therapist.\n"
             "Analyze this movement data and output JSON only:\n"
             '{"finding":"...","confidence":0.85,"evidence":["..."],"red_flags":[]}\n\n'
-            f"FMS Deep Squat score: {fms.get('deep_squat', {}).get('score', 'unknown')}\n"
-            f"FMS ASLR L: {fms.get('aslr_left', {}).get('score', 'unknown')}\n"
-            f"FMS ASLR R: {fms.get('aslr_right', {}).get('score', 'unknown')}\n"
+            f"FMS Deep Squat score: {_score('deep_squat')}\n"
+            f"FMS ASLR L: {_score('aslr_left')}\n"
+            f"FMS ASLR R: {_score('aslr_right')}\n"
             f"Valid regions: {validation.get('valid_regions')}\n"
             f"Evidence: {json.dumps(evidence[:3])}"
         )

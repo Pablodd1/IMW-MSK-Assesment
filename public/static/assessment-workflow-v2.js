@@ -35,7 +35,12 @@ const ASSESSMENT_STATE = {
     
     // Chart
     chart: null,
-    maxChartPoints: 150
+    maxChartPoints: 150,
+
+    // Calibration
+    calibrationWizard: null,
+    isCalibrating: false,
+    calibrationProfile: null
 };
 
 // ============================================================================
@@ -146,6 +151,10 @@ function selectCameraType(type) {
 
     ASSESSMENT_STATE.cameraType = type;
     document.getElementById('startBtn').disabled = false;
+
+    // Show calibration option
+    const calOpt = document.getElementById('calibrationOption');
+    if (calOpt) calOpt.style.display = 'block';
     
     // Show tips for this camera type
     showCameraTips(type);
@@ -213,6 +222,12 @@ async function startAssessment() {
         ASSESSMENT_STATE.cameraActive = true;
         showStatus('Camera active - Ready to record', 'success');
 
+        // Start calibration wizard if requested
+        const calibrateChecked = document.getElementById('calibrateCheckbox');
+        if (calibrateChecked && calibrateChecked.checked && type !== 'femto') {
+            startCalibrationFlowV2();
+        }
+
     } catch (error) {
         console.error('Camera error:', error);
         showStatus('Camera failed: ' + error.message, 'error');
@@ -243,6 +258,12 @@ function onPoseResults(results, ctx, canvas, fps) {
     }
 
     const landmarks = results.poseLandmarks;
+    
+    // Feed calibration wizard if active
+    if (ASSESSMENT_STATE.isCalibrating && ASSESSMENT_STATE.calibrationWizard) {
+        ASSESSMENT_STATE.calibrationWizard.update(landmarks);
+        return; // Wizard handles its own rendering
+    }
     
     // Check tracking quality
     const quality = PoseEngine.getLandmarkQuality(landmarks);
@@ -661,6 +682,90 @@ function showResults(data) {
         `).join('');
     }
 }
+
+// ============================================================================
+// CALIBRATION WIZARD (v2 flow)
+// ============================================================================
+
+function startCalibrationFlowV2() {
+    console.log('[AssessmentV2] Starting calibration wizard...');
+    ASSESSMENT_STATE.isCalibrating = true;
+
+    ASSESSMENT_STATE.calibrationWizard = new CalibrationWizard({
+        canvasId: 'canvasElement',
+        statusEl: 'calibrationStatusV2',
+        wsUrl: 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws',
+        framesRequired: 30,
+        onStepChange: (stepIndex, step) => {
+            const statusEl = document.getElementById('calibrationStatusV2');
+            if (statusEl) {
+                statusEl.style.display = 'block';
+                statusEl.textContent = '⚙️ ' + step.title + ': ' + step.message;
+            }
+        },
+        onComplete: (profile) => {
+            onCalibrationCompleteV2(profile);
+        }
+    });
+
+    ASSESSMENT_STATE.calibrationWizard.start();
+
+    const statusEl = document.getElementById('calibrationStatusV2');
+    if (statusEl) {
+        statusEl.style.display = 'block';
+        statusEl.textContent = '⚙️ Calibration starting...';
+    }
+    showStatus('Calibrating...', 'warning');
+}
+
+function onCalibrationCompleteV2(profile) {
+    console.log('[AssessmentV2] Calibration complete:', profile);
+    ASSESSMENT_STATE.isCalibrating = false;
+    ASSESSMENT_STATE.calibrationProfile = profile;
+
+    renderCalibrationResultsV2(profile);
+
+    showStatus('Calibrated - Ready', 'success');
+
+    if (ASSESSMENT_STATE.calibrationWizard) {
+        ASSESSMENT_STATE.calibrationWizard.stop();
+    }
+
+    // Clear canvas for normal rendering
+    const canvas = document.getElementById('canvasElement');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+}
+
+function renderCalibrationResultsV2(profile) {
+    const el = document.getElementById('calibrationResultsV2');
+    if (!el) return;
+    el.style.display = 'block';
+
+    const score = Math.round(profile.overallScore * 100);
+    const color = score >= 80 ? '#059669' : score >= 60 ? '#d97706' : '#dc2626';
+
+    el.innerHTML = '<div style="padding:8px;background:#ecfdf5;border-radius:6px;border:1px solid #a7f3d0">' +
+        '<div style="font-size:0.8rem;font-weight:700;color:' + color + ';margin-bottom:4px">✅ Calibrated — ' + score + '%</div>' +
+        '<div style="font-size:0.7rem;color:#6b7280">' +
+        profile.steps.map(function(s) {
+            return '<span style="display:inline-block;margin-right:10px">' + s.id + ': ' + Math.round(s.score * 100) + '%</span>';
+        }).join('') +
+        '</div>' +
+        '<div style="font-size:0.7rem;color:#6b7280;margin-top:4px">' +
+        'Pose Engine: ' + (profile.wsConnected ? '🟢 Connected' : '🟡 Local fallback') +
+        '</div>' +
+        '</div>';
+}
+
+// Listen for calibration complete event from the wizard
+window.addEventListener('calibrationComplete', function(e) {
+    if (e.detail && e.detail.profile) {
+        onCalibrationCompleteV2(e.detail.profile);
+    }
+});
 
 // ============================================================================
 // UTILITIES

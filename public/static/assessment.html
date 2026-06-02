@@ -222,6 +222,18 @@
                         Check Camera Access
                     </button>
                     <div id="cameraTips"></div>
+
+                    <!-- Calibration Option -->
+                    <div id="calibrationOption" style="display:none; margin-top: 1rem; text-align: left;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem; color: #374151; font-weight: 600;">
+                            <input type="checkbox" id="calibrateCheckbox" onchange="toggleCalibrationOptionV2()" style="accent-color: #6366f1; width: 16px; height: 16px; cursor: pointer;">
+                            <span>⚙️ Run Calibration Wizard first</span>
+                        </label>
+                        <p style="font-size: 0.75rem; color: #6b7280; margin: 4px 0 0 24px;">Guides patient through T-pose, distance, and profile positioning</p>
+                        <div id="calibrationStatusV2" style="display:none; margin-top: 8px; font-size: 0.75rem; color: #d97706;"></div>
+                        <div id="calibrationResultsV2" style="display:none; margin-top: 8px;"></div>
+                    </div>
+
                     <br>
                     <button onclick="startAssessment()" class="camera-btn primary" id="startBtn" disabled>
                         <i class="fas fa-play"></i>
@@ -399,9 +411,12 @@
     <script src="/static/femto-client.js"></script>
     <!-- High-Quality Camera Manager -->
     <script src="/static/camera-manager.js"></script>
+    <!-- Femto Mega Calibration Wizard -->
+    <script src="/static/calibration-wizard.js"></script>
     <!-- Enhanced Assessment Workflow v2 -->
     <script src="/static/assessment-workflow-v2.js"></script>
     <script>
+        // ─── Global Voice Toggle ─────────────────────────────────────────
         function toggleGlobalVoice() {
             const btn = document.getElementById('globalVoiceBtn');
             const service = window.PhysioMotion?.VoiceControl;
@@ -415,6 +430,33 @@
                 btn?.classList.add('bg-blue-100', 'ring-2', 'ring-blue-500');
             }
         }
+
+        // ─── Calibration Wizard Integration (Tailwind version) ──────────
+        function toggleCalibrationOptionV2() {
+            const checked = document.getElementById('calibrateCheckbox').checked;
+            const startBtn = document.getElementById('startBtn');
+            if (checked) {
+                startBtn.innerHTML = '<i class="fas fa-play"></i> Start Assessment & Calibrate';
+                const last = getLastCalibration();
+                if (last) {
+                    const resEl = document.getElementById('calibrationResultsV2');
+                    if (resEl) {
+                        resEl.style.display = 'block';
+                        resEl.innerHTML = '<div style="font-size:0.75rem;color:#059669;">📋 Last: ' +
+                            new Date(last.timestamp).toLocaleDateString() +
+                            ' (' + Math.round(last.overallScore * 100) + '%)</div>';
+                    }
+                }
+            } else {
+                startBtn.innerHTML = '<i class="fas fa-play"></i> Start Assessment';
+                const resEl = document.getElementById('calibrationResultsV2');
+                if (resEl) resEl.style.display = 'none';
+            }
+        }
+
+        // The actual calibration is orchestrated by assessment-workflow-v2.js
+        // which checks document.getElementById('calibrateCheckbox').checked
+        // after camera starts and runs the wizard.
     </script>
 </body>
 </html>

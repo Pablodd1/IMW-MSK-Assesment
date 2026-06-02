@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>IMW PhysioMotion — Chiropractic Assistant + 3D MSK Assessment</title>
 <script src="/static/boxer3d.js"></script>
+<script src="/static/calibration-wizard.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { background:#0a0f1e; color:#e2e8f0; font-family:system-ui,sans-serif; }
@@ -114,6 +115,7 @@
           <button class="btn-go" id="btnStart" onclick="startTracking()">▶ Start</button>
           <button class="btn-stop" id="btnStop" onclick="stopTracking()" style="display:none;">■ Stop</button>
           <button class="btn-analyze" id="btnAnalyze" onclick="analyzeMovement()" disabled>🔍 Analyze</button>
+          <button class="btn-go" id="btnCalibrate" onclick="startCalibration()" style="background:#7c4dff;display:none;">⚙ Calibrate</button>
         </div>
       </div>
       <div id="pose3dContainer"></div>
@@ -186,6 +188,8 @@
 let tracker = null;
 let tracking = false;
 let lastSOAP = null;
+let calWizard = null;
+let isCalibrating = false;
 
 // ─── Views ───
 function showView(view, btn) {
@@ -234,6 +238,7 @@ async function startTracking() {
   document.getElementById('poseVideo').style.display='block';
   document.getElementById('btnStart').style.display='none';
   document.getElementById('btnStop').style.display='inline-block';
+  document.getElementById('btnCalibrate').style.display='inline-block';
   document.getElementById('fpsCounter').style.display='block';
   document.getElementById('s1').className='dot green'; document.getElementById('s2').className='dot green';
 
@@ -242,14 +247,94 @@ async function startTracking() {
     document.addEventListener('skeleton',(e)=>{
       const{persons,fps}=e.detail;
       if(fps){document.getElementById('fpsCounter').textContent=fps+' FPS';document.getElementById('fpsLabel').textContent=fps+' FPS';}
-      if(persons.length&&persons[0].keypoints.length){window._kps=persons[0].keypoints;renderJoints(persons[0].keypoints);}
+      if(persons.length&&persons[0].keypoints.length){
+        window._kps=persons[0].keypoints;
+        // Feed calibration wizard if active
+        if(isCalibrating && calWizard) {
+          calWizard.update(persons[0].keypoints);
+        } else {
+          renderJoints(persons[0].keypoints);
+        }
+      }
     });
     await tracker.start('poseVideo','poseOverlay');
     tracker.init3DScene('pose3dContainer');
   } catch(e){document.getElementById('s1').className='dot gray';document.getElementById('s2').className='dot gray';}
 }
 
-function stopTracking(){tracking=false;if(tracker)tracker.stop();document.getElementById('btnStart').style.display='inline-block';document.getElementById('btnStop').style.display='none';document.getElementById('s1').className='dot gray';document.getElementById('s2').className='dot gray';document.getElementById('fpsCounter').style.display='none';}
+function stopTracking(){
+  tracking=false;
+  if(isCalibrating) stopCalibration();
+  if(tracker)tracker.stop();
+  document.getElementById('btnStart').style.display='inline-block';
+  document.getElementById('btnStop').style.display='none';
+  document.getElementById('btnCalibrate').style.display='none';
+  document.getElementById('s1').className='dot gray';
+  document.getElementById('s2').className='dot gray';
+  document.getElementById('fpsCounter').style.display='none';
+}
+
+// ─── Calibration Wizard (index.html) ───
+function startCalibration() {
+  if(isCalibrating) return;
+  isCalibrating = true;
+  console.log('[Index] Starting calibration wizard...');
+
+  calWizard = new CalibrationWizard({
+    canvasId: 'poseOverlay',
+    wsUrl: 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws',
+    framesRequired: 25,
+    onStepChange: (stepIndex, step) => {
+      document.getElementById('summaryBar').innerHTML =
+        '<span style="color:#a78bfa;">⚙ Calibrating: ' + step.title + '</span>';
+    },
+    onComplete: (profile) => {
+      console.log('[Index] Calibration complete:', profile);
+      isCalibrating = false;
+      document.getElementById('summaryBar').innerHTML =
+        '<span style="color:#4ade80;">✅ Calibrated — Score: ' +
+        Math.round(profile.overallScore * 100) + '%</span>';
+      document.getElementById('btnCalibrate').textContent = '✅ Calibrated';
+      document.getElementById('btnCalibrate').style.background = '#4ade80';
+      document.getElementById('btnCalibrate').onclick = startCalibration;
+      // Re-render joints
+      if (window._kps && window._kps.length) {
+        renderJoints(window._kps);
+      }
+    }
+  });
+
+  calWizard.start();
+  document.getElementById('btnCalibrate').textContent = '⚙ Calibrating...';
+  document.getElementById('btnCalibrate').style.background = '#a78bfa';
+}
+
+function stopCalibration() {
+  isCalibrating = false;
+  if (calWizard) {
+    calWizard.stop();
+    calWizard.disconnect();
+    calWizard = null;
+  }
+  document.getElementById('btnCalibrate').textContent = '⚙ Calibrate';
+  document.getElementById('btnCalibrate').style.background = '#7c4dff';
+  document.getElementById('btnCalibrate').onclick = startCalibration;
+}
+
+// Listen for calibration complete from the wizard
+window.addEventListener('calibrationComplete', (e) => {
+  if (e.detail && e.detail.profile && isCalibrating) {
+    isCalibrating = false;
+    document.getElementById('summaryBar').innerHTML =
+      '<span style="color:#4ade80;">✅ Calibrated — Score: ' +
+      Math.round(e.detail.profile.overallScore * 100) + '%</span>';
+    document.getElementById('btnCalibrate').textContent = '✅ Calibrated';
+    document.getElementById('btnCalibrate').style.background = '#4ade80';
+    if (window._kps && window._kps.length) {
+      renderJoints(window._kps);
+    }
+  }
+});
 
 // ─── Swarm Analysis → SOAP ───
 async function analyzeMovement() {

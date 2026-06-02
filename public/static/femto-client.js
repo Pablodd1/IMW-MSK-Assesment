@@ -1,6 +1,6 @@
 // Femto Mega WebSocket Connection
 class FemtoMegaClient {
-  constructor(url = 'ws://localhost:8765') {
+  constructor(url = 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws') {
     this.url = url;
     this.ws = null;
     this.onSkeletonData = null;

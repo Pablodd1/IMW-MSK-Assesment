@@ -197,7 +197,7 @@ async function startTracking() {
   document.getElementById('sWS').className = 'dot green';
 
   try {
-    boxer = new Boxer3D({ wsUrl: 'ws://localhost:8765', camWidth: 640, camHeight: 480, sendInterval: 150 });
+    boxer = new Boxer3D({ wsUrl: 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws', camWidth: 640, camHeight: 480, sendInterval: 150 });
 
     document.addEventListener('skeleton', (e: any) => {
       const { persons, fps } = e.detail;

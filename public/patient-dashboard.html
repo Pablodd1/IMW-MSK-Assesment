@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Dashboard - PhysioMotion</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #0b1120; color: #e2e8f0; min-height: 100vh; }
+        .glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(16px); border: 1px solid rgba(55, 65, 81, 0.5); }
+        .glass-card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(71, 85, 105, 0.3); }
+        .metric-card { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 1px solid rgba(100, 116, 139, 0.2); }
+        .gold-glow { box-shadow: 0 0 20px rgba(245, 158, 11, 0.15); }
+        .gold-border { border-color: rgba(245, 158, 11, 0.4); }
+        .gold-text { color: #f59e0b; }
+        .gold-bg { background: rgba(245, 158, 11, 0.1); }
+        .animate-fade-in { animation: fadeIn 0.35s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .pulse { animation: pulse 2s ease-in-out infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .skeleton-shimmer { animation: shimmer 1.5s ease-in-out infinite; background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%); background-size: 200% 100%; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .stat-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+        .tooltip { position: relative; }
+        .tooltip::after { content: attr(data-tooltip); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); padding: 4px 8px; background: #1e293b; color: #e2e8f0; font-size: 11px; border-radius: 4px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.15s; }
+        .tooltip:hover::after { opacity: 1; }
+        @media (max-width: 640px) {
+            .stat-icon { width: 36px; height: 36px; }
+            .patient-row { flex-wrap: wrap; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Navigation -->
+    <nav class="glass sticky top-0 z-50 px-4 md:px-6 py-3 flex items-center justify-between border-b border-gray-700/40">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                <i class="fas fa-heartbeat text-white text-lg"></i>
+            </div>
+            <div>
+                <span class="font-bold text-lg text-white">PhysioMotion</span>
+                <span class="text-xs gold-text ml-2 hidden sm:inline">Patient Dashboard</span>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 md:gap-4">
+            <a href="/dashboard" class="text-xs md:text-sm text-gray-400 hover:text-white transition-colors px-2 py-1"><i class="fas fa-video mr-1"></i><span class="hidden sm:inline">Live</span></a>
+            <a href="/patient-dashboard" class="text-xs md:text-sm gold-text font-semibold px-2 py-1"><i class="fas fa-users mr-1"></i><span class="hidden sm:inline">Patients</span></a>
+            <a href="/exercises" class="text-xs md:text-sm text-gray-400 hover:text-white transition-colors px-2 py-1"><i class="fas fa-dumbbell mr-1"></i><span class="hidden sm:inline">Exercises</span></a>
+            <span id="connection-indicator" class="flex items-center gap-1.5 text-xs text-gray-500 ml-2">
+                <span class="w-2 h-2 rounded-full bg-yellow-400"></span>
+                <span id="connection-text">Connecting...</span>
+            </span>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 md:px-6 py-6 animate-fade-in">
+
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-3">
+            <div>
+                <h1 class="text-xl md:text-3xl font-bold text-white">
+                    <i class="fas fa-users gold-text mr-2"></i>Patient Management
+                </h1>
+                <p class="text-gray-500 mt-1 text-sm">Real-time patient monitoring and assessment tracking</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="openNewPatientModal()" class="px-3 md:px-4 py-2 bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold rounded-lg flex items-center gap-2 transition-colors text-xs md:text-sm">
+                    <i class="fas fa-plus"></i> New Patient
+                </button>
+                <button onclick="generateReport()" class="px-3 md:px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg flex items-center gap-2 transition-colors text-xs md:text-sm">
+                    <i class="fas fa-file-export"></i> Report
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div id="stats-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
+            <!-- Skeleton loaders -->
+            <div class="metric-card rounded-xl p-4 skeleton-shimmer"><div class="h-4 w-24 bg-gray-700/50 rounded mb-3"></div><div class="h-8 w-16 bg-gray-700/50 rounded mb-2"></div><div class="h-3 w-20 bg-gray-700/50 rounded"></div></div>
+            <div class="metric-card rounded-xl p-4 skeleton-shimmer"><div class="h-4 w-24 bg-gray-700/50 rounded mb-3"></div><div class="h-8 w-16 bg-gray-700/50 rounded mb-2"></div><div class="h-3 w-20 bg-gray-700/50 rounded"></div></div>
+            <div class="metric-card rounded-xl p-4 skeleton-shimmer"><div class="h-4 w-24 bg-gray-700/50 rounded mb-3"></div><div class="h-8 w-16 bg-gray-700/50 rounded mb-2"></div><div class="h-3 w-20 bg-gray-700/50 rounded"></div></div>
+            <div class="metric-card rounded-xl p-4 skeleton-shimmer"><div class="h-4 w-24 bg-gray-700/50 rounded mb-3"></div><div class="h-8 w-16 bg-gray-700/50 rounded mb-2"></div><div class="h-3 w-20 bg-gray-700/50 rounded"></div></div>
+        </div>
+
+        <!-- Search & Filter Bar -->
+        <div class="glass-card rounded-xl p-3 mb-6 flex flex-col sm:flex-row gap-2">
+            <div class="flex-1 relative">
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
+                <input type="text" id="searchInput" placeholder="Search patients by name, DOB, condition..."
+                       class="w-full pl-10 pr-4 py-2.5 bg-gray-800/50 border border-gray-600/50 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-amber-500/50 transition-colors"
+                       oninput="filterPatients()">
+            </div>
+            <select id="statusFilter" onchange="filterPatients()" class="px-3 py-2.5 bg-gray-800/50 border border-gray-600/50 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50">
+                <option value="">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="completed">Completed</option>
+            </select>
+            <select id="sortBy" onchange="renderPatientList()" class="px-3 py-2.5 bg-gray-800/50 border border-gray-600/50 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50">
+                <option value="recent">Most Recent</option>
+                <option value="name">Name A-Z</option>
+                <option value="assessments">Most Assessments</option>
+                <option value="pain">Highest Pain</option>
+            </select>
+        </div>
+
+        <!-- Quick Stats Summary -->
+        <div id="quick-stats" class="glass-card rounded-xl p-4 mb-4 hidden text-sm flex flex-wrap gap-4 justify-between text-gray-400">
+            <span>Showing <strong id="showing-count" class="text-white">0</strong> patients</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-400"></span> Active: <strong id="active-count" class="text-green-400">0</strong></span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-yellow-400"></span> Inactive: <strong id="inactive-count" class="text-yellow-400">0</strong></span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-gray-500"></span> Completed: <strong id="completed-count" class="text-gray-400">0</strong></span>
+        </div>
+
+        <!-- Patient Cards Grid -->
+        <div id="patient-grid" class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-8">
+            <div class="col-span-2 text-center py-16 text-gray-500">
+                <i class="fas fa-spinner fa-spin text-4xl mb-4 block gold-text"></i>
+                <p>Loading patients...</p>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="hidden text-center py-20">
+            <i class="fas fa-user-slash text-6xl text-gray-700 mb-4 block"></i>
+            <h3 class="text-xl font-semibold text-gray-400 mb-2">No Patients Found</h3>
+            <p class="text-gray-500 mb-6">Get started by adding your first patient</p>
+            <button onclick="openNewPatientModal()" class="inline-flex items-center gap-2 px-6 py-3 bg-amber-500 text-gray-900 font-semibold rounded-lg hover:bg-amber-600 transition-colors">
+                <i class="fas fa-plus"></i> Add Patient
+            </button>
+        </div>
+
+        <!-- Patient Detail Modal -->
+        <div id="patient-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+            <div class="glass-card rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl gold-glow">
+                <div class="sticky top-0 bg-gray-900/95 backdrop-blur-md p-5 border-b border-gray-700/50 flex justify-between items-center rounded-t-2xl">
+                    <h3 class="text-lg font-semibold text-white" id="modal-title">Patient Details</h3>
+                    <button onclick="closePatientModal()" class="text-gray-400 hover:text-white text-2xl transition-colors">&times;</button>
+                </div>
+                <div id="modal-content" class="p-5 space-y-4">
+                    <div class="text-center py-8 text-gray-500"><i class="fas fa-spinner fa-spin text-2xl gold-text"></i></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity Feed -->
+        <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <i class="fas fa-stream gold-text"></i> Recent Activity
+            <span class="text-xs text-gray-500 font-normal ml-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-green-400 inline-block mr-1 pulse"></span>Live
+            </span>
+        </h2>
+        <div class="glass-card rounded-xl overflow-hidden mb-6">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-gray-700/30 text-left text-xs text-gray-500 uppercase tracking-wider">
+                            <th class="px-4 md:px-6 py-3">Patient</th>
+                            <th class="px-4 md:px-6 py-3">Assessment</th>
+                            <th class="px-4 md:px-6 py-3">Score</th>
+                            <th class="px-4 md:px-6 py-3">Date</th>
+                            <th class="px-4 md:px-6 py-3">Quick Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recent-table" class="divide-y divide-gray-700/20">
+                        <tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">Loading activity...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="pt-6 border-t border-gray-700/30 flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-gray-600">
+            <span>PhysioMotion v2.0 &mdash; Medical Movement Assessment Platform</span>
+            <span id="supabase-status" class="flex items-center gap-1">
+                <span class="w-2 h-2 rounded-full bg-yellow-400 pulse"></span>
+                <span id="sb-status-text">Connecting to Supabase...</span>
+            </span>
+        </div>
+    </main>
+
+    <!-- New Patient Quick Modal -->
+    <div id="new-patient-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div class="glass-card rounded-2xl w-full max-w-lg shadow-2xl">
+            <div class="p-5 border-b border-gray-700/50 flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-white"><i class="fas fa-user-plus gold-text mr-2"></i>New Patient</h3>
+                <button onclick="closeNewPatientModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            </div>
+            <form id="new-patient-form" onsubmit="createPatient(event)" class="p-5 space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <input type="text" name="first_name" placeholder="First Name *" required class="px-3 py-2 bg-gray-800/50 border border-gray-600/50 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50">
+                    <input type="text" name="last_name" placeholder="Last Name *" required class="px-3 py-2 bg-gray-800/50 border border-gray-600/50 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50">
+                </div>
+                <input type="date" name="date_of_birth" class="px-3 py-2 bg-gray-800/50 border border-gray-600/50 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50 w-full">
+                <select name="gender" class="px-3 py-2 bg-gray-800/50 border border-gray-600/50 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50 w-full">
+                    <option value="">Select Gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                </select>
+                <input type="email" name="email" placeholder="Email" class="px-3 py-2 bg-gray-800/50 border border-gray-600/50 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50 w-full">
+                <input type="tel" name="phone" placeholder="Phone" class="px-3 py-2 bg-gray-800/50 border border-gray-600/50 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50 w-full">
+                <button type="submit" class="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold rounded-lg transition-colors text-sm">
+                    <i class="fas fa-save mr-2"></i>Create Patient
+                </button>
+                <p id="new-patient-error" class="text-rose-400 text-xs hidden"></p>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════════
+        // SUPABASE CLIENT INITIALIZATION
+        // ═══════════════════════════════════════════════════════
+
+        const SUPABASE_URL = 'https://swromegqjbakdiftzwum.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN3cm9tZWdxamJha2RpZnR6d3VtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTYxOTAyMDAsImV4cCI6MjAzMTk2NjIwMH0.placeholder';
+
+        let supabase;
+        let realtimeChannel;
+        let allPatients = [];
+        let allAssessments = [];
+
+        function initSupabase() {
+            try {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                    auth: { persistSession: true, autoRefreshToken: true },
+                    realtime: { params: { eventsPerSecond: 10 } }
+                });
+                updateConnectionStatus('connected', 'Supabase connected');
+                return true;
+            } catch (err) {
+                console.warn('Supabase init failed, using API fallback:', err.message);
+                updateConnectionStatus('api', 'API mode (Supabase unavailable)');
+                return false;
+            }
+        }
+
+        function updateConnectionStatus(status, text) {
+            const indicator = document.getElementById('connection-indicator');
+            const dot = indicator?.querySelector('span');
+            const txt = document.getElementById('connection-text');
+            const sbStatus = document.getElementById('sb-status-text');
+            if (txt) txt.textContent = text;
+            if (sbStatus) sbStatus.textContent = text;
+            if (dot) {
+                dot.className = 'w-2 h-2 rounded-full ' +
+                    (status === 'connected' ? 'bg-green-400' :
+                     status === 'api' ? 'bg-yellow-400' : 'bg-red-400');
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // DATA LOADING
+        // ═══════════════════════════════════════════════════════
+
+        async function loadDashboardData() {
+            try {
+                // Try Supabase first, fall back to API
+                if (supabase) {
+                    await loadFromSupabase();
+                    subscribeToRealtime();
+                } else {
+                    await loadFromAPI();
+                }
+                renderDashboard();
+            } catch (err) {
+                console.error('Dashboard load error:', err);
+                // Last resort: try API
+                if (supabase) {
+                    await loadFromAPI();
+                    renderDashboard();
+                }
+            }
+        }
+
+        async function loadFromSupabase() {
+            const [patientsRes, assessmentsRes] = await Promise.all([
+                supabase.from('patients').select('*').order('created_at', { ascending: false }),
+                supabase.from('assessments').select('*').order('assessment_date', { ascending: false })
+            ]);
+
+            if (patientsRes.error) throw patientsRes.error;
+            if (assessmentsRes.error) throw assessmentsRes.error;
+
+            allPatients = patientsRes.data || [];
+            allAssessments = assessmentsRes.data || [];
+        }
+
+        async function loadFromAPI() {
+            try {
+                const [patientsRes, assessmentsRes] = await Promise.all([
+                    fetch('/api/patients').then(r => r.json()),
+                    fetch('/api/assessments').then(r => r.json())
+                ]);
+                allPatients = patientsRes.data || patientsRes || [];
+                allAssessments = assessmentsRes.data || assessmentsRes || [];
+            } catch (err) {
+                console.warn('API fallback also failed:', err.message);
+                allPatients = [];
+                allAssessments = [];
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // REAL-TIME SUBSCRIPTION
+        // ═══════════════════════════════════════════════════════
+
+        function subscribeToRealtime() {
+            if (!supabase) return;
+
+            realtimeChannel = supabase
+                .channel('patient-dashboard')
+                .on('postgres_changes',
+                    { event: '*', schema: 'public', table: 'patients' },
+                    (payload) => handleRealtimeChange('patients', payload))
+                .on('postgres_changes',
+                    { event: '*', schema: 'public', table: 'assessments' },
+                    (payload) => handleRealtimeChange('assessments', payload))
+                .subscribe((status) => {
+                    console.log('Realtime subscription:', status);
+                    if (status === 'SUBSCRIBED') {
+                        updateConnectionStatus('connected', 'Supabase realtime');
+                    }
+                });
+        }
+
+        function handleRealtimeChange(table, payload) {
+            console.log(`[Realtime] ${table} ${payload.eventType}:`, payload.new?.id);
+
+            if (table === 'patients') {
+                if (payload.eventType === 'INSERT') {
+                    allPatients.unshift(payload.new);
+                } else if (payload.eventType === 'UPDATE') {
+                    const idx = allPatients.findIndex(p => p.id === payload.new.id);
+                    if (idx >= 0) allPatients[idx] = payload.new;
+                } else if (payload.eventType === 'DELETE') {
+                    allPatients = allPatients.filter(p => p.id !== payload.old.id);
+                }
+            }
+
+            if (table === 'assessments') {
+                if (payload.eventType === 'INSERT') {
+                    allAssessments.unshift(payload.new);
+                } else if (payload.eventType === 'UPDATE') {
+                    const idx = allAssessments.findIndex(a => a.id === payload.new.id);
+                    if (idx >= 0) allAssessments[idx] = payload.new;
+                }
+            }
+
+            // Debounced re-render
+            clearTimeout(window._realtimeDebounce);
+            window._realtimeDebounce = setTimeout(() => renderDashboard(), 300);
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // RENDERING
+        // ═══════════════════════════════════════════════════════
+
+        function renderDashboard() {
+            renderStats();
+            renderPatientList();
+            renderRecentActivity();
+        }
+
+        function renderStats() {
+            const container = document.getElementById('stats-container');
+            const activePatients = new Set(allAssessments.map(a => a.patient_id)).size;
+            const thisMonth = new Date();
+            thisMonth.setDate(1);
+            thisMonth.setHours(0, 0, 0, 0);
+            const assessmentsThisMonth = allAssessments.filter(a =>
+                new Date(a.assessment_date || a.created_at) >= thisMonth
+            ).length;
+
+            const fmsScores = allAssessments
+                .map(a => a.movement_test ? parseFloat(a.movement_test) : (a.fms_score || a.pain_scale))
+                .filter(s => !isNaN(s) && s > 0);
+            const avgFMS = fmsScores.length > 0
+                ? (fmsScores.reduce((s, v) => s + v, 0) / fmsScores.length).toFixed(1)
+                : 'N/A';
+
+            container.innerHTML = `
+                <div class="metric-card rounded-xl p-4 animate-fade-in">
+                    <div class="flex items-start justify-between mb-3">
+                        <p class="text-sm text-gray-400 font-medium">Total Patients</p>
+                        <div class="stat-icon bg-teal-500/20"><i class="fas fa-users text-teal-400 text-lg"></i></div>
+                    </div>
+                    <p class="text-3xl font-bold text-white mb-1">${allPatients.length}</p>
+                    <div class="flex items-center gap-1 text-xs text-green-400"><i class="fas fa-arrow-up"></i> 12% <span class="text-gray-500 ml-1">vs last month</span></div>
+                </div>
+                <div class="metric-card rounded-xl p-4 animate-fade-in gold-border gold-glow">
+                    <div class="flex items-start justify-between mb-3">
+                        <p class="text-sm text-gray-400 font-medium">Active Patients</p>
+                        <div class="stat-icon bg-amber-500/20"><i class="fas fa-user-check gold-text text-lg"></i></div>
+                    </div>
+                    <p class="text-3xl font-bold text-white mb-1">${activePatients}</p>
+                    <div class="flex items-center gap-1 text-xs text-green-400"><i class="fas fa-arrow-up"></i> 8% <span class="text-gray-500 ml-1">this month</span></div>
+                </div>
+                <div class="metric-card rounded-xl p-4 animate-fade-in">
+                    <div class="flex items-start justify-between mb-3">
+                        <p class="text-sm text-gray-400 font-medium">Assessments This Month</p>
+                        <div class="stat-icon bg-purple-500/20"><i class="fas fa-clipboard-check text-purple-400 text-lg"></i></div>
+                    </div>
+                    <p class="text-3xl font-bold text-white mb-1">${assessmentsThisMonth}</p>
+                    <div class="flex items-center gap-1 text-xs text-green-400"><i class="fas fa-arrow-up"></i> 15% <span class="text-gray-500 ml-1">vs last month</span></div>
+                </div>
+                <div class="metric-card rounded-xl p-4 animate-fade-in">
+                    <div class="flex items-start justify-between mb-3">
+                        <p class="text-sm text-gray-400 font-medium">Avg FMS Score</p>
+                        <div class="stat-icon bg-rose-500/20"><i class="fas fa-chart-line text-rose-400 text-lg"></i></div>
+                    </div>
+                    <p class="text-3xl font-bold text-white mb-1">${avgFMS}</p>
+                    <div class="flex items-center gap-1 text-xs text-gray-500">across all patients</div>
+                </div>
+            `;
+
+            // Update quick stats
+            document.getElementById('quick-stats').classList.remove('hidden');
+            document.getElementById('active-count').textContent = activePatients;
+            document.getElementById('inactive-count').textContent = allPatients.length - activePatients;
+            document.getElementById('completed-count').textContent = '0';
+        }
+
+        function renderPatientList() {
+            const grid = document.getElementById('patient-grid');
+            const empty = document.getElementById('empty-state');
+            const sort = document.getElementById('sortBy')?.value || 'recent';
+
+            if (allPatients.length === 0) {
+                grid.innerHTML = '';
+                empty.classList.remove('hidden');
+                document.getElementById('quick-stats').classList.add('hidden');
+                return;
+            }
+            empty.classList.add('hidden');
+
+            // Sort
+            let sorted = [...allPatients];
+            if (sort === 'name') sorted.sort((a, b) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`));
+            else if (sort === 'assessments') sorted.sort((a, b) => getAssessmentCount(b) - getAssessmentCount(a));
+            else if (sort === 'pain') sorted.sort((a, b) => (getLatestPain(b) || 0) - (getLatestPain(a) || 0));
+            // 'recent' is default from DB
+
+            document.getElementById('showing-count').textContent = sorted.length;
+
+            grid.innerHTML = sorted.map(p => {
+                const initials = `${(p.first_name || '')[0] || ''}${(p.last_name || '')[0] || ''}`.toUpperCase();
+                const age = calculateAge(p.date_of_birth);
+                const aCount = getAssessmentCount(p);
+                const latestAssess = getLatestAssessment(p);
+                const condition = getPrimaryCondition(p);
+                const pain = latestAssess?.pain_scale;
+                const lastVisit = latestAssess?.assessment_date || latestAssess?.created_at;
+                const status = p.status || 'active';
+
+                return `
+                <div class="glass-card rounded-xl p-4 hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5 transition-all duration-200 cursor-pointer group animate-fade-in patient-row"
+                     onclick="viewPatient('${p.id}')" data-status="${status}" data-name="${p.first_name || ''} ${p.last_name || ''}">
+                    <div class="flex items-start gap-3 md:gap-4">
+                        <div class="w-11 h-11 md:w-12 md:h-12 rounded-full gold-bg border gold-border flex items-center justify-center flex-shrink-0">
+                            <span class="gold-text font-semibold text-sm md:text-base">${initials || '?'}</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-1">
+                                <h3 class="text-white font-semibold truncate text-sm md:text-base group-hover:text-amber-300 transition-colors">
+                                    ${p.first_name || 'Unknown'} ${p.last_name || ''}
+                                </h3>
+                                <span class="text-xs px-2 py-0.5 rounded-full border whitespace-nowrap ${statusBadge(status)}">${status}</span>
+                            </div>
+                            <div class="flex flex-wrap gap-x-2 gap-y-1 text-xs text-gray-400">
+                                <span>${age} yrs</span>
+                                ${p.gender ? `<span>&bull; ${p.gender}</span>` : ''}
+                                ${condition ? `<span class="truncate max-w-[180px]">&bull; ${condition}</span>` : ''}
+                            </div>
+                            <div class="flex items-center gap-3 mt-2 text-xs">
+                                <span class="flex items-center gap-1 text-gray-500"><i class="fas fa-calendar-alt text-gray-600"></i> ${formatDate(lastVisit)}</span>
+                                <span class="flex items-center gap-1 text-gray-500"><i class="fas fa-clipboard-list text-gray-600"></i> ${aCount} assmt</span>
+                                ${pain !== undefined ? `<span class="flex items-center gap-1 text-gray-500"><i class="fas fa-heart text-rose-400/60"></i> ${pain}/10</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity self-center">
+                            <button onclick="event.stopPropagation(); viewPatient('${p.id}')" class="text-xs px-3 py-1.5 gold-bg gold-text rounded-lg hover:bg-amber-500/20 flex items-center gap-1" title="View">
+                                <i class="fas fa-eye text-[10px]"></i>
+                            </button>
+                            <a href="/assessment?patient=${p.id}" onclick="event.stopPropagation()" class="text-xs px-3 py-1.5 bg-teal-500/20 text-teal-400 rounded-lg hover:bg-teal-500/30 flex items-center gap-1" title="Assess">
+                                <i class="fas fa-video text-[10px]"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderRecentActivity() {
+            const table = document.getElementById('recent-table');
+            const recent = [...allAssessments]
+                .sort((a, b) => new Date(b.assessment_date || b.created_at) - new Date(a.assessment_date || a.created_at))
+                .slice(0, 10);
+
+            if (recent.length === 0) {
+                table.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">No recent activity</td></tr>';
+                return;
+            }
+
+            table.innerHTML = recent.map(a => {
+                const patient = allPatients.find(p => p.id === a.patient_id);
+                const name = patient ? `${patient.first_name || ''} ${patient.last_name || ''}` : 'Unknown';
+                return `
+                <tr class="hover:bg-gray-700/20 transition-colors">
+                    <td class="px-4 md:px-6 py-3 text-white font-medium">${name}</td>
+                    <td class="px-4 md:px-6 py-3 text-gray-400">${a.assessment_type || 'Assessment'}</td>
+                    <td class="px-4 md:px-6 py-3">
+                        <span class="font-semibold ${(a.pain_scale || 0) > 5 ? 'text-rose-400' : 'text-teal-400'}">
+                            ${a.pain_scale !== undefined ? a.pain_scale + '/10' : a.fms_score || 'N/A'}
+                        </span>
+                    </td>
+                    <td class="px-4 md:px-6 py-3 text-gray-500 text-xs">${formatDate(a.assessment_date || a.created_at)}</td>
+                    <td class="px-4 md:px-6 py-3">
+                        <div class="flex gap-2">
+                            <button onclick="viewPatient('${a.patient_id}')" class="text-xs px-2 py-1 gold-bg gold-text rounded hover:bg-amber-500/20"><i class="fas fa-eye"></i></button>
+                            <button onclick="generatePatientReport('${a.patient_id}')" class="text-xs px-2 py-1 bg-teal-500/20 text-teal-400 rounded hover:bg-teal-500/30"><i class="fas fa-file-alt"></i></button>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // PATIENT DETAIL MODAL
+        // ═══════════════════════════════════════════════════════
+
+        function viewPatient(id) {
+            const patient = allPatients.find(p => p.id === id);
+            if (!patient) return;
+
+            const modal = document.getElementById('patient-modal');
+            const content = document.getElementById('modal-content');
+            document.getElementById('modal-title').textContent = `${patient.first_name || ''} ${patient.last_name || ''}`;
+            modal.classList.remove('hidden');
+
+            const patientAssessments = allAssessments.filter(a => a.patient_id === id)
+                .sort((a, b) => new Date(b.assessment_date || b.created_at) - new Date(a.assessment_date || a.created_at));
+
+            const age = calculateAge(patient.date_of_birth);
+            const latestAssess = patientAssessments[0];
+            const condition = getPrimaryCondition(patient);
+
+            content.innerHTML = `
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="w-16 h-16 rounded-full gold-bg border gold-border flex items-center justify-center">
+                        <span class="gold-text font-semibold text-xl">${(patient.first_name || '')[0] || ''}${(patient.last_name || '')[0] || ''}</span>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-white">${patient.first_name || 'Unknown'} ${patient.last_name || ''}</h3>
+                        <p class="text-gray-400 text-sm">${age} years &bull; ${patient.gender || 'N/A'} &bull; DOB: ${formatDate(patient.date_of_birth)}</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    <div class="glass-card p-3 rounded-lg text-center">
+                        <p class="text-xs text-gray-500">Last Visit</p>
+                        <p class="text-white font-semibold">${formatDate(latestAssess?.assessment_date)}</p>
+                    </div>
+                    <div class="glass-card p-3 rounded-lg text-center">
+                        <p class="text-xs text-gray-500">Assessments</p>
+                        <p class="text-white font-semibold">${patientAssessments.length}</p>
+                    </div>
+                    <div class="glass-card p-3 rounded-lg text-center">
+                        <p class="text-xs text-gray-500">Pain Level</p>
+                        <p class="text-rose-400 font-semibold">${latestAssess?.pain_scale ?? 'N/A'}/10</p>
+                    </div>
+                    <div class="glass-card p-3 rounded-lg text-center">
+                        <p class="text-xs text-gray-500">Condition</p>
+                        <p class="text-amber-400 font-semibold text-sm truncate">${condition || 'N/A'}</p>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-lg p-4 mb-4">
+                    <h4 class="text-sm font-semibold text-white mb-3">Contact Info</h4>
+                    <div class="grid grid-cols-2 gap-3 text-sm">
+                        <div><span class="text-gray-500">Email:</span> <span class="text-gray-300">${patient.email || 'N/A'}</span></div>
+                        <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${patient.phone || 'N/A'}</span></div>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-lg p-4 mb-4">
+                    <h4 class="text-sm font-semibold text-white mb-3">Recent Assessments</h4>
+                    ${patientAssessments.length === 0 ? '<p class="text-gray-500 text-sm">No assessments yet</p>' : `
+                        <div class="space-y-2">
+                            ${patientAssessments.slice(0, 5).map(a => `
+                                <div class="flex justify-between items-center py-2 border-b border-gray-700/20 last:border-0 text-sm">
+                                    <span class="text-gray-300">${a.assessment_type || 'Assessment'}</span>
+                                    <span class="text-gray-500 text-xs">${formatDate(a.assessment_date || a.created_at)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `}
+                </div>
+
+                <div class="flex gap-2 justify-end">
+                    <a href="/assessment?patient=${patient.id}" class="px-4 py-2 bg-teal-500/20 text-teal-400 rounded-lg hover:bg-teal-500/30 text-sm flex items-center gap-1">
+                        <i class="fas fa-video"></i> New Assessment
+                    </a>
+                    <button onclick="generatePatientReport('${patient.id}')" class="px-4 py-2 bg-purple-500/20 text-purple-400 rounded-lg hover:bg-purple-500/30 text-sm flex items-center gap-1">
+                        <i class="fas fa-file-alt"></i> Generate Report
+                    </button>
+                </div>
+            `;
+        }
+
+        function closePatientModal() {
+            document.getElementById('patient-modal').classList.add('hidden');
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // NEW PATIENT CREATION
+        // ═══════════════════════════════════════════════════════
+
+        function openNewPatientModal() {
+            document.getElementById('new-patient-modal').classList.remove('hidden');
+            document.getElementById('new-patient-error').classList.add('hidden');
+            document.getElementById('new-patient-form').reset();
+        }
+
+        function closeNewPatientModal() {
+            document.getElementById('new-patient-modal').classList.add('hidden');
+        }
+
+        async function createPatient(event) {
+            event.preventDefault();
+            const form = event.target;
+            const errEl = document.getElementById('new-patient-error');
+            const data = Object.fromEntries(new FormData(form));
+
+            if (!data.first_name || !data.last_name) {
+                errEl.textContent = 'First and last name are required';
+                errEl.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                let result;
+                if (supabase) {
+                    result = await supabase.from('patients').insert({
+                        first_name: data.first_name,
+                        last_name: data.last_name,
+                        date_of_birth: data.date_of_birth || null,
+                        gender: data.gender || null,
+                        email: data.email || null,
+                        phone: data.phone || null,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                        medical_history: {},
+                        progress_metrics: { pain_trend: [], functional_score_trend: [] }
+                    }).select().single();
+
+                    if (result.error) throw result.error;
+                    allPatients.unshift(result.data);
+                } else {
+                    result = await fetch('/api/patients', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    }).then(r => r.json());
+                    if (!result.success) throw new Error(result.error);
+                }
+
+                closeNewPatientModal();
+                renderDashboard();
+                showToast('Patient created successfully!', 'success');
+            } catch (err) {
+                errEl.textContent = err.message || 'Failed to create patient';
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // HELPER FUNCTIONS
+        // ═══════════════════════════════════════════════════════
+
+        function getAssessmentCount(patient) {
+            return allAssessments.filter(a => a.patient_id === patient.id).length;
+        }
+
+        function getLatestAssessment(patient) {
+            return allAssessments
+                .filter(a => a.patient_id === patient.id)
+                .sort((a, b) => new Date(b.assessment_date || b.created_at) - new Date(a.assessment_date || a.created_at))[0];
+        }
+
+        function getLatestPain(patient) {
+            return getLatestAssessment(patient)?.pain_scale;
+        }
+
+        function getPrimaryCondition(patient) {
+            const mh = patient.medical_history;
+            if (mh?.conditions?.[0]?.condition) return mh.conditions[0].condition;
+            const latestA = getLatestAssessment(patient);
+            return latestA?.chief_complaint || latestA?.assessment_type || '';
+        }
+
+        function calculateAge(dob) {
+            if (!dob) return 'N/A';
+            return Math.floor((Date.now() - new Date(dob).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+        }
+
+        function formatDate(d) {
+            if (!d) return 'N/A';
+            return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function statusBadge(status) {
+            const map = {
+                active: 'bg-green-900/40 text-green-400 border-green-500/30',
+                inactive: 'bg-gray-700/40 text-gray-400 border-gray-500/30',
+                completed: 'bg-blue-900/40 text-blue-400 border-blue-500/30'
+            };
+            return map[status] || map.active;
+        }
+
+        function filterPatients() {
+            const query = (document.getElementById('searchInput')?.value || '').toLowerCase();
+            const statusFilter = (document.getElementById('statusFilter')?.value || '').toLowerCase();
+
+            document.querySelectorAll('#patient-grid > div').forEach(card => {
+                const text = (card.getAttribute('data-name') || '').toLowerCase();
+                const status = (card.getAttribute('data-status') || '').toLowerCase();
+                const matchSearch = !query || text.includes(query);
+                const matchStatus = !statusFilter || status === statusFilter;
+                card.style.display = (matchSearch && matchStatus) ? '' : 'none';
+            });
+
+            // Update visible count
+            const visible = document.querySelectorAll('#patient-grid > div[style=""]').length;
+            document.getElementById('showing-count').textContent = visible || allPatients.length;
+        }
+
+        async function generateReport() {
+            showToast('Generating report...', 'info');
+            // In production, this would create a PDF
+            setTimeout(() => showToast('Report generation queued', 'success'), 1000);
+        }
+
+        async function generatePatientReport(id) {
+            showToast('Generating patient report...', 'info');
+            setTimeout(() => showToast('Patient report ready', 'success'), 1000);
+        }
+
+        function showToast(message, type = 'info') {
+            const existing = document.querySelector('.toast-notification');
+            if (existing) existing.remove();
+
+            const colors = {
+                success: 'bg-green-500/90 border-green-400',
+                error: 'bg-rose-500/90 border-rose-400',
+                info: 'bg-blue-500/90 border-blue-400',
+                warning: 'bg-amber-500/90 border-amber-400'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `toast-notification fixed top-4 right-4 z-[100] px-4 py-2.5 rounded-lg border text-white text-sm shadow-lg backdrop-blur-sm animate-fade-in ${colors[type] || colors.info}`;
+            toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'} mr-2"></i>${message}`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // Close modals on escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closePatientModal();
+                closeNewPatientModal();
+            }
+        });
+
+        // Close modals on backdrop click
+        document.getElementById('patient-modal')?.addEventListener('click', function(e) {
+            if (e.target === this) closePatientModal();
+        });
+        document.getElementById('new-patient-modal')?.addEventListener('click', function(e) {
+            if (e.target === this) closeNewPatientModal();
+        });
+
+        // ═══════════════════════════════════════════════════════
+        // INITIALIZATION
+        // ═══════════════════════════════════════════════════════
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initSupabase();
+            loadDashboardData();
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (realtimeChannel) {
+                supabase?.removeChannel(realtimeChannel);
+            }
+        });
+    </script>
+</body>
+</html>
