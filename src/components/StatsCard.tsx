@@ -28,7 +28,7 @@ export const StatsCard: FC<StatsCardProps> = ({ title, value, icon, trend, color
   const c = colorMap[color] || colorMap.teal
 
   return (
-    <div class={`rounded-xl p-4 border ${c.border} ${c.bg} backdrop-blur-sm`}>
+    <div class={`metric-card rounded-xl p-4 border ${c.border} ${c.bg} backdrop-blur-sm`}>
       <div class="flex items-start justify-between mb-3">
         <p class="text-sm text-gray-400 font-medium">{title}</p>
         <div class={`w-10 h-10 rounded-lg ${c.iconBg} flex items-center justify-center`}>

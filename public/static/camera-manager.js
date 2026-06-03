@@ -18,6 +18,11 @@ const CameraManager = {
         isMirror: false,
         qualityScore: 0,
         lightingLevel: 'good', // 'good', 'low', 'poor'
+        depthFrame: null,
+        skeletonFrame: null,
+        femtoConnected: false,
+        onDepthFrame: null,
+        onSkeletonFrame: null,
     },
 
     // Camera type definitions with optimal settings
@@ -237,11 +242,28 @@ const CameraManager = {
         const client = new FemtoMegaClient(url);
         await client.connect();
 
+        client.onDepthFrame = (frame) => {
+            this.state.depthFrame = frame;
+            this.state.femtoConnected = true;
+            if (typeof this.state.onDepthFrame === 'function') {
+                this.state.onDepthFrame(frame);
+            }
+        };
+
+        client.onSkeletonData = (frame) => {
+            this.state.skeletonFrame = frame;
+            this.state.femtoConnected = true;
+            if (typeof this.state.onSkeletonFrame === 'function') {
+                this.state.onSkeletonFrame(frame);
+            }
+        };
+
         this.state.activeCamera = {
             type: 'femto',
             client,
             isWebSocket: true
         };
+        this.state.femtoConnected = true;
 
         console.log('✅ Femto Mega connected via', url);
 
@@ -268,6 +290,9 @@ const CameraManager = {
         }
 
         this.state.activeCamera = null;
+        this.state.depthFrame = null;
+        this.state.skeletonFrame = null;
+        this.state.femtoConnected = false;
         this.stopQualityMonitoring();
         console.log('📷 Camera stopped');
     },
@@ -339,9 +364,32 @@ const CameraManager = {
         return {
             score: this.state.qualityScore,
             lighting: this.state.lightingLevel,
+            depth: this.state.depthFrame ? {
+                timestamp: this.state.depthFrame.timestamp || Date.now(),
+                width: this.state.depthFrame.width,
+                height: this.state.depthFrame.height,
+                format: this.state.depthFrame.format || 'unknown'
+            } : null,
             resolution: this.state.activeStream ? 
                 this.state.activeStream.getVideoTracks()[0]?.getSettings() : null
         };
+    },
+
+    // Latest Femto Mega depth payload, forwarded without reshaping protocol fields
+    getDepthFrame() {
+        return this.state.depthFrame;
+    },
+
+    getSkeletonFrame() {
+        return this.state.skeletonFrame;
+    },
+
+    onDepthFrame(callback) {
+        this.state.onDepthFrame = callback;
+    },
+
+    onSkeletonFrame(callback) {
+        this.state.onSkeletonFrame = callback;
     },
 
     // Check if mobile device

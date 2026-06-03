@@ -18,10 +18,10 @@ const MOCK_QUEUE = [
 // ── Styles ──
 const styles = `
   :root {
-    --bg-primary: #0a0e17;
-    --bg-secondary: #111827;
-    --bg-card: #1a2035;
-    --bg-hover: #1e293b;
+    --bg-primary: #0a1628;
+    --bg-secondary: #0d1b31;
+    --bg-card: rgba(26, 32, 53, 0.82);
+    --bg-hover: #14243d;
     --border: rgba(148, 163, 184, 0.1);
     --text-primary: #e2e8f0;
     --text-secondary: #94a3b8;
@@ -37,6 +37,7 @@ const styles = `
     --sidebar-w: 300px;
     --panel-w: 360px;
   }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -46,6 +47,7 @@ const styles = `
     overflow: hidden;
   }
   .app { display: flex; height: 100vh; }
+  .app { animation: fadeIn 0.35s ease-out both; }
 
   /* ── LEFT SIDEBAR ── */
   .sidebar {
@@ -182,8 +184,12 @@ const styles = `
     flex: 1;
     position: relative;
     min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
   }
-  .three-container canvas { display: block; }
+  .three-container canvas { display: block; width: 100% !important; height: 100% !important; }
   .viewer-overlay {
     position: absolute;
     bottom: 16px; left: 16px;
@@ -237,6 +243,7 @@ const styles = `
     border-radius: 10px;
     border: 1px solid var(--border);
     padding: 14px;
+    backdrop-filter: blur(14px);
   }
   .panel-section h3 {
     font-size: 11px;
@@ -379,6 +386,19 @@ const styles = `
     max-width: 350px;
   }
   @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  @media (max-width: 1180px) {
+    :root { --sidebar-w: 260px; --panel-w: 330px; }
+    .toolbar-controls { flex-wrap: wrap; justify-content: flex-end; }
+  }
+  @media (max-width: 920px) {
+    body { overflow: auto; }
+    .app { min-height: 100vh; height: auto; flex-direction: column; }
+    .sidebar, .right-panel { width: 100%; min-width: 0; }
+    .sidebar { max-height: 280px; border-right: 0; border-bottom: 1px solid var(--border); }
+    .main-viewer { min-height: 560px; }
+    .right-panel { border-left: 0; border-top: 1px solid var(--border); min-height: 520px; }
+    .session-bar, .viewer-toolbar { flex-wrap: wrap; }
+  }
 `
 
 // ── Provider Portal Layout ──

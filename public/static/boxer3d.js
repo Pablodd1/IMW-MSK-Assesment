@@ -14,7 +14,8 @@ class Boxer3D {
         this.running = false;
         this.keypoints = [];
         this.persons = [];
-        self.skeleton3D = null;
+        this.skeleton3D = null;
+        this.eventTarget = document.createDocumentFragment();
 
         // Configuration
         this.config = {
@@ -23,8 +24,22 @@ class Boxer3D {
             sendInterval: config.sendInterval || 100, // ms between frames
             minConfidence: config.minConfidence || 0.5,
             smoothing: config.smoothing !== undefined ? config.smoothing : true,
+            depthProvider: typeof config.depthProvider === 'function' ? config.depthProvider : null,
             ...config
         };
+    }
+
+    addEventListener(type, listener, options) {
+        this.eventTarget.addEventListener(type, listener, options);
+    }
+
+    removeEventListener(type, listener, options) {
+        this.eventTarget.removeEventListener(type, listener, options);
+    }
+
+    dispatchEvent(event) {
+        document.dispatchEvent(event);
+        return this.eventTarget.dispatchEvent(event);
     }
 
     // YOLO11 keypoint connections (COCO format)
@@ -103,26 +118,39 @@ class Boxer3D {
             this.ws = new WebSocket(this.wsUrl);
             this.ws.onopen = () => {
                 console.log('[Boxer3D] WebSocket connected');
+                this.dispatchEvent(new CustomEvent('pose-engine-status', {
+                    detail: { connected: true, url: this.wsUrl }
+                }));
                 resolve();
             };
             this.ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data.type === 'skeleton') {
-                        this.persons = data.persons || [];
+                    if (data.type === 'skeleton' || data.type === 'skeleton_data' || data.persons || data.keypoints || data.landmarks) {
+                        this.persons = data.persons || data.data?.persons || [];
+                        if (!this.persons.length) {
+                            const keypoints = data.keypoints || data.landmarks || data.data?.keypoints || data.data?.landmarks || [];
+                            if (keypoints.length) this.persons = [{ keypoints }];
+                        }
                         this.keypoints = this.persons[0]?.keypoints || [];
                         this.draw2DOverlay();
                         this.dispatchEvent(new CustomEvent('skeleton', {
-                            detail: { persons: this.persons, fps: data.fps }
+                            detail: { persons: this.persons, fps: data.fps || data.data?.fps, raw: data }
                         }));
                     }
                 } catch (e) { /* ignore parse errors */ }
             };
             this.ws.onerror = (err) => {
                 console.warn('[Boxer3D] WS error, retrying in 2s...');
+                this.dispatchEvent(new CustomEvent('pose-engine-status', {
+                    detail: { connected: false, error: true, url: this.wsUrl }
+                }));
                 setTimeout(() => this.connectWebSocket(), 2000);
             };
             this.ws.onclose = () => {
+                this.dispatchEvent(new CustomEvent('pose-engine-status', {
+                    detail: { connected: false, url: this.wsUrl }
+                }));
                 if (this.running) {
                     console.log('[Boxer3D] WS closed, reconnecting...');
                     setTimeout(() => this.connectWebSocket(), 2000);
@@ -146,13 +174,13 @@ class Boxer3D {
         const tempCtx = tempCanvas.getContext('2d');
         tempCtx.drawImage(this.video, 0, 0);
         const jpeg = tempCanvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+        const depth = this.config.depthProvider ? this.config.depthProvider() : null;
 
         // Send to pose engine
         this.ws.send(JSON.stringify({
             cmd: 'frame',
             jpeg: jpeg,
-            // LiDAR depth data would go here when available
-            depth: null
+            depth: depth
         }));
 
         setTimeout(() => this.frameLoop(), this.config.sendInterval);

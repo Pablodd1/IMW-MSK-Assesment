@@ -47,7 +47,7 @@ export const PatientCard: FC<PatientCardProps> = ({
   const initials = getInitials(firstName, lastName)
 
   return (
-    <div class="bg-gray-800/70 border border-gray-700/50 rounded-xl p-4 hover:border-amber-500/40 hover:shadow-lg hover:shadow-amber-500/5 transition-all duration-200 cursor-pointer group">
+    <div class="glass glass-hover bg-gray-800/60 border border-gray-700/40 rounded-xl p-4 hover:border-amber-500/40 hover:shadow-lg hover:shadow-amber-500/5 transition-all duration-200 cursor-pointer group">
       <div class="flex items-start gap-4">
         {/* Avatar */}
         <div class="w-12 h-12 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center flex-shrink-0">

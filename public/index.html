@@ -4,24 +4,38 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>IMW PhysioMotion — Chiropractic Assistant + 3D MSK Assessment</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="/static/femto-client.js"></script>
+<script src="/static/camera-manager.js"></script>
 <script src="/static/boxer3d.js"></script>
 <script src="/static/calibration-wizard.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:#0a0f1e; color:#e2e8f0; font-family:system-ui,sans-serif; }
+  :root { --navy:#0a1628; --panel:#0d1b31; --panel-2:#10213b; --border:#1d3355; --gold:#f59e0b; --gold-soft:rgba(245,158,11,.14); --text:#e2e8f0; --muted:#94a3b8; --green:#22c55e; --blue:#60a5fa; --red:#f87171; }
+  body { background:var(--navy); color:var(--text); font-family:Inter,ui-sans-serif,system-ui,sans-serif; letter-spacing:0; }
+  body.loaded .fade-in { animation:fadeIn .36s ease-out both; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes pulse { 0%,100% { opacity:1; box-shadow:0 0 0 0 rgba(245,158,11,.34); } 50% { opacity:.72; box-shadow:0 0 0 6px rgba(245,158,11,0); } }
+  @keyframes resultIn { from { opacity:0; transform:translateX(10px); } to { opacity:1; transform:translateX(0); } }
   
   /* ─── Nav ─── */
-  .nav { display:flex; justify-content:space-between; align-items:center; padding:8px 18px; background:#0d1528; border-bottom:1px solid #1a2a4a; }
-  .nav h1 { font-size:.95rem; color:#facc15; display:flex; align-items:center; gap:8px; }
-  .nav h1 span { font-size:.6rem; color:#475569; font-weight:400; }
-  .status { display:flex; gap:10px; font-size:.7rem; }
+  .nav { display:flex; justify-content:space-between; align-items:center; gap:14px; padding:9px 18px; background:rgba(13,27,49,.9); border-bottom:1px solid var(--border); backdrop-filter:blur(14px); }
+  .nav h1 { font-size:.95rem; color:var(--gold); display:flex; align-items:center; gap:8px; white-space:nowrap; }
+  .nav h1 span { font-size:.64rem; color:#73839b; font-weight:400; }
+  .status { display:flex; gap:8px; font-size:.7rem; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+  .status-pill { display:inline-flex; align-items:center; gap:5px; padding:5px 8px; border:1px solid var(--border); border-radius:999px; color:#7f8da3; background:rgba(16,33,59,.68); transition:all .2s ease; }
+  .status-pill.ready { color:#bbf7d0; border-color:rgba(34,197,94,.36); background:rgba(34,197,94,.1); }
+  .status-pill.live { color:#fde68a; border-color:rgba(245,158,11,.45); background:var(--gold-soft); animation:pulse 1.6s ease-in-out infinite; }
   .dot { display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:3px; }
   .dot.green { background:#4ade80; }
   .dot.gray { background:#475569; }
+  .dot.yellow { background:var(--gold); animation:pulse 1.2s ease-in-out infinite; }
+  .demo-toggle { display:inline-flex; align-items:center; gap:7px; padding:5px 8px; border:1px solid rgba(245,158,11,.28); border-radius:999px; color:#f8d898; background:rgba(245,158,11,.08); cursor:pointer; user-select:none; }
+  .demo-toggle input { accent-color:var(--gold); }
 
   /* ─── Main Layout ─── */
   .main { display:flex; height:calc(100vh - 40px); }
-  .sidebar { width:180px; background:#0d1528; border-right:1px solid #1a2a4a; padding:8px 0; display:flex; flex-direction:column; }
+  .sidebar { width:180px; background:var(--panel); border-right:1px solid var(--border); padding:8px 0; display:flex; flex-direction:column; }
   .sidebar a { display:flex; align-items:center; gap:8px; padding:10px 16px; font-size:.75rem; color:#64748b; text-decoration:none; border-left:2px solid transparent; }
   .sidebar a:hover, .sidebar a.active { color:#e2e8f0; background:#1a2a4a40; border-left-color:#facc15; }
 
@@ -33,24 +47,25 @@
   .viewer #poseOverlay { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
   .viewer .placeholder { color:#1a2a4a; text-align:center; }
   .viewer .placeholder .icon { font-size:3rem; }
-  #pose3dContainer { height:140px; background:#050a16; border-top:1px solid #1a2a4a; }
+  #pose3dContainer { height:150px; background:#050a16; border-top:1px solid var(--border); }
 
   .controls { position:absolute; bottom:12px; left:50%; transform:translateX(-50%); display:flex; gap:6px; z-index:10; }
-  .controls button { padding:6px 14px; border:none; border-radius:5px; font-weight:600; cursor:pointer; font-size:.75rem; }
-  .btn-go { background:#4ade80; color:#0f172a; }
-  .btn-stop { background:#f87171; color:#fff; }
-  .btn-analyze { background:#60a5fa; color:#fff; }
+  .controls button { padding:7px 14px; border:1px solid transparent; border-radius:6px; font-weight:700; cursor:pointer; font-size:.75rem; transition:transform .15s ease, box-shadow .15s ease, opacity .15s ease; }
+  .controls button:hover:not(:disabled) { transform:translateY(-1px); }
+  .btn-go { background:var(--gold); color:#111827; box-shadow:0 8px 20px rgba(245,158,11,.18); }
+  .btn-stop { background:rgba(248,113,113,.15); color:#fecaca; border-color:rgba(248,113,113,.35)!important; }
+  .btn-analyze { background:#2563eb; color:#fff; }
   .btn-analyze:disabled { opacity:.4; }
   .fps { position:absolute; top:6px; right:6px; background:rgba(0,0,0,.7); padding:2px 6px; border-radius:3px; font-size:.65rem; font-family:monospace; color:#4ade80; z-index:10; }
 
   /* ─── Right Panel ─── */
-  .panel { width:440px; background:#0d1528; border-left:1px solid #1a2a4a; display:flex; flex-direction:column; overflow:hidden; }
+  .panel { width:440px; background:var(--panel); border-left:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
   .panel-tabs { display:flex; border-bottom:1px solid #1a2a4a; }
   .panel-tabs button { flex:1; padding:7px; border:none; background:transparent; color:#475569; font-size:.7rem; font-weight:600; cursor:pointer; border-bottom:2px solid transparent; }
   .panel-tabs button.active { color:#facc15; border-bottom-color:#facc15; background:#1a2a4a30; }
 
   .tab-content { flex:1; overflow-y:auto; display:none; padding:8px 12px; }
-  .tab-content.active { display:block; }
+  .tab-content.active { display:block; animation:fadeIn .22s ease-out; }
 
   .joint-item { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #1a2a4a; font-size:.7rem; }
   .joint-item .name { color:#94a3b8; }
@@ -59,8 +74,8 @@
   .joint-item .val.err { color:#f87171; }
   .joint-item .norm { color:#475569; font-size:.6rem; }
 
-  .soap-box { border-left:2px solid #1a2a4a; padding-left:8px; margin-bottom:6px; }
-  .soap-box h4 { color:#facc15; font-size:.7rem; margin-bottom:2px; }
+  .soap-box { border-left:3px solid var(--gold); padding:8px 10px; margin-bottom:8px; background:rgba(16,33,59,.7); border-radius:6px; animation:resultIn .25s ease-out both; }
+  .soap-box h4 { color:var(--gold); font-size:.7rem; margin-bottom:4px; letter-spacing:.04em; }
   .soap-box pre { color:#cbd5e1; font-size:.68rem; white-space:pre-wrap; font-family:system-ui; line-height:1.3; }
   .code-tag { display:inline-block; background:#0f172a; color:#60a5fa; padding:1px 5px; border-radius:3px; font-size:.65rem; margin:1px; }
 
@@ -74,7 +89,22 @@
   .coach-msg.ai { border-left:3px solid #60a5fa; }
   .coach-msg.user { border-left:3px solid #4ade80; }
 
-  .summary { padding:6px 12px; background:#0a0f1e; border-top:1px solid #1a2a4a; font-size:.68rem; max-height:56px; overflow-y:auto; }
+  .flow-steps { position:absolute; top:12px; left:12px; display:flex; gap:6px; z-index:10; flex-wrap:wrap; }
+  .flow-step { padding:5px 8px; border-radius:999px; border:1px solid var(--border); background:rgba(5,10,22,.72); color:#73839b; font-size:.66rem; font-weight:700; }
+  .flow-step.active { color:#f8d898; border-color:rgba(245,158,11,.42); background:rgba(245,158,11,.1); }
+  .flow-step.done { color:#bbf7d0; border-color:rgba(34,197,94,.35); background:rgba(34,197,94,.1); }
+  .summary { padding:8px 12px; background:#081225; border-top:1px solid var(--border); font-size:.7rem; overflow-y:auto; }
+  .summary-card { display:grid; grid-template-columns:90px 1fr 180px; gap:10px; align-items:start; }
+  .summary-card strong { color:var(--gold); display:block; font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; margin-bottom:2px; }
+  .summary-card .score { color:#bbf7d0; font-size:1.05rem; font-weight:800; }
+  .summary-card .muted { color:#73839b; }
+  @media (max-width: 1000px) {
+    .main { flex-direction:column; height:auto; min-height:calc(100vh - 40px); }
+    .sidebar { width:100%; min-height:auto; flex-direction:row; overflow-x:auto; border-right:0; border-bottom:1px solid var(--border); }
+    .content { min-height:520px; }
+    .panel { width:100%; min-height:360px; border-left:0; border-top:1px solid var(--border); }
+    .summary-card { grid-template-columns:1fr; }
+  }
 </style>
 </head>
 <body>
@@ -82,9 +112,10 @@
 <div class="nav">
   <h1>🦴 IMW PhysioMotion <span>Chiropractic Assistant & Coach AI</span></h1>
   <div class="status">
-    <span><span class="dot gray" id="s1">⬤</span> Cam</span>
-    <span><span class="dot gray" id="s2">⬤</span> 3D</span>
-    <span><span class="dot gray" id="s3">⬤</span> AI</span>
+    <label class="demo-toggle"><input type="checkbox" id="demoMode"> Demo Mode</label>
+    <span class="status-pill" id="cameraStatus"><span class="dot gray" id="s1"></span>Camera Ready</span>
+    <span class="status-pill" id="poseStatus"><span class="dot gray" id="s2"></span>Pose Engine Connected</span>
+    <span class="status-pill" id="analysisStatus"><span class="dot gray" id="s3"></span>Analyzing</span>
     <span id="fpsLabel" style="color:#4ade80;">—</span>
   </div>
 </div>
@@ -104,6 +135,12 @@
     <!-- 3D Tracking View -->
     <div id="view-track" class="viewer" style="display:flex;flex-direction:column;">
       <div style="flex:1;position:relative;display:flex;align-items:center;justify-content:center;">
+        <div class="flow-steps" id="flowSteps">
+          <span class="flow-step active" data-step="start">Start</span>
+          <span class="flow-step" data-step="calibrate">Calibrate</span>
+          <span class="flow-step" data-step="track">Track</span>
+          <span class="flow-step" data-step="analyze">Analyze</span>
+        </div>
         <video id="poseVideo" autoplay playsinline muted style="display:none;width:100%;height:100%;object-fit:contain;"></video>
         <canvas id="poseOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
         <div class="placeholder" id="placeholder">
@@ -185,11 +222,45 @@
 </div>
 
 <script>
+const POSE_ENGINE_WS = 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws';
 let tracker = null;
 let tracking = false;
 let lastSOAP = null;
 let calWizard = null;
 let isCalibrating = false;
+let demoTimer = null;
+let demoTick = 0;
+let lastFMSSummary = null;
+
+window.addEventListener('load', () => document.body.classList.add('loaded'));
+
+function setStatus(kind, state, label) {
+  const map = {
+    camera: ['cameraStatus', 's1'],
+    pose: ['poseStatus', 's2'],
+    analysis: ['analysisStatus', 's3']
+  };
+  const [pillId, dotId] = map[kind];
+  const pill = document.getElementById(pillId);
+  const dot = document.getElementById(dotId);
+  if (!pill || !dot) return;
+  pill.childNodes[pill.childNodes.length - 1].nodeValue = label;
+  pill.className = 'status-pill ' + (state === 'live' ? 'live' : state === 'ready' ? 'ready' : '');
+  dot.className = 'dot ' + (state === 'live' ? 'yellow' : state === 'ready' ? 'green' : 'gray');
+}
+
+function setFlow(step) {
+  const order = ['start', 'calibrate', 'track', 'analyze'];
+  const activeIndex = order.indexOf(step);
+  document.querySelectorAll('.flow-step').forEach(el => {
+    const idx = order.indexOf(el.dataset.step);
+    el.className = 'flow-step' + (idx < activeIndex ? ' done' : idx === activeIndex ? ' active' : '');
+  });
+}
+
+function getDemoMode() {
+  return document.getElementById('demoMode')?.checked;
+}
 
 // ─── Views ───
 function showView(view, btn) {
@@ -240,15 +311,28 @@ async function startTracking() {
   document.getElementById('btnStop').style.display='inline-block';
   document.getElementById('btnCalibrate').style.display='inline-block';
   document.getElementById('fpsCounter').style.display='block';
-  document.getElementById('s1').className='dot green'; document.getElementById('s2').className='dot green';
+  setStatus('camera', 'live', getDemoMode() ? 'Demo Camera Ready' : 'Camera Ready');
+  setStatus('pose', 'live', 'Connecting Pose Engine');
+  setStatus('analysis', 'idle', 'Analyzing');
+  setFlow('calibrate');
 
   try {
-    tracker = new Boxer3D({wsUrl:'ws://localhost:8765',camWidth:640,camHeight:480,sendInterval:150});
+    if (getDemoMode()) {
+      startDemoSkeleton();
+      setStatus('pose', 'ready', 'Pose Engine Connected');
+      document.getElementById('summaryBar').innerHTML = '<span style="color:#f8d898;">Demo mode running. Calibrate or Analyze with simulated camera input.</span>';
+      return;
+    }
+
+    tracker = new Boxer3D({wsUrl: POSE_ENGINE_WS, camWidth:640, camHeight:480, sendInterval:150, depthProvider: () => window.CameraManager?.getDepthFrame?.() || null});
     document.addEventListener('skeleton',(e)=>{
       const{persons,fps}=e.detail;
       if(fps){document.getElementById('fpsCounter').textContent=fps+' FPS';document.getElementById('fpsLabel').textContent=fps+' FPS';}
       if(persons.length&&persons[0].keypoints.length){
         window._kps=persons[0].keypoints;
+        setStatus('camera', 'ready', 'Camera Ready');
+        setStatus('pose', 'ready', 'Pose Engine Connected');
+        setFlow(isCalibrating ? 'calibrate' : 'track');
         // Feed calibration wizard if active
         if(isCalibrating && calWizard) {
           calWizard.update(persons[0].keypoints);
@@ -259,19 +343,87 @@ async function startTracking() {
     });
     await tracker.start('poseVideo','poseOverlay');
     tracker.init3DScene('pose3dContainer');
-  } catch(e){document.getElementById('s1').className='dot gray';document.getElementById('s2').className='dot gray';}
+  } catch(e){
+    tracking=false;
+    setStatus('camera', 'idle', 'Camera Ready');
+    setStatus('pose', 'idle', 'Pose Engine Connected');
+    document.getElementById('summaryBar').innerHTML='<span style="color:#f87171;">Unable to start camera or pose engine: '+e.message+'</span>';
+  }
 }
 
 function stopTracking(){
   tracking=false;
   if(isCalibrating) stopCalibration();
   if(tracker)tracker.stop();
+  stopDemoSkeleton();
   document.getElementById('btnStart').style.display='inline-block';
   document.getElementById('btnStop').style.display='none';
   document.getElementById('btnCalibrate').style.display='none';
-  document.getElementById('s1').className='dot gray';
-  document.getElementById('s2').className='dot gray';
+  setStatus('camera', 'idle', 'Camera Ready');
+  setStatus('pose', 'idle', 'Pose Engine Connected');
+  setStatus('analysis', 'idle', 'Analyzing');
+  setFlow('start');
   document.getElementById('fpsCounter').style.display='none';
+}
+
+function demoKeypoints(t) {
+  const sway = Math.sin(t / 10) * 0.025;
+  const bend = Math.sin(t / 14) * 0.035;
+  return [
+    {id:0,x:.50+sway,y:.13,z:1.8,confidence:.96},{id:5,x:.38+sway,y:.30,z:1.9,confidence:.94},{id:6,x:.62+sway,y:.30,z:1.9,confidence:.94},
+    {id:7,x:.30+sway,y:.45+bend,z:1.8,confidence:.92},{id:8,x:.70+sway,y:.45-bend,z:1.8,confidence:.92},
+    {id:9,x:.25+sway,y:.60+bend,z:1.7,confidence:.9},{id:10,x:.75+sway,y:.60-bend,z:1.7,confidence:.9},
+    {id:11,x:.43+sway,y:.56,z:2.0,confidence:.95},{id:12,x:.57+sway,y:.56,z:2.0,confidence:.95},
+    {id:13,x:.40+sway-bend,y:.74,z:2.0,confidence:.93},{id:14,x:.60+sway+bend,y:.74,z:2.0,confidence:.93},
+    {id:15,x:.38+sway-bend,y:.92,z:2.1,confidence:.92},{id:16,x:.62+sway+bend,y:.92,z:2.1,confidence:.92}
+  ];
+}
+
+function drawDemoSkeleton(kps) {
+  const canvas = document.getElementById('poseOverlay');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.clientWidth || 640;
+  canvas.height = canvas.clientHeight || 480;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = 'rgba(5,10,22,.96)';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.strokeStyle = 'rgba(245,158,11,.18)';
+  for (let x=0; x<canvas.width; x+=40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
+  for (let y=0; y<canvas.height; y+=40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
+  const pairs = Boxer3D.SKELETON_CONNECTIONS;
+  const map = Object.fromEntries(kps.map(k => [k.id, k]));
+  ctx.lineWidth = 4; ctx.lineCap = 'round';
+  pairs.forEach(([a,b]) => {
+    if (!map[a] || !map[b]) return;
+    ctx.strokeStyle = '#f59e0b';
+    ctx.beginPath(); ctx.moveTo(map[a].x*canvas.width,map[a].y*canvas.height); ctx.lineTo(map[b].x*canvas.width,map[b].y*canvas.height); ctx.stroke();
+  });
+  kps.forEach(k => {
+    ctx.beginPath(); ctx.arc(k.x*canvas.width,k.y*canvas.height,6,0,Math.PI*2);
+    ctx.fillStyle = '#22c55e'; ctx.fill();
+    ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1; ctx.stroke();
+  });
+}
+
+function startDemoSkeleton() {
+  stopDemoSkeleton();
+  document.getElementById('poseVideo').style.display='none';
+  demoTimer = setInterval(() => {
+    demoTick++;
+    const kps = demoKeypoints(demoTick);
+    window._kps = kps;
+    drawDemoSkeleton(kps);
+    if (isCalibrating && calWizard) calWizard.update(kps);
+    else renderJoints(kps);
+    document.getElementById('fpsCounter').textContent = '30 FPS';
+    document.getElementById('fpsLabel').textContent = '30 FPS';
+    setFlow(isCalibrating ? 'calibrate' : 'track');
+  }, 100);
+}
+
+function stopDemoSkeleton() {
+  if (demoTimer) clearInterval(demoTimer);
+  demoTimer = null;
 }
 
 // ─── Calibration Wizard (index.html) ───
@@ -285,12 +437,14 @@ function startCalibration() {
     wsUrl: 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws',
     framesRequired: 25,
     onStepChange: (stepIndex, step) => {
+      setFlow('calibrate');
       document.getElementById('summaryBar').innerHTML =
         '<span style="color:#a78bfa;">⚙ Calibrating: ' + step.title + '</span>';
     },
     onComplete: (profile) => {
       console.log('[Index] Calibration complete:', profile);
       isCalibrating = false;
+      setFlow('track');
       document.getElementById('summaryBar').innerHTML =
         '<span style="color:#4ade80;">✅ Calibrated — Score: ' +
         Math.round(profile.overallScore * 100) + '%</span>';
@@ -305,6 +459,7 @@ function startCalibration() {
   });
 
   calWizard.start();
+  setStatus('pose', 'live', 'Pose Engine Connected');
   document.getElementById('btnCalibrate').textContent = '⚙ Calibrating...';
   document.getElementById('btnCalibrate').style.background = '#a78bfa';
 }
@@ -325,6 +480,7 @@ function stopCalibration() {
 window.addEventListener('calibrationComplete', (e) => {
   if (e.detail && e.detail.profile && isCalibrating) {
     isCalibrating = false;
+    setFlow('track');
     document.getElementById('summaryBar').innerHTML =
       '<span style="color:#4ade80;">✅ Calibrated — Score: ' +
       Math.round(e.detail.profile.overallScore * 100) + '%</span>';
@@ -336,17 +492,28 @@ window.addEventListener('calibrationComplete', (e) => {
   }
 });
 
+document.addEventListener('pose-engine-status', (e) => {
+  if (e.detail?.connected) setStatus('pose', 'ready', 'Pose Engine Connected');
+  else if (tracking) setStatus('pose', 'live', 'Connecting Pose Engine');
+});
+
 // ─── Swarm Analysis → SOAP ───
 async function analyzeMovement() {
   const btn=document.getElementById('btnAnalyze');btn.disabled=true;btn.textContent='⏳ 3 specialists...';
-  document.getElementById('summaryBar').innerHTML='<span style="color:#fbbf24;">Running 3 specialists + auditor...</span>';
-  document.getElementById('s3').className='dot yellow';
+  document.getElementById('summaryBar').innerHTML='<span style="color:#fbbf24;">Camera → WebSocket → FMS → Chiro → Swarm → SOAP is running...</span>';
+  setStatus('analysis', 'live', 'Analyzing');
+  setFlow('analyze');
 
   try {
     const kps=window._kps||[],abn=window._abn||[];
+    lastFMSSummary = buildFMSSummary(kps, abn);
     const r=await fetch('/ai/analyze-swarm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
       keypoints:kps.length?kps.map((kp)=>({id:kp.id,x:kp.x,y:kp.y,z:kp.z,confidence:kp.confidence})):[{id:5,x:.3,y:.4,z:0,confidence:.9},{id:6,x:.7,y:.4,z:0,confidence:.9}],
-      body_regions:['upper','lower','spine'],abnormalities:abn
+      body_regions:['upper','lower','spine'],
+      abnormalities:abn,
+      fms:lastFMSSummary,
+      camera:{type:getDemoMode()?'demo':(window.CameraManager?.state?.cameraType||'webcam'), depth:!!window.CameraManager?.getDepthFrame?.()},
+      pipeline:['camera','websocket','fms','chiro','swarm','soap']
     })});
     const d=await r.json();
     
@@ -364,13 +531,37 @@ async function analyzeMovement() {
       if(a.cpt?.length) c+=`<div><h4 style="color:#facc15;font-size:.7rem;margin-bottom:4px;">CPT</h4>${a.cpt.map(c=>`<span class="code-tag">${c}</span>`).join(' ')}</div>`;
       document.getElementById('codesContent').innerHTML=c||'<p style="color:#475569;font-size:.7rem;">No codes</p>';
 
-      document.getElementById('summaryBar').innerHTML=`<span style="color:#4ade80;">✅ ${a.icd10?.length||0} ICD-10 • ${a.cpt?.length||0} CPT • ${(a.confidence*100).toFixed(0)}% conf</span>`;
-      document.getElementById('s3').className='dot green';
+      renderSummaryCard(a, lastFMSSummary);
+      setStatus('analysis', 'ready', 'Analyzing Complete');
+      setFlow('analyze');
     }
-  } catch(e:any){
+  } catch(e){
     document.getElementById('soapContent').innerHTML=`<p style="color:#f87171;font-size:.7rem;">${e.message}</p>`;
+    setStatus('analysis', 'idle', 'Analyzing');
   }
   btn.disabled=false;btn.textContent='🔍 Analyze';
+}
+
+function buildFMSSummary(kps, abnormalities) {
+  const visible = kps.filter(k => (k.confidence || 0) > .5).length;
+  const penalty = Math.min(6, abnormalities.length);
+  const base = visible >= 13 ? 16 : visible >= 8 ? 13 : 10;
+  const total = Math.max(7, Math.min(21, base - penalty + (getDemoMode() ? 1 : 0)));
+  return {
+    total,
+    findings: abnormalities.length ? abnormalities.slice(0,3) : ['No major ROM flags in current frame', 'Movement quality acceptable for screening']
+  };
+}
+
+function renderSummaryCard(soap, fms) {
+  const findings = (fms.findings || []).map(x => `<div>${x}</div>`).join('');
+  const codes = (soap.icd10 && soap.icd10.length ? soap.icd10 : ['Pending']).map(c => `<span class="code-tag">${c}</span>`).join(' ');
+  document.getElementById('summaryBar').innerHTML = `
+    <div class="summary-card fade-in">
+      <div><strong>FMS Total</strong><span class="score">${fms.total}/21</span></div>
+      <div><strong>Key Findings</strong><span class="muted">${findings}</span></div>
+      <div><strong>ICD-10 Codes</strong>${codes}</div>
+    </div>`;
 }
 
 // ─── RX Exercises ───

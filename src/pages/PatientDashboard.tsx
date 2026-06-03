@@ -45,10 +45,24 @@ function Layout({ children }: { children: any }) {
         <link href="/static/styles.css" rel="stylesheet" />
         <link href="/static/mobile-responsive.css" rel="stylesheet" />
         <style>{`
-          body { background: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-          .metric-card { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); }
-          .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); }
-          .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+          body { background: #0a1628; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+          .metric-card {
+            background: linear-gradient(135deg, rgba(30,41,59,.78), rgba(10,22,40,.82));
+            border: 1px solid rgba(148,163,184,.14);
+            box-shadow: 0 18px 50px rgba(0,0,0,.24);
+            backdrop-filter: blur(16px);
+            transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+          }
+          .metric-card:hover { transform: translateY(-2px); border-color: rgba(245,158,11,.35); box-shadow: 0 22px 60px rgba(0,0,0,.32); }
+          .glass {
+            background: linear-gradient(135deg, rgba(30,41,59,.64), rgba(15,23,42,.46));
+            border: 1px solid rgba(148,163,184,.14);
+            box-shadow: 0 18px 50px rgba(0,0,0,.22);
+            backdrop-filter: blur(16px);
+          }
+          .glass-hover { transition: transform .18s ease, border-color .18s ease, background .18s ease; }
+          .glass-hover:hover { transform: translateY(-2px); border-color: rgba(245,158,11,.35); background: linear-gradient(135deg, rgba(30,41,59,.78), rgba(15,23,42,.58)); }
+          .animate-fade-in { animation: fadeIn 0.35s ease-out; }
           @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
           .pulse-dot { animation: pulse 2s ease-in-out infinite; }
           @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
@@ -94,10 +108,10 @@ export const PatientDashboard: FC<PatientDashboardProps> = ({ stats, patients, e
             <p class="text-gray-400 mt-1 text-sm">Manage and monitor your patients</p>
           </div>
           <div class="flex gap-3">
-            <a href="/intake" class="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold rounded-lg flex items-center gap-2 transition-colors text-sm">
+            <a href="/intake" class="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-gray-950 font-semibold rounded-lg flex items-center gap-2 transition-all text-sm shadow-lg shadow-amber-500/10 hover:-translate-y-0.5">
               <i class="fas fa-plus"></i> New Patient
             </a>
-            <button class="px-4 py-2.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg flex items-center gap-2 transition-colors text-sm">
+            <button class="px-4 py-2.5 bg-gray-700/70 hover:bg-gray-600 text-white rounded-lg flex items-center gap-2 transition-all text-sm border border-gray-600/50 hover:border-amber-500/30">
               <i class="fas fa-file-export"></i> Export
             </button>
           </div>
@@ -144,7 +158,7 @@ export const PatientDashboard: FC<PatientDashboardProps> = ({ stats, patients, e
         </div>
 
         {/* Search & Filter Bar */}
-        <div class="glass rounded-xl p-3 mb-6 flex flex-col sm:flex-row gap-3 border border-gray-700/50">
+        <div class="glass glass-hover rounded-xl p-3 mb-6 flex flex-col sm:flex-row gap-3">
           <div class="flex-1 relative">
             <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
             <input
@@ -201,7 +215,7 @@ export const PatientDashboard: FC<PatientDashboardProps> = ({ stats, patients, e
             <i class="fas fa-clock text-amber-400"></i>
             Recent Activity
           </h2>
-          <div class="glass rounded-xl border border-gray-700/50 overflow-hidden">
+          <div class="glass glass-hover rounded-xl overflow-hidden">
             <div class="overflow-x-auto">
               <table class="w-full text-sm">
                 <thead>

@@ -4,6 +4,9 @@ class FemtoMegaClient {
     this.url = url;
     this.ws = null;
     this.onSkeletonData = null;
+    this.onDepthFrame = null;
+    this.onStatus = null;
+    this.connected = false;
   }
 
   connect() {
@@ -12,24 +15,34 @@ class FemtoMegaClient {
 
       this.ws.onopen = () => {
         console.log('✅ Connected to Femto Mega camera');
+        this.connected = true;
+        if (this.onStatus) this.onStatus({ connected: true, url: this.url });
         resolve();
       };
 
       this.ws.onerror = (error) => {
         console.error('❌ Femto Mega connection failed:', error);
+        this.connected = false;
+        if (this.onStatus) this.onStatus({ connected: false, error, url: this.url });
         reject(error);
       };
 
       this.ws.onmessage = (event) => {
         const message = JSON.parse(event.data);
 
-        if (message.type === 'skeleton_data' && this.onSkeletonData) {
-          this.onSkeletonData(message.data);
+        if ((message.type === 'depth_frame' || message.depth || message.depth_frame) && this.onDepthFrame) {
+          this.onDepthFrame(message.depth || message.depth_frame || message.data || message);
+        }
+
+        if ((message.type === 'skeleton_data' || message.type === 'skeleton' || message.persons || message.keypoints || message.landmarks) && this.onSkeletonData) {
+          this.onSkeletonData(message.data || message);
         }
       };
 
       this.ws.onclose = () => {
         console.log('🔌 Femto Mega disconnected');
+        this.connected = false;
+        if (this.onStatus) this.onStatus({ connected: false, url: this.url });
       };
     });
   }
@@ -43,6 +56,12 @@ class FemtoMegaClient {
   stopRecording() {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ command: 'stop_recording' }));
+    }
+  }
+
+  requestDepthFrame() {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ command: 'depth_frame' }));
     }
   }
 
