@@ -694,7 +694,7 @@ function startCalibrationFlowV2() {
     ASSESSMENT_STATE.calibrationWizard = new CalibrationWizard({
         canvasId: 'canvasElement',
         statusEl: 'calibrationStatusV2',
-        wsUrl: 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws',
+        wsUrl: window.IMW_CONFIG?.poseEngineUrl || 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws',
         framesRequired: 30,
         onStepChange: (stepIndex, step) => {
             const statusEl = document.getElementById('calibrationStatusV2');

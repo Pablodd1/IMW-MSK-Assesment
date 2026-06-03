@@ -1,6 +1,17 @@
 // Femto Mega WebSocket Connection
+const IMW_FEMTO_DEFAULT_CONFIG = {
+  poseEngineUrl: 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws',
+  supabaseUrl: '',
+  demoMode: false,
+  voiceEnabled: true
+};
+
+function getIMWFemtoConfig() {
+  return { ...IMW_FEMTO_DEFAULT_CONFIG, ...(window.IMW_CONFIG || {}) };
+}
+
 class FemtoMegaClient {
-  constructor(url = 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws') {
+  constructor(url = getIMWFemtoConfig().poseEngineUrl) {
     this.url = url;
     this.ws = null;
     this.onSkeletonData = null;

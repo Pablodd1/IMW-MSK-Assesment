@@ -33,7 +33,7 @@ def run_agent(script, *args):
     return result.stdout
 
 
-def orchestrate(input_path, output_dir=".", patient_name="Patient", model="yolo11n-pose",
+def orchestrate(input_path, output_dir=".", patient_name="Patient", model="yolo12s-pose",
                 deimv2_model=None, enable_deimv2=False):
     """Run the full Boxer3D pipeline with optional DEIMv2 enrichment."""
     output_dir = Path(output_dir)
@@ -108,8 +108,8 @@ if __name__ == "__main__":
     parser.add_argument("input", help="Input image or video path")
     parser.add_argument("--output-dir", "-o", default=".", help="Output directory")
     parser.add_argument("--patient", "-p", default="Patient", help="Patient name")
-    parser.add_argument("--model", "-m", default="yolo11n-pose",
-                        choices=["yolo11n-pose", "yolo11s-pose", "yolo11m-pose", "yolo11l-pose", "yolo11x-pose"],
+    parser.add_argument("--model", "-m", default="yolo12s-pose",
+                        choices=["yolo12s-pose", "yolo11n-pose", "yolo11s-pose", "yolo11m-pose", "yolo11l-pose", "yolo11x-pose"],
                         help="YOLO model for pose estimation")
     parser.add_argument("--deimv2", action="store_true", help="Enable DEIMv2 enrichment")
     parser.add_argument("--deimv2-model", default="/home/jasme/IMW-MSK-Assesment/models/deimv2_wholebody34_680q.onnx",

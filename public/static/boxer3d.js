@@ -4,9 +4,20 @@
 // Connects to Python pose engine via WebSocket
 // ============================================================================
 
+const IMW_DEFAULT_CONFIG = {
+    poseEngineUrl: 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws',
+    supabaseUrl: '',
+    demoMode: false,
+    voiceEnabled: true
+};
+
+function getIMWConfig() {
+    return { ...IMW_DEFAULT_CONFIG, ...(window.IMW_CONFIG || {}) };
+}
+
 class Boxer3D {
     constructor(config = {}) {
-        this.wsUrl = config.wsUrl || 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws';
+        this.wsUrl = config.wsUrl || getIMWConfig().poseEngineUrl;
         this.video = null;
         this.canvas = null;
         this.ctx = null;
@@ -191,6 +202,14 @@ class Boxer3D {
     draw2DOverlay() {
         const ctx = this.ctx;
         ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        if (window.IMWPatientOverlay?.draw) {
+            window.IMWPatientOverlay.draw(ctx, this.canvas, {
+                mode: 'assessment',
+                step: window.IMWPatientOverlay.currentStep || 0,
+                positionCorrect: this.keypoints.length >= 12
+            });
+        }
 
         if (!this.keypoints.length) return;
 

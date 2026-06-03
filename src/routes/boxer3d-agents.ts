@@ -27,7 +27,7 @@ export function createAgentApi(): Router {
         videoPath,
         '-o', outputDir,
         '-p', patientName || 'Patient',
-        '-m', model || 'yolo11n-pose'
+        '-m', model || 'yolo12s-pose'
       ], { timeout: 300000, cwd: POSE_ENGINE_DIR, maxBuffer: 10 * 1024 * 1024 }).toString();
       console.log(`[Boxer3D] Done:`, stdout.slice(0, 200));
 

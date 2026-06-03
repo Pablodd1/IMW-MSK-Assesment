@@ -458,7 +458,7 @@ function startCalibrationFlow(video, canvas) {
     STATE.calibrationWizard = new CalibrationWizard({
         canvasId: 'canvasEl',
         statusEl: 'calibrationStatus',
-        wsUrl: 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws',
+        wsUrl: window.IMW_CONFIG?.poseEngineUrl || 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws',
         framesRequired: 30,
         onStepChange: (stepIndex, step) => {
             const statusEl = document.getElementById('calibrationStatus');

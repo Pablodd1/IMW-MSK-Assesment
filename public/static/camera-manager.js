@@ -4,6 +4,17 @@
 // Optimized for: 1080p+, 30fps+, highest accuracy pose detection
 // ============================================================================
 
+const IMW_CAMERA_DEFAULT_CONFIG = {
+    poseEngineUrl: 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws',
+    supabaseUrl: '',
+    demoMode: false,
+    voiceEnabled: true
+};
+
+function getIMWCameraConfig() {
+    return { ...IMW_CAMERA_DEFAULT_CONFIG, ...(window.IMW_CONFIG || {}) };
+}
+
 const CameraManager = {
     // State
     state: {
@@ -69,7 +80,7 @@ const CameraManager = {
             icon: 'fa-video',
             constraints: null, // Uses WebSocket, not getUserMedia
             mirror: false,
-            websocketUrl: 'ws://localhost:8765',
+            websocketUrl: getIMWCameraConfig().poseEngineUrl || 'ws://localhost:8765',
             tips: [
                 'Ensure Femto bridge server is running',
                 'Connect via USB-C or Ethernet',
@@ -232,7 +243,8 @@ const CameraManager = {
 
     // Start Femto Mega camera
     async startFemtoCamera() {
-        const url = localStorage.getItem('femto_bridge_url') || 
+        const url = localStorage.getItem('femto_bridge_url') ||
+                    getIMWCameraConfig().poseEngineUrl ||
                     this.cameraProfiles.femto.websocketUrl;
 
         if (typeof FemtoMegaClient === 'undefined') {

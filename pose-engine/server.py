@@ -2,10 +2,10 @@
 """
 Boxer3D Pose Engine v4.0 — Dual-Model Pipeline
 ================================================
-YOLO11-pose (real-time 17-keypoint skeleton) + DEIMv2 (async head pose enrichment)
+YOLO12-pose (real-time 17-keypoint skeleton) + DEIMv2 (async head pose enrichment)
 
 Architecture:
-  Camera → WebSocket → YOLO11-pose (every frame, ~15-30 FPS)
+  Camera → WebSocket → YOLO12-pose (every frame, ~15-30 FPS)
                      → DEIMv2-Wholebody34 (every N frames, async, ~600ms CPU)
                      → Merged output → Three.js 3D + Multi-agent swarm
 
@@ -23,8 +23,11 @@ from typing import Optional, Dict, List
 import numpy as np
 import cv2
 
-# ─── YOLO11-pose via OpenCV DNN ───
+# ─── YOLO pose via OpenCV DNN ───
+YOLO12_POSE_URL = "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo12s-pose.onnx"
 YOLO11_POSE_URL = "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n-pose.onnx"
+DEFAULT_YOLO_MODEL = "yolo12s-pose.onnx"
+FALLBACK_YOLO_MODEL = "yolo11n-pose.onnx"
 
 def download_model(url, path):
     if os.path.exists(path):
@@ -114,15 +117,26 @@ except Exception:
 
 
 # ═══════════════════════════════════════════════════════════════
-# YOLO11-Pose Engine (unchanged core — production)
+# YOLO-Pose Engine (OpenCV DNN — production)
 # ═══════════════════════════════════════════════════════════════
 
 class PoseEngine:
     COCO_KEYPOINTS = 17
     INPUT_SIZE = 640
 
-    def __init__(self, model_path="yolo11n-pose.onnx", confidence=0.5):
-        model_path = download_model(YOLO11_POSE_URL, model_path)
+    def __init__(self, model_path=DEFAULT_YOLO_MODEL, confidence=0.5):
+        requested_model = os.path.basename(model_path)
+        primary_url = YOLO12_POSE_URL if "yolo12" in requested_model else YOLO11_POSE_URL
+        try:
+            model_path = download_model(primary_url, model_path)
+            self.model_name = "yolo12-pose" if "yolo12" in requested_model else "yolo11-pose"
+        except Exception as exc:
+            if "yolo12" not in requested_model:
+                raise
+            fallback_path = os.path.join(os.path.dirname(model_path) or ".", FALLBACK_YOLO_MODEL)
+            print(f"[YOLO] YOLO12 model unavailable ({exc}); falling back to YOLO11: {fallback_path}")
+            model_path = download_model(YOLO11_POSE_URL, fallback_path)
+            self.model_name = "yolo11-pose"
         print(f"[YOLO] Loading ONNX: {model_path}")
         self.net = cv2.dnn.readNetFromONNX(model_path)
         self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
@@ -217,7 +231,7 @@ class PoseEngine:
             "frame_w": w,
             "frame_h": h,
             "fps": 0,
-            "model": "yolo11-pose",
+            "model": self.model_name,
             "depth_available": depth_data is not None,
             "_bgr_frame": img  # internal — removed before JSON serialize
         }
@@ -454,7 +468,7 @@ def _json_safe(obj):
     return obj
 
 class DualModelServer:
-    def __init__(self, yolo_model="yolo11n-pose.onnx", deimv2_model=None,
+    def __init__(self, yolo_model=DEFAULT_YOLO_MODEL, deimv2_model=None,
                  host="0.0.0.0", port=8765, deimv2_interval=30):
         self.engine = PoseEngine(yolo_model)
         self.host = host
@@ -546,7 +560,9 @@ class DualModelServer:
                     await websocket.send(json.dumps({
                         "type": "pong",
                         "deimv2": deimv2_status,
-                        "models": ["yolo11-pose"] + (["deimv2-wholebody34"] if self.deimv2_enabled else []),
+                        "model": "yolo12-pose",
+                        "active_model": self.engine.model_name,
+                        "models": ["yolo12-pose", "yolo11-pose"] + (["deimv2-wholebody34"] if self.deimv2_enabled else []),
                         "clinical_engines": ["fms", "chiropractic", "bone_constraints", "1euro_filter", "6_agent_clinical_swarm"],
                         "swarm": {
                             "status": swarm_status,
@@ -684,7 +700,7 @@ class DualModelServer:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Boxer3D Pose Engine v4.0")
     parser.add_argument("--port", type=int, default=8765, help="WebSocket port")
-    parser.add_argument("--yolo-model", default="yolo11n-pose.onnx", help="YOLO ONNX path")
+    parser.add_argument("--yolo-model", default=DEFAULT_YOLO_MODEL, help="YOLO ONNX path")
     parser.add_argument("--deimv2-model", default=None, help="DEIMv2 ONNX path (enables dual-model mode)")
     parser.add_argument("--deimv2-interval", type=int, default=30, help="Frames between DEIMv2 inference")
     args = parser.parse_args()

@@ -735,7 +735,7 @@ const coreScript = `
   // =========================================================================
   // WEBSOCKET
   // =========================================================================
-  const WS_URL = 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws';
+  const WS_URL = window.IMW_CONFIG?.poseEngineUrl || 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws';
   let reconnectTimer = null;
   let pingInterval = null;
 

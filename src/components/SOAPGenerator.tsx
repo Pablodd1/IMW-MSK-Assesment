@@ -88,6 +88,13 @@ export const SOAPGenerator: FC = () => {
               <span class="btn-icon">🧠</span>
               Generate SOAP Note
             </button>
+            <div class="dictation-row">
+              <button id="dictate-btn" class="dictate-btn" onclick="toggleDictation()" type="button" title="Dictate SOAP findings">
+                <span class="mic-icon">🎙️</span>
+                Dictate
+              </button>
+              <span id="dictation-status" class="dictation-status">Chrome/Edge speech dictation</span>
+            </div>
             <div id="error-msg" class="error-msg" style="display: none"></div>
           </div>
 
@@ -146,19 +153,19 @@ export const SOAPGenerator: FC = () => {
             <div class="soap-sections">
               <div class="soap-section subjective">
                 <h3><span class="section-badge">S</span> Subjective</h3>
-                <div id="soap-subjective" class="section-content"></div>
+                <div id="soap-subjective" class="section-content" contenteditable={true} data-soap-section="subjective"></div>
               </div>
               <div class="soap-section objective">
                 <h3><span class="section-badge">O</span> Objective</h3>
-                <div id="soap-objective" class="section-content"></div>
+                <div id="soap-objective" class="section-content" contenteditable={true} data-soap-section="objective"></div>
               </div>
               <div class="soap-section assessment">
                 <h3><span class="section-badge">A</span> Assessment</h3>
-                <div id="soap-assessment" class="section-content"></div>
+                <div id="soap-assessment" class="section-content" contenteditable={true} data-soap-section="assessment"></div>
               </div>
               <div class="soap-section plan">
                 <h3><span class="section-badge">P</span> Plan</h3>
-                <div id="soap-plan" class="section-content"></div>
+                <div id="soap-plan" class="section-content" contenteditable={true} data-soap-section="plan"></div>
               </div>
             </div>
 
@@ -176,6 +183,9 @@ export const SOAPGenerator: FC = () => {
 const clientScript = `
 // ─── State ───
 let currentSOAP = null;
+let soapRecognition = null;
+let soapListening = false;
+let lastDictationSection = 'objective';
 
 // ─── Load patients on mount ───
 async function loadPatients() {
@@ -329,6 +339,115 @@ function renderSOAP(auditor, model) {
     : '';
 
   document.getElementById('soap-result').style.display = 'block';
+}
+
+function getRecognitionCtor() {
+  return window.SpeechRecognition || window.webkitSpeechRecognition;
+}
+
+function toggleDictation() {
+  if (soapListening) {
+    stopDictation();
+    return;
+  }
+  startDictation();
+}
+
+function startDictation() {
+  const Recognition = getRecognitionCtor();
+  const status = document.getElementById('dictation-status');
+  if (!Recognition) {
+    showError('Speech dictation is supported in Chrome and Edge.');
+    if (status) status.textContent = 'SpeechRecognition unavailable';
+    return;
+  }
+
+  ensureSOAPForDictation();
+  soapRecognition = new Recognition();
+  soapRecognition.continuous = true;
+  soapRecognition.interimResults = true;
+  soapRecognition.lang = 'en-US';
+
+  soapRecognition.onresult = (event) => {
+    let finalText = '';
+    let interimText = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript.trim();
+      if (event.results[i].isFinal) finalText += transcript + ' ';
+      else interimText += transcript + ' ';
+    }
+    if (status) status.textContent = interimText ? 'Listening: ' + interimText : 'Listening for SOAP findings...';
+    if (finalText.trim()) insertDictation(finalText.trim());
+  };
+
+  soapRecognition.onerror = (event) => {
+    if (event.error === 'not-allowed') showError('Microphone permission denied.');
+    if (status) status.textContent = 'Dictation stopped: ' + event.error;
+    stopDictation(false);
+  };
+
+  soapRecognition.onend = () => {
+    if (soapListening) stopDictation(false);
+  };
+
+  soapListening = true;
+  document.getElementById('dictate-btn')?.classList.add('listening');
+  if (status) status.textContent = 'Listening for SOAP findings...';
+  soapRecognition.start();
+}
+
+function stopDictation(stopEngine = true) {
+  soapListening = false;
+  document.getElementById('dictate-btn')?.classList.remove('listening');
+  const status = document.getElementById('dictation-status');
+  if (status) status.textContent = 'Dictation paused';
+  if (stopEngine && soapRecognition) {
+    try { soapRecognition.stop(); } catch(e) {}
+  }
+}
+
+function ensureSOAPForDictation() {
+  if (!currentSOAP) {
+    currentSOAP = {
+      subjective: '',
+      objective: '',
+      assessment: '',
+      plan: '',
+      icd10: [],
+      cpt: [],
+      confidence: 0.5
+    };
+    renderSOAP(currentSOAP, 'Dictation draft');
+  }
+}
+
+function classifySOAPSection(text) {
+  const lower = text.toLowerCase();
+  if (/\\b(subjective|patient reports|complains|chief complaint|pain level|symptoms?)\\b/.test(lower)) return 'subjective';
+  if (/\\b(objective|demonstrates|range of motion|rom|degrees?|flexion|extension|abduction|strength|gait|palpation|test)\\b/.test(lower)) return 'objective';
+  if (/\\b(assessment|impression|diagnosis|consistent with|deficit|dysfunction)\\b/.test(lower)) return 'assessment';
+  if (/\\b(plan|recommend|prescribe|home exercise|follow up|therapy|treatment|reassess)\\b/.test(lower)) return 'plan';
+  return lastDictationSection || 'objective';
+}
+
+function cleanSectionLabel(text) {
+  return text.replace(/^\\s*(subjective|objective|assessment|plan)\\s*[:\\-]?\\s*/i, '').trim();
+}
+
+function insertDictation(text) {
+  ensureSOAPForDictation();
+  const section = classifySOAPSection(text);
+  lastDictationSection = section;
+  const cleaned = cleanSectionLabel(text);
+  currentSOAP[section] = [currentSOAP[section], cleaned].filter(Boolean).join('\\n');
+  const el = document.getElementById('soap-' + section);
+  if (el) {
+    el.textContent = currentSOAP[section];
+    el.closest('.soap-section')?.classList.add('dictation-target');
+    setTimeout(() => el.closest('.soap-section')?.classList.remove('dictation-target'), 900);
+  }
+  const status = document.getElementById('dictation-status');
+  if (status) status.textContent = 'Inserted into ' + section.charAt(0).toUpperCase() + section.slice(1);
 }
 
 function renderSOAPFromAssessment(data) {
@@ -618,6 +737,41 @@ body.soap-page::before {
   font-size: 20px;
 }
 
+.dictation-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.dictate-btn {
+  border: 1px solid rgba(91, 155, 213, 0.45);
+  background: rgba(91, 155, 213, 0.14);
+  color: #dbeafe;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dictate-btn.listening .mic-icon {
+  animation: micPulse 1s ease-in-out infinite;
+}
+
+@keyframes micPulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(91,155,213,0)); }
+  50% { transform: scale(1.18); filter: drop-shadow(0 0 8px rgba(91,155,213,.8)); }
+}
+
+.dictation-status {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
 .btn-icon.spinning {
   animation: spin 1s linear infinite;
 }
@@ -824,6 +978,11 @@ body.soap-page::before {
   transform: translateY(-1px);
 }
 
+.soap-section.dictation-target {
+  border-color: rgba(91, 155, 213, 0.8);
+  box-shadow: 0 0 0 3px rgba(91, 155, 213, 0.16);
+}
+
 .soap-section h3 {
   font-size: 14px;
   font-weight: 700;
@@ -877,6 +1036,14 @@ body.soap-page::before {
   color: var(--text-primary);
   line-height: 1.7;
   white-space: pre-wrap;
+  min-height: 44px;
+  border-radius: 6px;
+  outline: none;
+  padding: 4px;
+}
+
+.section-content:focus {
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.35);
 }
 
 /* ─── Model Info ─── */

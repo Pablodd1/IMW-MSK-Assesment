@@ -4,6 +4,17 @@
  * Wires calibration data to deployed pose engine WebSocket.
  */
 
+const IMW_CALIBRATION_DEFAULT_CONFIG = {
+    poseEngineUrl: 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws',
+    supabaseUrl: '',
+    demoMode: false,
+    voiceEnabled: true
+};
+
+function getIMWCalibrationConfig() {
+    return { ...IMW_CALIBRATION_DEFAULT_CONFIG, ...(window.IMW_CONFIG || {}) };
+}
+
 class CalibrationWizard {
     constructor(options = {}) {
         this.canvasId = options.canvasId || 'canvasEl';
@@ -21,7 +32,7 @@ class CalibrationWizard {
         this.statusEl = options.statusEl || null;
 
         // Pose engine WebSocket (wired to deployed instance)
-        this.wsUrl = options.wsUrl || 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws';
+        this.wsUrl = options.wsUrl || getIMWCalibrationConfig().poseEngineUrl;
         this.ws = null;
         this.wsConnected = false;
 

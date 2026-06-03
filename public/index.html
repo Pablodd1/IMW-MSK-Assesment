@@ -4,6 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>IMW PhysioMotion — Chiropractic Assistant + 3D MSK Assessment</title>
+<!--
+  window.IMW_CONFIG keys:
+  - poseEngineUrl: WebSocket URL for the Modal pose engine.
+  - supabaseUrl: Supabase project URL for frontend clients that need it.
+  - demoMode: Initial state for the assessment demo-mode toggle.
+  - voiceEnabled: Initial state for Web Speech API guidance.
+-->
+<script>
+window.IMW_CONFIG = {
+  poseEngineUrl: 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws',
+  supabaseUrl: '',
+  demoMode: false,
+  voiceEnabled: true
+};
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="/static/femto-client.js"></script>
 <script src="/static/camera-manager.js"></script>
@@ -32,6 +47,8 @@
   .dot.yellow { background:var(--gold); animation:pulse 1.2s ease-in-out infinite; }
   .demo-toggle { display:inline-flex; align-items:center; gap:7px; padding:5px 8px; border:1px solid rgba(245,158,11,.28); border-radius:999px; color:#f8d898; background:rgba(245,158,11,.08); cursor:pointer; user-select:none; }
   .demo-toggle input { accent-color:var(--gold); }
+  .voice-toggle { display:inline-flex; align-items:center; gap:6px; padding:5px 8px; border:1px solid rgba(96,165,250,.3); border-radius:999px; color:#bfdbfe; background:rgba(96,165,250,.08); cursor:pointer; user-select:none; font-size:.7rem; }
+  .voice-toggle.muted { color:#94a3b8; border-color:rgba(148,163,184,.25); background:rgba(148,163,184,.08); }
 
   /* ─── Main Layout ─── */
   .main { display:flex; height:calc(100vh - 40px); }
@@ -113,6 +130,7 @@
   <h1>🦴 IMW PhysioMotion <span>Chiropractic Assistant & Coach AI</span></h1>
   <div class="status">
     <label class="demo-toggle"><input type="checkbox" id="demoMode"> Demo Mode</label>
+    <button type="button" class="voice-toggle" id="voiceToggle" onclick="toggleVoice()" aria-pressed="true">🔊 Voice</button>
     <span class="status-pill" id="cameraStatus"><span class="dot gray" id="s1"></span>Camera Ready</span>
     <span class="status-pill" id="poseStatus"><span class="dot gray" id="s2"></span>Pose Engine Connected</span>
     <span class="status-pill" id="analysisStatus"><span class="dot gray" id="s3"></span>Analyzing</span>
@@ -222,7 +240,14 @@
 </div>
 
 <script>
-const POSE_ENGINE_WS = 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws';
+const IMW_DEFAULT_CONFIG = {
+  poseEngineUrl: 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws',
+  supabaseUrl: '',
+  demoMode: false,
+  voiceEnabled: true
+};
+const IMW_CONFIG = { ...IMW_DEFAULT_CONFIG, ...(window.IMW_CONFIG || {}) };
+const POSE_ENGINE_WS = IMW_CONFIG.poseEngineUrl;
 let tracker = null;
 let tracking = false;
 let lastSOAP = null;
@@ -231,8 +256,146 @@ let isCalibrating = false;
 let demoTimer = null;
 let demoTick = 0;
 let lastFMSSummary = null;
+let voiceEnabled = IMW_CONFIG.voiceEnabled !== false;
+let assessmentVoiceTimers = [];
 
-window.addEventListener('load', () => document.body.classList.add('loaded'));
+window.addEventListener('load', () => {
+  document.body.classList.add('loaded');
+  const demo = document.getElementById('demoMode');
+  if (demo) demo.checked = !!IMW_CONFIG.demoMode;
+  updateVoiceToggle();
+});
+
+function updateVoiceToggle() {
+  const btn = document.getElementById('voiceToggle');
+  if (!btn) return;
+  btn.classList.toggle('muted', !voiceEnabled);
+  btn.textContent = voiceEnabled ? '🔊 Voice' : '🔇 Muted';
+  btn.setAttribute('aria-pressed', String(voiceEnabled));
+}
+
+function toggleVoice() {
+  voiceEnabled = !voiceEnabled;
+  if (window.IMW_CONFIG) window.IMW_CONFIG.voiceEnabled = voiceEnabled;
+  if (!voiceEnabled && window.speechSynthesis) window.speechSynthesis.cancel();
+  updateVoiceToggle();
+}
+
+function speakGuidance(text) {
+  if (!voiceEnabled || !('speechSynthesis' in window) || !text) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 0.86;
+  utterance.pitch = 0.92;
+  utterance.volume = 0.82;
+  const voices = window.speechSynthesis.getVoices();
+  utterance.voice = voices.find(v => /female|samantha|victoria|zira|aria/i.test(v.name)) || voices[0] || null;
+  window.speechSynthesis.speak(utterance);
+}
+
+const assessmentSteps = [
+  'Begin deep squat',
+  'Hold at bottom',
+  'Return to start',
+  'Movement complete'
+];
+
+function scheduleAssessmentVoice() {
+  assessmentVoiceTimers.forEach(clearTimeout);
+  assessmentVoiceTimers = [];
+  assessmentSteps.forEach((text, index) => {
+    assessmentVoiceTimers.push(setTimeout(() => {
+      window.IMWPatientOverlay.currentStep = Math.min(index, 2);
+      speakGuidance(text);
+    }, index * 2200));
+  });
+}
+
+function drawInstructionOverlay(ctx, canvas, state = {}) {
+  const cw = canvas.width || canvas.clientWidth || 640;
+  const ch = canvas.height || canvas.clientHeight || 480;
+  const step = Math.max(0, Math.min(2, state.step || 0));
+  const ok = !!state.positionCorrect;
+  const labels = ['Start', 'Bottom', 'Return'];
+  ctx.save();
+
+  ctx.fillStyle = 'rgba(5,10,22,.68)';
+  ctx.fillRect(18, 14, cw - 36, 46);
+  ctx.fillStyle = '#e2e8f0';
+  ctx.font = 'bold 15px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Stand with feet shoulder-width apart, arms extended overhead', cw / 2, 42);
+
+  const centerX = cw / 2;
+  const topY = ch * .2;
+  const hipY = ch * .52 + (step === 1 ? ch * .09 : 0);
+  const shoulderY = ch * .32 + (step === 1 ? ch * .05 : 0);
+  const ankleY = ch * .85;
+  const shoulderW = cw * .18;
+  const hipW = cw * .14;
+  const footW = cw * .22;
+
+  ctx.strokeStyle = ok ? 'rgba(34,197,94,.52)' : 'rgba(245,158,11,.46)';
+  ctx.fillStyle = ok ? 'rgba(34,197,94,.08)' : 'rgba(245,158,11,.08)';
+  ctx.lineWidth = 10;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  ctx.beginPath();
+  ctx.arc(centerX, topY, 24, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  const points = {
+    ls: [centerX - shoulderW, shoulderY],
+    rs: [centerX + shoulderW, shoulderY],
+    lh: [centerX - hipW, hipY],
+    rh: [centerX + hipW, hipY],
+    la: [centerX - footW, ankleY],
+    ra: [centerX + footW, ankleY],
+    lw: [centerX - shoulderW * .7, ch * .12],
+    rw: [centerX + shoulderW * .7, ch * .12]
+  };
+  [[points.lw, points.ls], [points.rw, points.rs], [points.ls, points.rs], [points.ls, points.lh],
+   [points.rs, points.rh], [points.lh, points.rh], [points.lh, points.la], [points.rh, points.ra]].forEach(([a,b]) => {
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1]);
+    ctx.lineTo(b[0], b[1]);
+    ctx.stroke();
+  });
+
+  const dotY = 78;
+  const startX = centerX - 34;
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.arc(startX + i * 34, dotY, 7, 0, Math.PI * 2);
+    ctx.fillStyle = i <= step ? '#22c55e' : 'rgba(148,163,184,.5)';
+    ctx.fill();
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = '10px sans-serif';
+    ctx.fillText(labels[i], startX + i * 34, dotY + 22);
+  }
+
+  if (ok) {
+    ctx.fillStyle = 'rgba(34,197,94,.92)';
+    ctx.beginPath();
+    ctx.arc(cw - 44, 84, 18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#052e16';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(cw - 53, 84);
+    ctx.lineTo(cw - 46, 91);
+    ctx.lineTo(cw - 34, 76);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+window.IMWPatientOverlay = {
+  currentStep: 0,
+  draw: drawInstructionOverlay
+};
 
 function setStatus(kind, state, label) {
   const map = {
@@ -356,6 +519,8 @@ function stopTracking(){
   if(isCalibrating) stopCalibration();
   if(tracker)tracker.stop();
   stopDemoSkeleton();
+  assessmentVoiceTimers.forEach(clearTimeout);
+  assessmentVoiceTimers = [];
   document.getElementById('btnStart').style.display='inline-block';
   document.getElementById('btnStop').style.display='none';
   document.getElementById('btnCalibrate').style.display='none';
@@ -390,6 +555,13 @@ function drawDemoSkeleton(kps) {
   ctx.strokeStyle = 'rgba(245,158,11,.18)';
   for (let x=0; x<canvas.width; x+=40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
   for (let y=0; y<canvas.height; y+=40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
+  if (window.IMWPatientOverlay?.draw) {
+    window.IMWPatientOverlay.draw(ctx, canvas, {
+      mode: isCalibrating ? 'calibration' : 'assessment',
+      step: window.IMWPatientOverlay.currentStep || 0,
+      positionCorrect: kps.length >= 12
+    });
+  }
   const pairs = Boxer3D.SKELETON_CONNECTIONS;
   const map = Object.fromEntries(kps.map(k => [k.id, k]));
   ctx.lineWidth = 4; ctx.lineCap = 'round';
@@ -434,10 +606,13 @@ function startCalibration() {
 
   calWizard = new CalibrationWizard({
     canvasId: 'poseOverlay',
-    wsUrl: 'wss://pablodd1--pose-engine-ws-serve.modal.run/ws',
+    wsUrl: POSE_ENGINE_WS,
     framesRequired: 25,
     onStepChange: (stepIndex, step) => {
       setFlow('calibrate');
+      window.IMWPatientOverlay.currentStep = Math.min(stepIndex, 2);
+      const prompts = ['Step forward slightly', 'Arms out to sides', 'Hold position'];
+      speakGuidance(prompts[stepIndex] || step.message);
       document.getElementById('summaryBar').innerHTML =
         '<span style="color:#a78bfa;">⚙ Calibrating: ' + step.title + '</span>';
     },
@@ -448,6 +623,8 @@ function startCalibration() {
       document.getElementById('summaryBar').innerHTML =
         '<span style="color:#4ade80;">✅ Calibrated — Score: ' +
         Math.round(profile.overallScore * 100) + '%</span>';
+      window.IMWPatientOverlay.currentStep = 0;
+      speakGuidance('Good — calibration complete');
       document.getElementById('btnCalibrate').textContent = '✅ Calibrated';
       document.getElementById('btnCalibrate').style.background = '#4ade80';
       document.getElementById('btnCalibrate').onclick = startCalibration;
@@ -459,6 +636,14 @@ function startCalibration() {
   });
 
   calWizard.start();
+  window.IMWPatientOverlay.currentStep = 0;
+  speakGuidance('Step forward slightly');
+  setTimeout(() => {
+    if (isCalibrating) speakGuidance('Arms out to sides');
+  }, 1800);
+  setTimeout(() => {
+    if (isCalibrating) speakGuidance('Hold position');
+  }, 3600);
   setStatus('pose', 'live', 'Pose Engine Connected');
   document.getElementById('btnCalibrate').textContent = '⚙ Calibrating...';
   document.getElementById('btnCalibrate').style.background = '#a78bfa';
@@ -484,6 +669,7 @@ window.addEventListener('calibrationComplete', (e) => {
     document.getElementById('summaryBar').innerHTML =
       '<span style="color:#4ade80;">✅ Calibrated — Score: ' +
       Math.round(e.detail.profile.overallScore * 100) + '%</span>';
+    speakGuidance('Good — calibration complete');
     document.getElementById('btnCalibrate').textContent = '✅ Calibrated';
     document.getElementById('btnCalibrate').style.background = '#4ade80';
     if (window._kps && window._kps.length) {
@@ -503,6 +689,7 @@ async function analyzeMovement() {
   document.getElementById('summaryBar').innerHTML='<span style="color:#fbbf24;">Camera → WebSocket → FMS → Chiro → Swarm → SOAP is running...</span>';
   setStatus('analysis', 'live', 'Analyzing');
   setFlow('analyze');
+  scheduleAssessmentVoice();
 
   try {
     const kps=window._kps||[],abn=window._abn||[];
@@ -534,6 +721,10 @@ async function analyzeMovement() {
       renderSummaryCard(a, lastFMSSummary);
       setStatus('analysis', 'ready', 'Analyzing Complete');
       setFlow('analyze');
+      window.IMWPatientOverlay.currentStep = 2;
+      assessmentVoiceTimers.forEach(clearTimeout);
+      assessmentVoiceTimers = [];
+      speakGuidance('Movement complete');
     }
   } catch(e){
     document.getElementById('soapContent').innerHTML=`<p style="color:#f87171;font-size:.7rem;">${e.message}</p>`;

@@ -9,14 +9,20 @@ import json
 import numpy as np
 from pathlib import Path
 
-def run_pose_estimation(input_path, output_dir=".", conf_thresh=0.5, model_type="yolo11n-pose"):
+def run_pose_estimation(input_path, output_dir=".", conf_thresh=0.5, model_type="yolo12s-pose"):
     """
     Run YOLO pose estimation.
     Returns structured keypoint data for downstream agents.
     """
     try:
         from ultralytics import YOLO
-        model = YOLO(model_type)
+        try:
+            model = YOLO(model_type)
+        except Exception:
+            if "yolo12" not in model_type:
+                raise
+            model_type = "yolo11n-pose"
+            model = YOLO(model_type)
     except ImportError:
         print(json.dumps({"error": "ultralytics not installed", "resolution": "pip install ultralytics"}))
         sys.exit(1)
@@ -62,6 +68,6 @@ if __name__ == "__main__":
     parser.add_argument("input", help="Input image or video path")
     parser.add_argument("--output-dir", "-o", default=".", help="Output directory")
     parser.add_argument("--conf", "-c", type=float, default=0.5, help="Confidence threshold")
-    parser.add_argument("--model", "-m", default="yolo11n-pose", help="YOLO model name (use yolo11n-pose for speed, yolo11x-pose for accuracy)")
+    parser.add_argument("--model", "-m", default="yolo12s-pose", help="YOLO model name (defaults to yolo12s-pose; use yolo11n-pose for compatibility)")
     args = parser.parse_args()
     run_pose_estimation(args.input, args.output_dir, args.conf, args.model)
