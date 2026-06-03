@@ -567,13 +567,13 @@ function drawDemoSkeleton(kps) {
   ctx.lineWidth = 4; ctx.lineCap = 'round';
   pairs.forEach(([a,b]) => {
     if (!map[a] || !map[b]) return;
-    ctx.strokeStyle = '#f59e0b';
+    ctx.strokeStyle = '#60a5fa';
     ctx.beginPath(); ctx.moveTo(map[a].x*canvas.width,map[a].y*canvas.height); ctx.lineTo(map[b].x*canvas.width,map[b].y*canvas.height); ctx.stroke();
   });
   kps.forEach(k => {
     ctx.beginPath(); ctx.arc(k.x*canvas.width,k.y*canvas.height,6,0,Math.PI*2);
-    ctx.fillStyle = '#22c55e'; ctx.fill();
-    ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = '#60a5fa'; ctx.fill();
+    ctx.strokeStyle = '#bfdbfe'; ctx.lineWidth = 1; ctx.stroke();
   });
 }
 

@@ -717,12 +717,12 @@ const coreScript = `
   // Keypoint colors (golden scheme)
   const KEYPOINT_COLORS = {};
   for (let i = 0; i < 33; i++) {
-    const hue = (i * 30) % 360;
-    KEYPOINT_COLORS[i] = 'hsl(' + hue + ', 70%, 60%)';
+    const brightness = 55 + (i % 3) * 8;
+    KEYPOINT_COLORS[i] = 'hsl(215, 90%, ' + brightness + '%)';
   }
-  // Override major joints with gold
+  // Override major joints with medical blue
   [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].forEach(i => {
-    KEYPOINT_COLORS[i] = '#f59e0b';
+    KEYPOINT_COLORS[i] = '#60a5fa';
   });
 
   // =========================================================================
@@ -999,15 +999,15 @@ const coreScript = `
       jointMap[kp.id] = mesh.position;
     }
 
-    // Draw bones
+    // Draw bones — medical blue
     const boneMat = new THREE.MeshStandardMaterial({
-      color: 0xf59e0b,
-      emissive: 0xf59e0b,
-      emissiveIntensity: 0.2,
-      roughness: 0.4,
-      metalness: 0.3,
+      color: 0x3b82f6,
+      emissive: 0x3b82f6,
+      emissiveIntensity: 0.3,
+      roughness: 0.3,
+      metalness: 0.1,
       transparent: true,
-      opacity: 0.7
+      opacity: 0.75
     });
 
     for (const [i, j] of SKELETON_CONNECTIONS) {
@@ -1037,13 +1037,13 @@ const coreScript = `
     // Head sphere
     if (jointMap[0]) {
       const headMat = new THREE.MeshStandardMaterial({
-        color: 0xf59e0b,
-        emissive: 0xf59e0b,
-        emissiveIntensity: 0.15,
-        roughness: 0.2,
+        color: 0x3b82f6,
+        emissive: 0x3b82f6,
+        emissiveIntensity: 0.2,
+        roughness: 0.15,
         metalness: 0.1,
         transparent: true,
-        opacity: 0.25
+        opacity: 0.3
       });
       const head = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 16), headMat);
       head.position.copy(jointMap[0]);
