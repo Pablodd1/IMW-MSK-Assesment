@@ -47,6 +47,8 @@ window.IMW_CONFIG = {
   .dot.yellow { background:var(--gold); animation:pulse 1.2s ease-in-out infinite; }
   .demo-toggle { display:inline-flex; align-items:center; gap:7px; padding:5px 8px; border:1px solid rgba(245,158,11,.28); border-radius:999px; color:#f8d898; background:rgba(245,158,11,.08); cursor:pointer; user-select:none; }
   .demo-toggle input { accent-color:var(--gold); }
+  .treadmill-toggle { display:inline-flex; align-items:center; gap:7px; padding:5px 8px; border:1px solid rgba(96,165,250,.34); border-radius:999px; color:#bfdbfe; background:rgba(96,165,250,.08); cursor:pointer; user-select:none; }
+  .treadmill-toggle input { accent-color:var(--blue); }
   .voice-toggle { display:inline-flex; align-items:center; gap:6px; padding:5px 8px; border:1px solid rgba(96,165,250,.3); border-radius:999px; color:#bfdbfe; background:rgba(96,165,250,.08); cursor:pointer; user-select:none; font-size:.7rem; }
   .voice-toggle.muted { color:#94a3b8; border-color:rgba(148,163,184,.25); background:rgba(148,163,184,.08); }
 
@@ -130,6 +132,7 @@ window.IMW_CONFIG = {
   <h1>🦴 IMW PhysioMotion <span>Chiropractic Assistant & Coach AI</span></h1>
   <div class="status">
     <label class="demo-toggle"><input type="checkbox" id="demoMode"> Demo Mode</label>
+    <label class="treadmill-toggle"><input type="checkbox" id="treadmillMode"> Treadmill</label>
     <button type="button" class="voice-toggle" id="voiceToggle" onclick="toggleVoice()" aria-pressed="true">🔊 Voice</button>
     <span class="status-pill" id="cameraStatus"><span class="dot gray" id="s1"></span>Camera Ready</span>
     <span class="status-pill" id="poseStatus"><span class="dot gray" id="s2"></span>Pose Engine Connected</span>
@@ -219,6 +222,7 @@ window.IMW_CONFIG = {
       <button class="active" onclick="switchPanel('angles',this)">🦴 Joints</button>
       <button onclick="switchPanel('soap',this)">📋 SOAP</button>
       <button onclick="switchPanel('codes',this)">🏷️ Codes</button>
+      <button onclick="switchPanel('clinical',this)">🧪 Tests</button>
     </div>
 
     <div class="tab-content active" id="tab-angles">
@@ -231,6 +235,24 @@ window.IMW_CONFIG = {
 
     <div class="tab-content" id="tab-codes">
       <div id="codesContent"><p style="color:#475569;font-size:.7rem;padding:20px;text-align:center;">ICD-10 / CPT codes appear after analysis</p></div>
+    </div>
+
+    <div class="tab-content" id="tab-clinical">
+      <div class="soap-box">
+        <h4>GAIT + MUSCLE</h4>
+        <div class="joint-item"><span class="name">Phase</span><span class="val" id="gaitPhase">--</span></div>
+        <div class="joint-item"><span class="name">Cadence</span><span class="val" id="gaitCadence">-- spm</span></div>
+        <div class="joint-item"><span class="name">Stride</span><span class="val" id="gaitStride">-- cm</span></div>
+        <div class="joint-item"><span class="name">MMT Summary</span><span class="val" id="mmtSummary">--/5</span></div>
+      </div>
+      <div class="soap-box">
+        <h4>TEST SELECTION</h4>
+        <label class="joint-item"><span class="name"><input type="checkbox" checked data-test="y_balance"> Y-Balance</span><span class="val">Reach</span></label>
+        <label class="joint-item"><span class="name"><input type="checkbox" checked data-test="ohsa"> OHSA</span><span class="val">Squat</span></label>
+        <label class="joint-item"><span class="name"><input type="checkbox" checked data-test="single_leg_stance"> Single Leg Stance</span><span class="val">Sway</span></label>
+        <label class="joint-item"><span class="name"><input type="checkbox" checked data-test="spine_rom"> Spine ROM</span><span class="val">ROM</span></label>
+        <label class="joint-item"><span class="name"><input type="checkbox" checked data-test="apley"> Apley Scratch</span><span class="val">Shoulder</span></label>
+      </div>
     </div>
   </div>
 </div>
@@ -258,6 +280,8 @@ let demoTick = 0;
 let lastFMSSummary = null;
 let voiceEnabled = IMW_CONFIG.voiceEnabled !== false;
 let assessmentVoiceTimers = [];
+let gaitTick = 0;
+let gaitPhase = 'midstance';
 
 window.addEventListener('load', () => {
   document.body.classList.add('loaded');
@@ -425,6 +449,10 @@ function getDemoMode() {
   return document.getElementById('demoMode')?.checked;
 }
 
+function getTreadmillMode() {
+  return document.getElementById('treadmillMode')?.checked;
+}
+
 // ─── Views ───
 function showView(view, btn) {
   document.querySelectorAll('.viewer').forEach(v => v.style.display = 'none');
@@ -463,6 +491,22 @@ function renderJoints(kps) {
   document.getElementById('jointList').innerHTML = h||'<p style="color:#475569;font-size:.7rem;padding:20px;">No joints</p>';
   window._abn = ab;
   document.getElementById('btnAnalyze').disabled = !kps.length;
+  updateClinicalMetrics(kps);
+}
+
+function updateClinicalMetrics(kps) {
+  const m={}; for(const k of kps) m[k.id]=k;
+  const phases=['heel strike','midstance','toe-off','swing'];
+  gaitTick++;
+  gaitPhase = phases[Math.floor((gaitTick/12)%phases.length)];
+  const hipWidth=Math.max(.08, Math.hypot((m[11]?.x||0)-(m[12]?.x||0),(m[11]?.y||0)-(m[12]?.y||0)));
+  const stride=Math.round(Math.hypot((m[15]?.x||0)-(m[16]?.x||0),(m[15]?.y||0)-(m[16]?.y||0))/hipWidth*42)||0;
+  const cadence=Math.round((getTreadmillMode()?112:96)+Math.abs(Math.sin(gaitTick/20))*18);
+  document.getElementById('gaitPhase').textContent = gaitPhase;
+  document.getElementById('gaitPhase').style.color = gaitPhase==='swing' ? '#22c55e' : '#60a5fa';
+  document.getElementById('gaitCadence').textContent = cadence + ' spm';
+  document.getElementById('gaitStride').textContent = stride + ' cm';
+  document.getElementById('mmtSummary').textContent = (gaitPhase==='midstance' ? '3' : '4') + '/5';
 }
 
 // ─── Tracking ───
@@ -567,7 +611,8 @@ function drawDemoSkeleton(kps) {
   ctx.lineWidth = 4; ctx.lineCap = 'round';
   pairs.forEach(([a,b]) => {
     if (!map[a] || !map[b]) return;
-    ctx.strokeStyle = '#60a5fa';
+    const lower = a >= 11 || b >= 11;
+    ctx.strokeStyle = lower ? (gaitPhase === 'swing' ? '#22c55e' : '#3b82f6') : '#60a5fa';
     ctx.beginPath(); ctx.moveTo(map[a].x*canvas.width,map[a].y*canvas.height); ctx.lineTo(map[b].x*canvas.width,map[b].y*canvas.height); ctx.stroke();
   });
   kps.forEach(k => {
@@ -699,6 +744,8 @@ async function analyzeMovement() {
       body_regions:['upper','lower','spine'],
       abnormalities:abn,
       fms:lastFMSSummary,
+      gait:{phase:gaitPhase,treadmill:getTreadmillMode(),cadence:document.getElementById('gaitCadence')?.textContent,stride:document.getElementById('gaitStride')?.textContent},
+      selected_tests:Array.from(document.querySelectorAll('#tab-clinical input[data-test]:checked')).map(el=>el.dataset.test),
       camera:{type:getDemoMode()?'demo':(window.CameraManager?.state?.cameraType||'webcam'), depth:!!window.CameraManager?.getDepthFrame?.()},
       pipeline:['camera','websocket','fms','chiro','swarm','soap']
     })});

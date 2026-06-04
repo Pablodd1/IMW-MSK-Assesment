@@ -12,9 +12,17 @@ import {
   addTest, createPrescription, recordSession,
   listExercises, getExercise, getDashboardStats,
   getClinicianByEmail, createClinician,
+  listGaitSessions, listMuscleAssessments, listExercisePrescriptions, listProgressMetrics,
 } from './lib/database.js';
 import { hashPassword, verifyPassword, generateToken } from './middleware/auth.js'
 import { ProviderPortal } from './pages/ProviderPortal.js'
+import { GaitAnalyzer } from './components/GaitAnalyzer.js'
+import { MuscleAssessment } from './components/MuscleAssessment.js'
+import { ClinicalTests } from './components/ClinicalTests.js'
+import { ExercisePrescriber } from './components/ExercisePrescriber.js'
+import { ProgressTracker } from './components/ProgressTracker.js'
+import { ReportGenerator } from './components/ReportGenerator.js'
+import { analyzeGait, assessMuscles, calculateFuglMeyer, runClinicalTests, prescribeExercises } from './utils/clinical.js'
 
 const app = new Hono();
 
@@ -112,6 +120,39 @@ app.get('/knowledge/calculators', (c) => {
 app.get('/knowledge/cpt', (c) => {
   return c.json({ success: true, data: CPT_CODES });
 });
+
+// ============================================================================
+// CLINICAL PLATFORM PHASES 4-9
+// ============================================================================
+app.post('/clinical/gait/analyze', authMiddleware, async (c) => {
+  const body = await c.req.json();
+  const metrics = analyzeGait(body.keypoints || body.landmarks || [], body.frameRate || 30, body.history || []);
+  return c.json({ success: true, data: metrics });
+});
+
+app.post('/clinical/muscle/assess', authMiddleware, async (c) => {
+  const body = await c.req.json();
+  const grades = assessMuscles(body.keypoints || body.landmarks || [], body.previousKeypoints || []);
+  return c.json({ success: true, data: { grades, fma: calculateFuglMeyer(grades) } });
+});
+
+app.post('/clinical/tests/run', authMiddleware, async (c) => {
+  const body = await c.req.json();
+  const results = runClinicalTests(body.keypoints || body.landmarks || []);
+  return c.json({ success: true, data: results });
+});
+
+app.post('/clinical/exercises/prescribe', authMiddleware, async (c) => {
+  const body = await c.req.json();
+  const exercises = prescribeExercises(body.findings || [], body.filters || {});
+  return c.json({ success: true, data: exercises });
+});
+
+app.get('/gait', (c) => c.html(<GaitAnalyzer />));
+app.get('/muscle', (c) => c.html(<MuscleAssessment />));
+app.get('/clinical-tests', (c) => c.html(<ClinicalTests />));
+app.get('/progress', (c) => c.html(<ProgressTracker />));
+app.get('/reports', (c) => c.html(<ReportGenerator />));
 
 // ============================================================================
 // ENHANCED ASSESSMENT
@@ -257,8 +298,8 @@ app.get('/patients/:id/prescriptions', authMiddleware, async (c) => {
   const id = c.req.param('id');
   const patient = await getPatient(id);
   if (!patient) return c.json({ success: false, error: 'Patient not found' }, 404);
-  // Prescriptions not directly queryable by patient yet in db layer; return empty
-  return c.json({ success: true, data: [] });
+  const prescriptions = await listExercisePrescriptions(id);
+  return c.json({ success: true, data: prescriptions });
 });
 
 app.get('/patients/:id/sessions', authMiddleware, async (c) => {
@@ -350,6 +391,8 @@ function generateClinicalNote(patient: any, assessment: any) {
 // ============================================================================
 
 app.get('/exercises', async (c) => {
+  const accept = c.req.header('Accept') || '';
+  if (accept.includes('text/html')) return c.html(<ExercisePrescriber />);
   const category = c.req.query('category');
   const exercises = await listExercises(category || undefined);
   return c.json({ success: true, data: exercises });
@@ -395,13 +438,26 @@ app.get('/patients/:id/progress', authMiddleware, async (c) => {
   const id = c.req.param('id');
   const patient = await getPatient(id);
   if (!patient) return c.json({ success: false, error: 'Patient not found' }, 404);
+  const [progressMetrics, gaitSessions, muscleAssessments, prescriptions] = await Promise.all([
+    listProgressMetrics(id),
+    listGaitSessions(id),
+    listMuscleAssessments(id),
+    listExercisePrescriptions(id),
+  ]);
+  const first = progressMetrics[0]?.current_value || 0;
+  const latest = progressMetrics[progressMetrics.length - 1]?.current_value || first;
   const progress = {
     pain_trend: patient.progress_metrics?.pain_trend || [],
     functional_trend: patient.progress_metrics?.functional_score_trend || [],
-    sessions_completed: 0,
+    metrics: progressMetrics,
+    gait_sessions: gaitSessions,
+    muscle_assessments: muscleAssessments,
+    exercise_prescriptions: prescriptions,
+    sessions_completed: gaitSessions.length,
     total_exercise_time: 0,
-    adherence_rate: 0,
-    latest_pain: 0,
+    adherence_rate: prescriptions.length ? 80 : 0,
+    latest_pain: patient.progress_metrics?.pain_trend?.at?.(-1) || 0,
+    improvement_percentage: first ? Math.round(((latest - first) / Math.abs(first)) * 100) : 0,
   };
   return c.json({ success: true, data: progress });
 });

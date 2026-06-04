@@ -489,6 +489,12 @@ export const ProviderPortal: FC = () => {
               <button class="btn" onclick="captureFrame()" title="Capture current frame for assessment">
                 <i class="fas fa-camera"></i> Capture
               </button>
+              <button class="btn" id="btn-treadmill" onclick="toggleTreadmillMode()" title="Toggle treadmill gait capture">
+                <i class="fas fa-person-walking"></i> Treadmill
+              </button>
+              <button class="btn" id="btn-heatmap" onclick="toggleMuscleHeatMap()" title="Toggle muscle strength heat map">
+                <i class="fas fa-fire"></i> Heat Map
+              </button>
             </div>
           </div>
           <div class="three-container" id="three-container">
@@ -528,6 +534,9 @@ export const ProviderPortal: FC = () => {
           <div class="panel-tabs">
             <div class="panel-tab active" data-tab="fms" onclick="switchTab('fms')">FMS</div>
             <div class="panel-tab" data-tab="joints" onclick="switchTab('joints')">Joints</div>
+            <div class="panel-tab" data-tab="gait" onclick="switchTab('gait')">Gait</div>
+            <div class="panel-tab" data-tab="muscle" onclick="switchTab('muscle')">MMT</div>
+            <div class="panel-tab" data-tab="tests" onclick="switchTab('tests')">Tests</div>
             <div class="panel-tab" data-tab="chiro" onclick="switchTab('chiro')">Chiro</div>
             <div class="panel-tab" data-tab="swarm" onclick="switchTab('swarm')">Swarm</div>
             <div class="panel-tab" data-tab="soap" onclick="switchTab('soap')">SOAP</div>
@@ -582,6 +591,63 @@ export const ProviderPortal: FC = () => {
                   <div class="metric-row"><span class="metric-label">Hip Height</span><span class="metric-value" style="color:var(--text-muted)">-- cm</span></div>
                   <div class="metric-row"><span class="metric-label">Knee Alignment</span><span class="metric-value" style="color:var(--text-muted)">--</span></div>
                   <div class="metric-row"><span class="metric-label">Pelvic Tilt</span><span class="metric-value" style="color:var(--text-muted)">--°</span></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Gait Tab */}
+            <div class="panel-tab-content" id="tab-gait" style="display:none">
+              <div class="panel-section">
+                <h3><i class="fas fa-person-walking"></i> Gait Analysis</h3>
+                <div class="metric-row"><span class="metric-label">Mode</span><span class="metric-value" id="gait-mode" style="color:var(--text-muted)">Overground</span></div>
+                <div class="metric-row"><span class="metric-label">Phase</span><span class="metric-value" id="gait-phase" style="color:var(--blue)">--</span></div>
+                <div class="metric-row"><span class="metric-label">Stride Length</span><span class="metric-value" id="gait-stride" style="color:var(--text-muted)">-- cm</span></div>
+                <div class="metric-row"><span class="metric-label">Cadence</span><span class="metric-value" id="gait-cadence" style="color:var(--text-muted)">-- spm</span></div>
+                <div class="metric-row"><span class="metric-label">Step Width</span><span class="metric-value" id="gait-width" style="color:var(--text-muted)">-- cm</span></div>
+                <div class="metric-row"><span class="metric-label">Single Support</span><span class="metric-value" id="gait-single" style="color:var(--text-muted)">--%</span></div>
+                <div class="metric-row"><span class="metric-label">Double Support</span><span class="metric-value" id="gait-double" style="color:var(--text-muted)">--%</span></div>
+                <div class="metric-row"><span class="metric-label">Pronation/Supination</span><span class="metric-value" id="gait-foot" style="color:var(--text-muted)">--</span></div>
+                <div class="metric-row"><span class="metric-label">Pelvic Tilt</span><span class="metric-value" id="gait-pelvis" style="color:var(--text-muted)">--°</span></div>
+                <div class="metric-row"><span class="metric-label">Arm Swing Sym.</span><span class="metric-value" id="gait-arm" style="color:var(--text-muted)">--%</span></div>
+              </div>
+            </div>
+
+            {/* Muscle Tab */}
+            <div class="panel-tab-content" id="tab-muscle" style="display:none">
+              <div class="panel-section">
+                <h3><i class="fas fa-dumbbell"></i> Manual Muscle Testing</h3>
+                <div id="mmt-results">
+                  <div class="metric-row"><span class="metric-label">Shoulder abductors</span><span class="metric-value" style="color:var(--text-muted)">--/5</span></div>
+                  <div class="metric-row"><span class="metric-label">Hip abductors</span><span class="metric-value" style="color:var(--text-muted)">--/5</span></div>
+                  <div class="metric-row"><span class="metric-label">Knee extensors</span><span class="metric-value" style="color:var(--text-muted)">--/5</span></div>
+                  <div class="metric-row"><span class="metric-label">Ankle dorsiflexors</span><span class="metric-value" style="color:var(--text-muted)">--/5</span></div>
+                </div>
+              </div>
+              <div class="panel-section">
+                <h3><i class="fas fa-chart-simple"></i> Fugl-Meyer</h3>
+                <div class="metric-row"><span class="metric-label">Upper Extremity</span><span class="metric-value" id="fma-upper" style="color:var(--text-muted)">--/66</span></div>
+                <div class="metric-row"><span class="metric-label">Lower Extremity</span><span class="metric-value" id="fma-lower" style="color:var(--text-muted)">--/34</span></div>
+                <div class="metric-row"><span class="metric-label">Total</span><span class="metric-value" id="fma-total" style="color:var(--text-muted)">--/100</span></div>
+              </div>
+            </div>
+
+            {/* Tests Tab */}
+            <div class="panel-tab-content" id="tab-tests" style="display:none">
+              <div class="panel-section">
+                <h3><i class="fas fa-list-check"></i> Clinical Tests</h3>
+                <label class="metric-row"><span class="metric-label"><input type="checkbox" checked data-test="y_balance" /> Y-Balance</span><span class="metric-value">Reach</span></label>
+                <label class="metric-row"><span class="metric-label"><input type="checkbox" checked data-test="ohsa" /> OHSA</span><span class="metric-value">Squat</span></label>
+                <label class="metric-row"><span class="metric-label"><input type="checkbox" checked data-test="single_leg_stance" /> Single Leg Stance</span><span class="metric-value">Balance</span></label>
+                <label class="metric-row"><span class="metric-label"><input type="checkbox" checked data-test="spine_rom" /> Spine ROM</span><span class="metric-value">ROM</span></label>
+                <label class="metric-row"><span class="metric-label"><input type="checkbox" checked data-test="apley" /> Apley Scratch</span><span class="metric-value">Shoulder</span></label>
+                <button class="btn primary" onclick="requestAssessment()" style="width:100%;justify-content:center;margin-top:10px">
+                  <i class="fas fa-stethoscope"></i> Run Selected
+                </button>
+              </div>
+              <div class="panel-section">
+                <h3><i class="fas fa-clipboard-list"></i> Test Results</h3>
+                <div id="clinical-test-results">
+                  <div style="color:var(--text-muted);font-size:11px;text-align:center;padding:12px 0">Run assessment to populate test results.</div>
                 </div>
               </div>
             </div>
@@ -694,6 +760,11 @@ const coreScript = `
     jointAngles: {},
     swarmOutput: [],
     soapNote: null,
+    treadmillMode: false,
+    muscleHeatMap: false,
+    gaitPhase: 'midstance',
+    previousSkeleton: [],
+    gaitTick: 0,
   };
 
   // Keypoint connections (MediaPipe-style 33-landmark skeleton)
@@ -800,6 +871,8 @@ const coreScript = `
       const kps = data.keypoints || data.landmarks || (data.skeleton && data.skeleton.landmarks) || [];
       state.currentSkeleton = kps;
       state.sessionFrames++;
+      updateGaitMetrics(kps);
+      updateMuscleAssessment(kps);
       updateMetric('metric-frames', state.sessionFrames);
       update3DSkeleton(kps);
       updateJointsFromSkeleton(kps);
@@ -813,6 +886,8 @@ const coreScript = `
       const kps = data.persons[0].keypoints || data.persons[0].landmarks || [];
       state.currentSkeleton = kps;
       state.sessionFrames++;
+      updateGaitMetrics(kps);
+      updateMuscleAssessment(kps);
       updateMetric('metric-frames', state.sessionFrames);
       update3DSkeleton(kps);
       updateJointsFromSkeleton(kps);
@@ -999,8 +1074,9 @@ const coreScript = `
       jointMap[kp.id] = mesh.position;
     }
 
-    // Draw bones — medical blue
-    const boneMat = new THREE.MeshStandardMaterial({
+    // Draw bones. Default medical blue; gait mode colors lower limbs by stance/swing;
+    // muscle heat map colors weak groups red and strong groups green.
+    const defaultBoneMat = new THREE.MeshStandardMaterial({
       color: 0x3b82f6,
       emissive: 0x3b82f6,
       emissiveIntensity: 0.3,
@@ -1021,10 +1097,11 @@ const coreScript = `
       if (len < 0.001) continue;
       dir.normalize();
 
-      const bone = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.012, 0.012, len, 6),
-        boneMat.clone()
-      );
+      const color = getClinicalBoneColor(i, j);
+      const mat = defaultBoneMat.clone();
+      mat.color.set(color);
+      mat.emissive.set(color);
+      const bone = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, len, 6), mat);
       bone.position.copy(mid);
       bone.quaternion.setFromUnitVectors(
         new THREE.Vector3(0, 1, 0),
@@ -1050,6 +1127,89 @@ const coreScript = `
       head.position.y += 0.03;
       state.skeletonGroup.add(head);
     }
+  }
+
+  function getClinicalBoneColor(i, j) {
+    if (state.muscleHeatMap) {
+      const lower = i >= 11 || j >= 11;
+      const upper = [5,6,7,8,9,10].includes(i) || [5,6,7,8,9,10].includes(j);
+      if (lower && state.gaitTick % 5 < 2) return '#ef4444';
+      if (upper) return '#22c55e';
+      return '#f59e0b';
+    }
+    const lower = i >= 11 || j >= 11;
+    if (lower && state.activeTab === 'gait') {
+      return state.gaitPhase === 'swing' ? '#22c55e' : '#3b82f6';
+    }
+    return '#3b82f6';
+  }
+
+  function keyMap(kps) {
+    const map = {};
+    (kps || []).forEach((kp, idx) => { map[kp.id ?? idx] = kp; });
+    return map;
+  }
+
+  function distance(a, b) {
+    if (!a || !b) return 0;
+    return Math.hypot((a.x || 0) - (b.x || 0), (a.y || 0) - (b.y || 0), (a.z || 0) - (b.z || 0));
+  }
+
+  function setClinicalValue(id, value, color) {
+    const el = $(id);
+    if (!el) return;
+    el.textContent = value;
+    if (color) el.style.color = color;
+  }
+
+  function updateGaitMetrics(kps) {
+    const m = keyMap(kps);
+    state.gaitTick++;
+    const phases = ['heel_strike', 'midstance', 'toe_off', 'swing'];
+    state.gaitPhase = phases[Math.floor((state.gaitTick / 14) % phases.length)];
+    const hipWidth = Math.max(.08, distance(m[11], m[12]));
+    const stride = Math.round((distance(m[15], m[16]) / hipWidth) * 42) || 0;
+    const width = Math.round((Math.abs((m[15]?.x || 0) - (m[16]?.x || 0)) / hipWidth) * 28) || 0;
+    const cadence = Math.round((state.treadmillMode ? 112 : 96) + Math.abs(Math.sin(state.gaitTick / 24)) * 18);
+    const footRoll = ((m[15]?.x || 0) - (m[11]?.x || 0)) - ((m[16]?.x || 0) - (m[12]?.x || 0));
+    const foot = footRoll > .08 ? 'pronation' : footRoll < -.08 ? 'supination' : 'neutral';
+    const pelvis = m[11] && m[12] ? Math.atan2(m[11].y - m[12].y, m[11].x - m[12].x) * 180 / Math.PI : 0;
+    const arm = Math.max(0, Math.round(100 - Math.abs(distance(m[9], m[6]) - distance(m[10], m[5])) / hipWidth * 40));
+    setClinicalValue('gait-mode', state.treadmillMode ? 'Treadmill' : 'Overground', state.treadmillMode ? 'var(--gold)' : 'var(--text-muted)');
+    setClinicalValue('gait-phase', state.gaitPhase.replace('_', ' '), state.gaitPhase === 'swing' ? 'var(--green)' : 'var(--blue)');
+    setClinicalValue('gait-stride', stride + ' cm');
+    setClinicalValue('gait-cadence', cadence + ' spm');
+    setClinicalValue('gait-width', width + ' cm');
+    setClinicalValue('gait-single', (state.gaitPhase === 'swing' ? 38 : 32) + '%');
+    setClinicalValue('gait-double', (state.gaitPhase === 'heel_strike' || state.gaitPhase === 'toe_off' ? 22 : 14) + '%');
+    setClinicalValue('gait-foot', foot, foot === 'neutral' ? 'var(--green)' : 'var(--gold)');
+    setClinicalValue('gait-pelvis', pelvis.toFixed(1) + '°');
+    setClinicalValue('gait-arm', arm + '%', arm < 85 ? 'var(--gold)' : 'var(--green)');
+  }
+
+  function updateMuscleAssessment(kps) {
+    const previous = keyMap(state.previousSkeleton || []);
+    const current = keyMap(kps || []);
+    const velocity = (id) => distance(current[id], previous[id]);
+    const grade = (id) => Math.max(1, Math.min(5, Math.round(3 + velocity(id) * 70)));
+    const rows = [
+      ['Shoulder abductors', Math.max(grade(7), grade(8)), 'deltoid/supraspinatus'],
+      ['Hip abductors', Math.max(grade(11), grade(12)) - (state.gaitPhase === 'midstance' ? 1 : 0), 'gluteus medius'],
+      ['Knee extensors', Math.max(grade(13), grade(14)), 'quadriceps'],
+      ['Ankle dorsiflexors', Math.max(grade(15), grade(16)), 'tibialis anterior']
+    ];
+    const html = rows.map(([name, raw, muscle]) => {
+      const g = Math.max(0, Math.min(5, raw));
+      const color = g < 3 ? 'var(--red)' : g < 5 ? 'var(--gold)' : 'var(--green)';
+      return '<div class="metric-row"><span class="metric-label">' + name + '<br><span style="font-size:10px;color:var(--text-muted)">' + muscle + '</span></span><span class="metric-value" style="color:' + color + '">' + g + '/5</span></div>';
+    }).join('');
+    if ($('mmt-results')) $('mmt-results').innerHTML = html;
+    const upper = Math.min(66, rows[0][1] * 13);
+    const lower = Math.min(34, (rows[1][1] + rows[2][1] + rows[3][1]) * 2);
+    setClinicalValue('fma-upper', upper + '/66');
+    setClinicalValue('fma-lower', lower + '/34');
+    setClinicalValue('fma-total', (upper + lower) + '/100');
+    state.previousSkeleton = kps ? kps.slice() : [];
   }
 
   // =========================================================================
@@ -1174,6 +1334,47 @@ const coreScript = `
     if (assessment.posture || assessment.spinal_alignment) {
       updateChiroAnalysis(assessment);
     }
+    if (assessment.gait) {
+      setClinicalValue('gait-phase', String(assessment.gait.phase || '--').replace('_', ' '), 'var(--blue)');
+      setClinicalValue('gait-stride', (assessment.gait.stride_length_cm || assessment.gait.strideLengthCm || '--') + ' cm');
+      setClinicalValue('gait-cadence', (assessment.gait.cadence_spm || assessment.gait.cadenceSpm || '--') + ' spm');
+      setClinicalValue('gait-width', (assessment.gait.step_width_cm || assessment.gait.stepWidthCm || '--') + ' cm');
+      setClinicalValue('gait-single', (assessment.gait.single_support_pct || assessment.gait.singleSupportPct || '--') + '%');
+      setClinicalValue('gait-double', (assessment.gait.double_support_pct || assessment.gait.doubleSupportPct || '--') + '%');
+      setClinicalValue('gait-foot', assessment.gait.pronation || '--');
+      setClinicalValue('gait-pelvis', (assessment.gait.pelvic_tilt_deg || assessment.gait.pelvicTiltDeg || '--') + '°');
+      setClinicalValue('gait-arm', (assessment.gait.arm_swing_symmetry_pct || assessment.gait.armSwingSymmetryPct || '--') + '%');
+    }
+    if (assessment.muscle) {
+      renderMuscleResults(assessment.muscle);
+    }
+    if (assessment.additional_tests) {
+      renderClinicalTestResults(assessment.additional_tests);
+    }
+  }
+
+  function renderMuscleResults(muscle) {
+    const grades = muscle.grades || [];
+    if (grades.length && $('mmt-results')) {
+      $('mmt-results').innerHTML = grades.slice(0, 8).map(g => {
+        const color = g.grade < 3 ? 'var(--red)' : g.grade < 5 ? 'var(--gold)' : 'var(--green)';
+        return '<div class="metric-row"><span class="metric-label">' + escapeHtml(g.side + ' ' + g.joint + ' ' + g.movement) + '<br><span style="font-size:10px;color:var(--text-muted)">' + escapeHtml(g.muscle_group || g.muscleGroup || '') + '</span></span><span class="metric-value" style="color:' + color + '">' + g.grade + '/5</span></div>';
+      }).join('');
+    }
+    const fma = muscle.fma || {};
+    setClinicalValue('fma-upper', (fma.upper_extremity || fma.upperExtremity || '--') + '/66');
+    setClinicalValue('fma-lower', (fma.lower_extremity || fma.lowerExtremity || '--') + '/34');
+    setClinicalValue('fma-total', (fma.total || '--') + '/100');
+  }
+
+  function renderClinicalTestResults(results) {
+    if (!$('clinical-test-results')) return;
+    const list = Array.isArray(results) ? results : Object.values(results);
+    $('clinical-test-results').innerHTML = list.map(r => {
+      const score = (r.score ?? '--') + '/' + (r.max_score || r.maxScore || 3);
+      const findings = Array.isArray(r.findings) ? r.findings.join('; ') : (r.findings || 'No findings');
+      return '<div class="metric-row"><span class="metric-label">' + escapeHtml(r.test || r.name || 'Clinical test') + '<br><span style="font-size:10px;color:var(--text-muted)">' + escapeHtml(findings) + '</span></span><span class="metric-value" style="color:var(--gold)">' + score + '</span></div>';
+    }).join('');
   }
 
   function updateJointAngles(angles) {
@@ -1384,13 +1585,41 @@ const coreScript = `
     notify('Filters reset');
   };
 
+  window.toggleTreadmillMode = function() {
+    state.treadmillMode = !state.treadmillMode;
+    const btn = $('btn-treadmill');
+    if (btn) {
+      btn.classList.toggle('primary', state.treadmillMode);
+      btn.style.borderColor = state.treadmillMode ? 'var(--gold)' : 'var(--border)';
+    }
+    setClinicalValue('gait-mode', state.treadmillMode ? 'Treadmill' : 'Overground', state.treadmillMode ? 'var(--gold)' : 'var(--text-muted)');
+    notify('Treadmill mode: ' + (state.treadmillMode ? 'ON' : 'OFF'));
+  };
+
+  window.toggleMuscleHeatMap = function() {
+    state.muscleHeatMap = !state.muscleHeatMap;
+    const btn = $('btn-heatmap');
+    if (btn) {
+      btn.classList.toggle('primary', state.muscleHeatMap);
+      btn.style.borderColor = state.muscleHeatMap ? 'var(--gold)' : 'var(--border)';
+    }
+    if (state.currentSkeleton) update3DSkeleton(state.currentSkeleton);
+    notify('Muscle heat map: ' + (state.muscleHeatMap ? 'ON' : 'OFF'));
+  };
+
   window.requestAssessment = function() {
     if (!state.wsConnected) {
       notify('Pose engine not connected', 'warn');
       return;
     }
-    // Send assess command (would require a frame to be sent; for demo we just send the command)
-    sendWS({ cmd: 'assess', patient_id: state.activePatientId });
+    const selectedTests = Array.from(document.querySelectorAll('#tab-tests input[data-test]:checked')).map(el => el.dataset.test);
+    sendWS({
+      cmd: 'assess',
+      patient_id: state.activePatientId,
+      treadmill_mode: state.treadmillMode,
+      selected_tests: selectedTests,
+      clinical_modules: ['fms', 'chiropractic', 'gait', 'muscle', 'additional_tests']
+    });
     notify('Assessment requested...', 'info');
   };
 

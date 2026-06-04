@@ -352,6 +352,54 @@ export async function getExercise(id: string): Promise<any | null> {
   return EXERCISE_LIBRARY.find((e: any) => e.id === id) || null;
 }
 
+// ─── Clinical Phase 4-9 Tables ───
+
+export async function listGaitSessions(patientId: string): Promise<any[]> {
+  if (isSupabaseEnabled()) {
+    const sb = getSupabase()!;
+    const { data, error } = await sb.from('gait_sessions').select('*').eq('patient_id', patientId).order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+  return [];
+}
+
+export async function listMuscleAssessments(patientId: string): Promise<any[]> {
+  if (isSupabaseEnabled()) {
+    const sb = getSupabase()!;
+    const { data, error } = await sb.from('muscle_assessments').select('*').eq('patient_id', patientId).order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+  return [];
+}
+
+export async function listExercisePrescriptions(patientId: string): Promise<any[]> {
+  if (isSupabaseEnabled()) {
+    const sb = getSupabase()!;
+    const { data, error } = await sb.from('exercise_prescriptions').select('*').eq('patient_id', patientId).order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+  return [];
+}
+
+export async function listProgressMetrics(patientId: string): Promise<any[]> {
+  if (isSupabaseEnabled()) {
+    const sb = getSupabase()!;
+    const { data, error } = await sb.from('progress_metrics').select('*').eq('patient_id', patientId).order('session_date', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }
+  const patient = MOCK_PATIENTS.find((p: any) => String(p.id) === patientId);
+  const pain = patient?.progress_metrics?.pain_trend || [];
+  const fms = patient?.progress_metrics?.functional_score_trend || [];
+  return [
+    ...pain.map((value: number, index: number) => ({ metric_type: 'pain', metric_name: 'Pain', current_value: value, session_date: new Date(Date.now() - (pain.length - index) * 86400000).toISOString(), unit: '/10' })),
+    ...fms.map((value: number, index: number) => ({ metric_type: 'function', metric_name: 'FMS', current_value: value, session_date: new Date(Date.now() - (fms.length - index) * 86400000).toISOString(), unit: '/21' })),
+  ];
+}
+
 // ─── Dashboard Stats ───
 
 export async function getDashboardStats(): Promise<any> {
