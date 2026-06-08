@@ -16,6 +16,7 @@ import {
 } from './lib/database.js';
 import { hashPassword, verifyPassword, generateToken } from './middleware/auth.js'
 import { ProviderPortal } from './pages/ProviderPortal.js'
+import { MovementCapture } from './components/MovementCapture.js'
 import { GaitAnalyzer } from './components/GaitAnalyzer.js'
 import { MuscleAssessment } from './components/MuscleAssessment.js'
 import { ClinicalTests } from './components/ClinicalTests.js'
@@ -149,6 +150,7 @@ app.post('/clinical/exercises/prescribe', authMiddleware, async (c) => {
 });
 
 app.get('/gait', (c) => c.html(<GaitAnalyzer />));
+app.get('/capture', (c) => c.html(<MovementCapture mode="gait" />));
 app.get('/muscle', (c) => c.html(<MuscleAssessment />));
 app.get('/clinical-tests', (c) => c.html(<ClinicalTests />));
 app.get('/progress', (c) => c.html(<ProgressTracker />));

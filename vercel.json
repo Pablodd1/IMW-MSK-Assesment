@@ -1,6 +1,8 @@
 {
   "regions": ["iad1"],
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index" }
+    { "source": "/api/(.*)", "destination": "/api/index" },
+    { "source": "/static/(.*)", "destination": "/public/static/$1" },
+    { "source": "/(.*)", "destination": "/api/index" }
   ]
 }
