@@ -1,7 +1,7 @@
 {
   "regions": ["iad1"],
-    { "source": "/api/test", "destination": "/api/test" },
   "rewrites": [
+    { "source": "/api/test", "destination": "/api/test" },
     { "source": "/api/(.*)", "destination": "/api/index" },
     { "source": "/health", "destination": "/api/index" },
     { "source": "/gait", "destination": "/api/index" },
