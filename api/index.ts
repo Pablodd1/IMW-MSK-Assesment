@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import app from '../dist/src/index.js';
+import app from '../src/index.js';
 
 /**
  * Vercel Serverless Adapter for Hono
