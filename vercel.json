@@ -2,7 +2,20 @@
   "regions": ["iad1"],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index" },
-    { "source": "/static/(.*)", "destination": "/public/static/$1" },
-    { "source": "/(.*)", "destination": "/api/index" }
+    { "source": "/health", "destination": "/api/index" },
+    { "source": "/gait", "destination": "/api/index" },
+    { "source": "/capture", "destination": "/api/index" },
+    { "source": "/muscle", "destination": "/api/index" },
+    { "source": "/clinical-tests", "destination": "/api/index" },
+    { "source": "/progress", "destination": "/api/index" },
+    { "source": "/reports", "destination": "/api/index" },
+    { "source": "/exercises", "destination": "/api/index" },
+    { "source": "/patients/(.*)", "destination": "/api/index" },
+    { "source": "/assessments/(.*)", "destination": "/api/index" },
+    { "source": "/dashboard/(.*)", "destination": "/api/index" },
+    { "source": "/knowledge/(.*)", "destination": "/api/index" },
+    { "source": "/prescriptions", "destination": "/api/index" },
+    { "source": "/auth/(.*)", "destination": "/api/index" },
+    { "source": "/(.*)", "destination": "/public/index.html" }
   ]
 }
