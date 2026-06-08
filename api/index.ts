@@ -1,26 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-
-// Dynamic import to handle both compiled .js and source .tsx
-let appPromise: Promise<any> | null = null;
-
-async function getApp() {
-  if (!appPromise) {
-    // Try compiled .js first (Vercel), then tsx source
-    appPromise = import('../src/index.tsx').catch(() => 
-      import('../src/index.js')
-    ).catch(() => {
-      // Fallback: try with tsx runtime
-      const { createRequire } = await import('module');
-      const req = createRequire(import.meta.url);
-      try {
-        return req('../src/index');
-      } catch {
-        return import('../src/index');
-      }
-    });
-  }
-  return (await appPromise).default || (await appPromise).app;
-}
+import app from '../dist/src/index.js';
 
 /**
  * Vercel Serverless Adapter for Hono
@@ -68,14 +47,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   });
 
   try {
-    const app = await getApp();
     const response = await app.fetch(request);
 
     // Copy status
     res.status(response.status);
 
     // Copy headers
-    response.headers.forEach((value, key) => {
+    response.headers.forEach((value: string, key: string) => {
       res.setHeader(key, value);
     });
 
