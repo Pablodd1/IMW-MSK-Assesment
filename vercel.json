@@ -3,20 +3,14 @@
   "rewrites": [
     { "source": "/api/test", "destination": "/api/test" },
     { "source": "/api/(.*)", "destination": "/api/index" },
-    { "source": "/health", "destination": "/api/index" },
-    { "source": "/gait", "destination": "/api/index" },
-    { "source": "/capture", "destination": "/api/index" },
-    { "source": "/muscle", "destination": "/api/index" },
-    { "source": "/clinical-tests", "destination": "/api/index" },
-    { "source": "/progress", "destination": "/api/index" },
-    { "source": "/reports", "destination": "/api/index" },
-    { "source": "/exercises", "destination": "/api/index" },
-    { "source": "/patients/(.*)", "destination": "/api/index" },
-    { "source": "/assessments/(.*)", "destination": "/api/index" },
-    { "source": "/dashboard/(.*)", "destination": "/api/index" },
-    { "source": "/knowledge/(.*)", "destination": "/api/index" },
-    { "source": "/prescriptions", "destination": "/api/index" },
-    { "source": "/auth/(.*)", "destination": "/api/index" },
+    { "source": "/capture", "destination": "/api/routes" },
+    { "source": "/gait", "destination": "/api/routes" },
+    { "source": "/progress", "destination": "/api/routes" },
+    { "source": "/muscle", "destination": "/api/routes" },
+    { "source": "/clinical-tests", "destination": "/api/routes" },
+    { "source": "/reports", "destination": "/api/routes" },
+    { "source": "/exercises", "destination": "/api/routes" },
+    { "source": "/health", "destination": "/api/routes" },
     { "source": "/(.*)", "destination": "/public/index.html" }
   ]
 }
