@@ -3,8 +3,12 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index" },
     { "source": "/capture", "destination": "/api/capture" },
-    { "source": "/progress", "destination": "/api/capture" },
-    { "source": "/gait", "destination": "/api/capture" },
+    { "source": "/progress", "destination": "/api/progress" },
+    { "source": "/gait", "destination": "/api/gait" },
+    { "source": "/muscle", "destination": "/api/clinical" },
+    { "source": "/clinical-tests", "destination": "/api/clinical" },
+    { "source": "/reports", "destination": "/api/clinical" },
+    { "source": "/exercises", "destination": "/api/clinical" },
     { "source": "/health", "destination": "/api/capture" },
     { "source": "/(.*)", "destination": "/public/index.html" }
   ]
