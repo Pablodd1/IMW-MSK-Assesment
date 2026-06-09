@@ -106,4 +106,18 @@ function drawGraph(){const c=document.getElementById('graph'),ctx=c.getContext('
   return c.html(renderLayout('Movement Photo Capture', 'Real-time camera + skeleton overlay with phase-triggered photo snapshots', body));
 });
 
-export default app;
+// Vercel serverless handler — bridges Vercel req/res to Hono fetch API
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+  const headers = new Headers();
+  for (const [k, v] of Object.entries(req.headers)) {
+    if (v === undefined) continue;
+    if (Array.isArray(v)) { for (const x of v) headers.append(k, x); }
+    else headers.append(k, String(v));
+  }
+  const request = new Request(url.toString(), { method: req.method, headers });
+  const response = await app.fetch(request);
+  res.status(response.status);
+  response.headers.forEach((v: string, k: string) => res.setHeader(k, v));
+  res.send(await response.text());
+}
