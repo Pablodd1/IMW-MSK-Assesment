@@ -1,16 +1,11 @@
 {
   "regions": ["iad1"],
   "rewrites": [
-    { "source": "/api/test", "destination": "/api/test" },
     { "source": "/api/(.*)", "destination": "/api/index" },
-    { "source": "/capture", "destination": "/api/routes" },
-    { "source": "/gait", "destination": "/api/routes" },
-    { "source": "/progress", "destination": "/api/routes" },
-    { "source": "/muscle", "destination": "/api/routes" },
-    { "source": "/clinical-tests", "destination": "/api/routes" },
-    { "source": "/reports", "destination": "/api/routes" },
-    { "source": "/exercises", "destination": "/api/routes" },
-    { "source": "/health", "destination": "/api/routes" },
+    { "source": "/capture", "destination": "/api/capture" },
+    { "source": "/progress", "destination": "/api/capture" },
+    { "source": "/gait", "destination": "/api/capture" },
+    { "source": "/health", "destination": "/api/capture" },
     { "source": "/(.*)", "destination": "/public/index.html" }
   ]
 }
