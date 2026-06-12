@@ -15,22 +15,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Deploy to Vercel
         run: |
-          npx vercel@latest --prod --yes \
-            --token="${VERCEL_TOKEN}" \
-            --cwd .
+          npx vercel@latest pull --yes --token="${VERCEL_TOKEN}"
+          npx vercel@latest --prod --yes --token="${VERCEL_TOKEN}"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-      - name: Verify deployment
+      - name: Verify
         run: |
-          sleep 20
+          sleep 15
           curl -fsS https://imw-msk-assesment.vercel.app/api/health
