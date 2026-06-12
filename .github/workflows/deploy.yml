@@ -5,9 +5,6 @@ on:
     branches: [main]
   workflow_dispatch:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -26,10 +23,14 @@ jobs:
       - name: Deploy to Vercel
         run: |
           npx vercel@latest --prod --yes \
-            --token=${{ secrets.VERCEL_TOKEN }} \
-            --scope=${{ secrets.VERCEL_ORG_ID }}
+            --token="${VERCEL_TOKEN}" \
+            --cwd .
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Verify deployment
         run: |
           sleep 20
-          curl -s https://imw-msk-assesment.vercel.app/api/health | head -200
+          curl -fsS https://imw-msk-assesment.vercel.app/api/health
