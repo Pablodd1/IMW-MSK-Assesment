@@ -1,89 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { clinicalStyles } from '../src/components/clinicalStyles.js';
 
-const HTML = `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>3D Gait Analysis — IMW PhysioMotion</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>${clinicalStyles}</style></head><body>
-<div class="scan-lines"></div>
-<main class="clinical-shell">
-<div class="clinical-top"><div><h1>3D Gait Analysis</h1><p>Real-time skeleton tracking · Phase detection · Auto-capture</p></div>
-<nav class="clinical-nav">
-<a href="/provider">Provider</a><a href="/gait">Gait</a><a href="/muscle">Muscle</a><a href="/clinical-tests">Tests</a><a href="/exercises">Exercises</a><a href="/progress">Progress</a><a href="/reports">Reports</a>
-</nav></div>
-
-<div class="data-stream" style="margin-bottom:12px">
-<div class="stream-item"><span>SYS</span><span class="stream-value" id="sysClock">--:--:--</span></div>
-<div class="stream-item"><span>FPS</span><span class="stream-value" id="streamFps">0</span></div>
-<div class="stream-item"><span>LAT</span><span class="stream-value" id="streamLatency">0ms</span></div>
-<div class="stream-item"><span>PHASE</span><span class="stream-value" id="streamPhase">idle</span></div>
-<div class="stream-item"><span>JOINTS</span><span class="stream-value" id="streamJoints">17</span></div>
-<div class="stream-item"><span>CONF</span><span class="stream-value" id="streamConf">0.0</span></div>
-<div class="stream-item" style="margin-left:auto"><div class="waveform-bar" id="waveform">
-${Array.from({length:24},(_,i)=>'<div class="bar-slice" style="animation-delay:'+(i*0.05).toFixed(2)+'s;height:'+(4+Math.random()*14).toFixed(0)+'px"></div>').join('')}
-</div></div></div>
-
-<section class="clinical-grid">
-<div class="clinical-card span-8 live" id="viewportCard">
-<h2><span class="hud-label" style="display:inline-flex;align-items:center;margin-right:8px"><span class="dot"></span>LIVE</span>3D Skeleton Overlay</h2>
-<div class="skeleton-viewport">
-<video id="captureVideo" autoplay playsinline muted style="width:100%;display:block"></video>
-<canvas id="captureOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none"></canvas>
-<div class="viewport-hud top-left"><div class="hud-label"><span class="dot"></span><span id="hudPhase">STANDBY</span></div></div>
-<div class="viewport-hud top-right"><div class="hud-label">FRAME <span id="hudFrame">0000</span></div></div>
-<div class="viewport-hud bottom-left"><div class="hud-label">CAM <span id="hudCamera">OFF</span></div></div>
-<div class="viewport-hud bottom-right"><div class="hud-label">RES <span id="hudRes">--</span></div></div>
-</div>
-<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center">
-<button class="clinical-btn primary" onclick="startCaptureCamera()">⚡ Start Camera</button>
-<button class="clinical-btn" id="btnSnapshot" onclick="manualSnapshot()" disabled>📸 Snapshot</button>
-<button class="clinical-btn" id="btnAutoCapture" onclick="toggleAutoCapture()">⏱ Auto-Capture</button>
-<label class="pill active" style="margin-left:auto"><input type="checkbox" id="skeletonToggle" checked onchange="toggleSkeleton()">SKELETON</label>
-<span class="pill" id="phasePill">—</span>
-</div></div>
-
-<div class="clinical-card span-4">
-<h2>Real-Time Telemetry</h2>
-<div class="metric live"><span>Current Phase</span><strong id="currentPhase">—</strong></div>
-<div class="metric"><span>Total Frames</span><strong id="frameCount">0</strong></div>
-<div class="metric"><span>Snapshots</span><strong id="snapshotCount">0</strong></div>
-<div class="metric"><span>Camera Status</span><strong id="cameraStatus">Offline</strong></div>
-<div class="metric"><span>Confidence</span><strong id="confidenceVal">—</strong></div>
-<div class="metric"><span>Stride Est.</span><strong id="strideEst">—</strong></div>
-<h2 style="margin-top:18px">Phase Legend</h2>
-<div style="display:flex;flex-direction:column;gap:6px;font-size:13px">
-<span class="pill active" style="border-color:#3b82f6">⬤ Stance — Weight-bearing</span>
-<span class="pill active" style="border-color:#22d3ee">⬤ Swing — Limb advance</span>
-<span class="pill" style="border-color:#60a5fa">⬤ Upper Body</span>
-<span class="pill warn" style="border-color:#f59e0b">⬤ Heel Strike / Toe-Off</span>
-</div>
-<h2 style="margin-top:18px">Joint Confidence</h2>
-<div id="jointBars" style="display:flex;flex-direction:column;gap:4px">
-${['Hip L','Hip R','Knee L','Knee R','Ankle L','Ankle R','Shoulder L','Shoulder R'].map(j=>{
- const sid=j.replace(/ /g,'_');
- return '<div class="heat-row"><span style="font-size:10px;font-family:JetBrains Mono,monospace;color:#7b8fbb">'+j+'</span><div class="bar"><span style="width:0%" id="bar_'+sid+'"></span></div><span style="font-size:10px;font-family:JetBrains Mono,monospace;color:#60a5fa" id="val_'+sid+'">--</span></div>';
-}).join('')}
-</div></div>
-
-<div class="clinical-card span-6">
-<h2>Capture Timeline</h2>
-<div id="photoTimeline" class="photo-scroll"><div style="color:#7b8fbb;font-size:13px;text-align:center;padding:24px;font-family:JetBrains Mono,monospace">⟳ AWAITING CAMERA INPUT<br><span style="font-size:10px;color:rgba(123,143,187,.5)">Start camera to begin photo capture</span></div></div>
-<button class="clinical-btn danger" id="btnClearPhotos" onclick="clearPhotos()" style="width:100%;margin-top:8px">Clear Timeline</button>
-</div>
-
-<div class="clinical-card span-6">
-<h2>Movement Waveform + Photo Markers</h2>
-<canvas class="skeleton-canvas" id="movementGraph" width="900" height="320"></canvas>
-<div id="photoMarkers" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;min-height:50px"></div>
-</div>
-</section>
-
-<script>${captureScript}</script>
-</main></body></html>`;
-
 const captureScript = `
 (function() {
   let videoEl, overlayCanvas, overlayCtx, stream = null, isAutoCapturing = false;
@@ -167,6 +84,89 @@ const captureScript = `
   function drawMovementGraph(){const c=document.getElementById('movementGraph');if(!c)return;const ctx=c.getContext('2d'),w=c.width,h=c.height;ctx.fillStyle='#020617';ctx.fillRect(0,0,w,h);ctx.strokeStyle='rgba(96,165,250,.06)';ctx.lineWidth=1;for(let y=40;y<h-30;y+=40){ctx.beginPath();ctx.moveTo(60,y);ctx.lineTo(w-20,y);ctx.stroke()}ctx.strokeStyle='#3b82f6';ctx.shadowColor='rgba(59,130,246,.5)';ctx.shadowBlur=6;ctx.lineWidth=3;ctx.beginPath();graphHistory.forEach((p,i)=>{const x=60+(i/Math.max(graphHistory.length-1,1))*(w-80);const sv=p.phase==='swing'?.7:1;const y=h-60-sv*(h-120);if(!i)ctx.moveTo(x,y);else ctx.lineTo(x,y)});ctx.stroke();ctx.shadowBlur=0;ctx.fillStyle='#60a5fa';ctx.font='11px JetBrains Mono,monospace';ctx.fillText('STRIDE WAVEFORM',70,52);snapshots.forEach(s=>{const idx=graphHistory.findIndex(p=>Math.abs(p.timestamp-s.timestamp)<200);if(idx>=0){const x=60+(idx/Math.max(graphHistory.length-1,1))*(w-80);ctx.fillStyle='#f59e0b';ctx.shadowColor='rgba(245,158,11,.6)';ctx.shadowBlur=4;ctx.beginPath();ctx.arc(x,h-60,5,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0}});ctx.fillStyle='#f59e0b';ctx.beginPath();ctx.arc(w-160,52,4,0,Math.PI*2);ctx.fill();ctx.fillStyle='#7b8fbb';ctx.font='10px JetBrains Mono,monospace';ctx.fillText('PHOTO MARKERS',w-148,55)}
   window.toggleSkeleton = toggleSkeleton;
 })();`;
+
+const HTML = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>3D Gait Analysis — IMW PhysioMotion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>' + clinicalStyles + '</style></head><body>
+<div class="scan-lines"></div>
+<main class="clinical-shell">
+<div class="clinical-top"><div><h1>3D Gait Analysis</h1><p>Real-time skeleton tracking · Phase detection · Auto-capture</p></div>
+<nav class="clinical-nav">
+<a href="/provider">Provider</a><a href="/gait">Gait</a><a href="/muscle">Muscle</a><a href="/clinical-tests">Tests</a><a href="/exercises">Exercises</a><a href="/progress">Progress</a><a href="/reports">Reports</a>
+</nav></div>
+
+<div class="data-stream" style="margin-bottom:12px">
+<div class="stream-item"><span>SYS</span><span class="stream-value" id="sysClock">--:--:--</span></div>
+<div class="stream-item"><span>FPS</span><span class="stream-value" id="streamFps">0</span></div>
+<div class="stream-item"><span>LAT</span><span class="stream-value" id="streamLatency">0ms</span></div>
+<div class="stream-item"><span>PHASE</span><span class="stream-value" id="streamPhase">idle</span></div>
+<div class="stream-item"><span>JOINTS</span><span class="stream-value" id="streamJoints">17</span></div>
+<div class="stream-item"><span>CONF</span><span class="stream-value" id="streamConf">0.0</span></div>
+<div class="stream-item" style="margin-left:auto"><div class="waveform-bar" id="waveform">
+${Array.from({length:24},(_,i)=>'<div class="bar-slice" style="animation-delay:'+(i*0.05).toFixed(2)+'s;height:'+(4+Math.random()*14).toFixed(0)+'px"></div>').join('')}
+</div></div></div>
+
+<section class="clinical-grid">
+<div class="clinical-card span-8 live" id="viewportCard">
+<h2><span class="hud-label" style="display:inline-flex;align-items:center;margin-right:8px"><span class="dot"></span>LIVE</span>3D Skeleton Overlay</h2>
+<div class="skeleton-viewport">
+<video id="captureVideo" autoplay playsinline muted style="width:100%;display:block"></video>
+<canvas id="captureOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none"></canvas>
+<div class="viewport-hud top-left"><div class="hud-label"><span class="dot"></span><span id="hudPhase">STANDBY</span></div></div>
+<div class="viewport-hud top-right"><div class="hud-label">FRAME <span id="hudFrame">0000</span></div></div>
+<div class="viewport-hud bottom-left"><div class="hud-label">CAM <span id="hudCamera">OFF</span></div></div>
+<div class="viewport-hud bottom-right"><div class="hud-label">RES <span id="hudRes">--</span></div></div>
+</div>
+<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center">
+<button class="clinical-btn primary" onclick="startCaptureCamera()">⚡ Start Camera</button>
+<button class="clinical-btn" id="btnSnapshot" onclick="manualSnapshot()" disabled>📸 Snapshot</button>
+<button class="clinical-btn" id="btnAutoCapture" onclick="toggleAutoCapture()">⏱ Auto-Capture</button>
+<label class="pill active" style="margin-left:auto"><input type="checkbox" id="skeletonToggle" checked onchange="toggleSkeleton()">SKELETON</label>
+<span class="pill" id="phasePill">—</span>
+</div></div>
+
+<div class="clinical-card span-4">
+<h2>Real-Time Telemetry</h2>
+<div class="metric live"><span>Current Phase</span><strong id="currentPhase">—</strong></div>
+<div class="metric"><span>Total Frames</span><strong id="frameCount">0</strong></div>
+<div class="metric"><span>Snapshots</span><strong id="snapshotCount">0</strong></div>
+<div class="metric"><span>Camera Status</span><strong id="cameraStatus">Offline</strong></div>
+<div class="metric"><span>Confidence</span><strong id="confidenceVal">—</strong></div>
+<div class="metric"><span>Stride Est.</span><strong id="strideEst">—</strong></div>
+<h2 style="margin-top:18px">Phase Legend</h2>
+<div style="display:flex;flex-direction:column;gap:6px;font-size:13px">
+<span class="pill active" style="border-color:#3b82f6">⬤ Stance — Weight-bearing</span>
+<span class="pill active" style="border-color:#22d3ee">⬤ Swing — Limb advance</span>
+<span class="pill" style="border-color:#60a5fa">⬤ Upper Body</span>
+<span class="pill warn" style="border-color:#f59e0b">⬤ Heel Strike / Toe-Off</span>
+</div>
+<h2 style="margin-top:18px">Joint Confidence</h2>
+<div id="jointBars" style="display:flex;flex-direction:column;gap:4px">
+${['Hip L','Hip R','Knee L','Knee R','Ankle L','Ankle R','Shoulder L','Shoulder R'].map(j=>{
+ const sid=j.replace(/ /g,'_');
+ return '<div class="heat-row"><span style="font-size:10px;font-family:JetBrains Mono,monospace;color:#7b8fbb">'+j+'</span><div class="bar"><span style="width:0%" id="bar_'+sid+'"></span></div><span style="font-size:10px;font-family:JetBrains Mono,monospace;color:#60a5fa" id="val_'+sid+'">--</span></div>';
+}).join('')}
+</div></div>
+
+<div class="clinical-card span-6">
+<h2>Capture Timeline</h2>
+<div id="photoTimeline" class="photo-scroll"><div style="color:#7b8fbb;font-size:13px;text-align:center;padding:24px;font-family:JetBrains Mono,monospace">⟳ AWAITING CAMERA INPUT<br><span style="font-size:10px;color:rgba(123,143,187,.5)">Start camera to begin photo capture</span></div></div>
+<button class="clinical-btn danger" id="btnClearPhotos" onclick="clearPhotos()" style="width:100%;margin-top:8px">Clear Timeline</button>
+</div>
+
+<div class="clinical-card span-6">
+<h2>Movement Waveform + Photo Markers</h2>
+<canvas class="skeleton-canvas" id="movementGraph" width="900" height="320"></canvas>
+<div id="photoMarkers" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;min-height:50px"></div>
+</div>
+</section>
+
+<script>' + captureScript + '</script>
+</main></body></html>`;
 
 export default function handler(_req: VercelRequest, res: VercelResponse) {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
