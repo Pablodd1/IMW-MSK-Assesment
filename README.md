@@ -50,11 +50,11 @@ Video Input → MediaPipe Pose → Joint Tracking → 3D Rendering
                          Medical Report Generation
 ```
 
-### Backend (Hono + Cloudflare)
+### Backend (Hono + Node.js)
 ```
 Authentication → Patient DB → Assessments → Reports
       ↓              ↓             ↓           ↓
-    JWT          D1/KV         R2 Storage   PDF Export
+    JWT         PostgreSQL   Object Storage   PDF Export
 ```
 
 ---
@@ -86,9 +86,9 @@ Authentication → Patient DB → Assessments → Reports
 |-----------|------------|---------|
 | **Frontend** | Three.js + TensorFlow.js | 3D rendering & ML |
 | **AI Model** | MediaPipe Pose + Gemini | Joint tracking & analysis |
-| **Backend** | Hono + Cloudflare | API & database |
-| **Database** | Cloudflare D1 + KV | Patient data + caching |
-| **Storage** | Cloudflare R2 | Video recordings |
+| **Backend** | Hono + Node.js | API services |
+| **Database** | PostgreSQL (Supabase-compatible) | Patient data + relational queries |
+| **Storage** | Supabase Storage / S3-compatible | Video and media recordings |
 
 ---
 
@@ -171,8 +171,57 @@ public/
 
 1. **Connect GitHub repo** to Railway
 2. **Add environment variables** in Railway dashboard
-3. **Provision D1 database** and KV namespace
+3. **Provision PostgreSQL database** and storage bucket
 4. **Deploy** - Railway auto-builds and deploys
+
+---
+
+
+## ✅ Current Capability Status (What Works vs What Needs Completion)
+
+This repository already includes a strong clinical prototype for real-time MSK assessment, but it is not yet fully validated as a medical-grade production system.
+
+### What is currently implemented
+- Real-time pose tracking workflow with skeleton rendering and joint metrics.
+- Multi-camera pathways for laptop webcam, phone camera flow, and Femto-oriented integration paths.
+- Assessment/test workflow with patient records and role-based backend routes.
+- AI analysis pipeline with biomechanics + RAG/enrichment integration points.
+- Video management endpoints and voice-command controls for hands-free actions.
+- HIPAA-oriented middleware and audit logging infrastructure.
+
+### What still needs to be completed for medical-grade readiness
+- Device-by-device clinical validation and calibration evidence.
+- Strict quality gates before generating clinical reports/recommendations.
+- Fully validated synchronized capture pipeline (video + audio + pose + timestamps).
+- Production-complete telehealth reassessment workflow.
+- Formal compliance evidence package and hardened audit/action vocabulary.
+- Voice-command reliability safeguards for noisy clinical environments.
+
+
+### Direct answers to your latest questions
+- **Is it smart to use two AI agents (one to produce, one to review)?** Yes—this is a good architecture for quality and safety. Use Agent A for draft outputs (tracking summary, SOAP note, exercise draft) and Agent B as a strict validator that can block/flag low-confidence results before clinician-facing release.
+- **Is the Femto/Orbbec camera properly connected right now?** The repo includes Femto/Orbbec integration paths, but there is no in-repo runtime hardware test evidence proving your exact device is currently connected and calibrated in your environment. You need a live device health check page + calibration log per device.
+- **Is the code optimized and production-tested?** Parts are optimized, but production readiness is incomplete without automated regression/performance tests, device matrix validation, security/compliance evidence, and clinical accuracy verification on representative patients.
+- **Can this be deployed with GitHub + Vercel + Supabase?** Yes. This is a practical stack for app hosting + managed Postgres/auth/storage. Add HIPAA controls (BAAs, encryption, audit retention, access policies), signed media URLs, and strict environment separation (dev/staging/prod) before medical deployment claims.
+
+### GitHub + Vercel + Supabase implementation guidance (recommended)
+1. **GitHub**: protected main branch, required checks (lint/test/security), CODEOWNERS clinical review gate.
+2. **Vercel**: preview deployments per PR, production environment lock, encrypted environment variables, edge/network protections.
+3. **Supabase**: Postgres + Row Level Security, encrypted object storage buckets, role-scoped access (patient/doctor/admin), audit tables for PHI actions.
+4. **Media pipeline**: store raw video/audio and derived pose streams with synchronized timestamps and integrity hashes.
+5. **Clinical gates**: block report generation when confidence/coverage/calibration thresholds are not met (fail closed).
+6. **Observability**: monitor FPS, model confidence, dropped frames, sync drift, and per-camera error rates.
+
+### Detailed review document
+- [MSK 3D Medical-Grade Capability Review (2026-05-04)](docs/MSK_3D_MEDICAL_GRADE_REVIEW_2026-05-04.md)
+
+### Recommended execution order
+1. Fix tracking correctness issues and add kinematic validation tests.
+2. Add fail-closed clinical quality thresholds before report generation.
+3. Harden recording integrity and synchronization across media/skeleton data.
+4. Finalize telehealth call + reassessment workflow and audit events.
+5. Complete HIPAA/security evidence mapping and compliance controls.
+6. Add safe voice confirmation flows for critical actions.
 
 ---
 
