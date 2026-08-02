@@ -9,7 +9,7 @@
     "start": "tsx index.ts",
     "init-db": "node scripts/init-db.js",
     "railway": "npm start",
-    "test": "curl http://localhost:3000/api/health"
+    "test": "curl -fsS http://localhost:${PORT:-3001}/health > /dev/null && echo \"health ok\""
   },
   "dependencies": {
     "@google/generative-ai": "^0.2.0",
@@ -24,7 +24,6 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260416.2",
     "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.6",
     "@types/node": "^25.2.1",

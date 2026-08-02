@@ -234,6 +234,8 @@ All patient/assessment routes require `Authorization: Bearer <token>` header.
 
 ## ⚠️ Current Limitations & Next Steps
 
+This is a clinical prototype. It must not be represented as medical-grade or used for clinical decision-making until the validation, safety, and compliance gates in the [medical-grade capability review](docs/MSK_3D_MEDICAL_GRADE_REVIEW_2026-05-04.md) are complete.
+
 ### 🔴 Critical
 1. **Supabase connection** — App runs in demo/mock mode. Pooler connection needs troubleshooting (IPv6 unreachable from WSL, pooler says "tenant not found"). Need to:
    - Enable pooler in Supabase Dashboard settings
